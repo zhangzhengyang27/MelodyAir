@@ -1,0 +1,48 @@
+{
+  "name": "melody-air",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "A music desktop app with Airbnb-style UI",
+  "main": "./out/main/index.js",
+  "author": "MelodyAir",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "postinstall": "electron-builder install-app-deps",
+    "build:unpack": "pnpm build && electron-builder --dir",
+    "build:win": "pnpm build && electron-builder --win",
+    "build:mac": "pnpm build && electron-builder --mac",
+    "build:linux": "pnpm build && electron-builder --linux",
+    "lint": "eslint src/renderer/ --ext .vue,.ts,.tsx",
+    "lint:fix": "eslint src/renderer/ --ext .vue,.ts,.tsx --fix"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0",
+    "@electron-toolkit/utils": "^4.0",
+    "@electron/remote": "^2.1",
+    "axios": "^1.15",
+    "dexie": "^4.4.2",
+    "howler": "^2.2.4",
+    "pinia": "^3.0",
+    "pinia-plugin-persistedstate": "^4.0",
+    "vue": "^3.5",
+    "vue-router": "^5.0"
+  },
+  "devDependencies": {
+    "@bns2/eslint-plugin-tailwind-v4": "^1.0.6",
+    "@tailwindcss/vite": "^4.1",
+    "@types/howler": "^2.2.12",
+    "@typescript-eslint/parser": "^8.58.1",
+    "@vitejs/plugin-vue": "^6.0",
+    "electron": "^35",
+    "electron-builder": "^26",
+    "electron-vite": "^5.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-vue": "^10.8.0",
+    "tailwindcss": "^4.1",
+    "typescript": "^5.9",
+    "typescript-eslint": "^8.58.1",
+    "vite": "^7.0"
+  }
+}

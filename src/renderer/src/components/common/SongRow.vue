@@ -1,0 +1,77 @@
+<template>
+  <div
+    class="group flex items-center gap-4 rounded-lg px-3 py-2 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
+    :class="{ 'bg-[#FFF5F3] dark:bg-[rgba(196,58,63,0.1)]': isActive }"
+    @dblclick="handlePlay"
+  >
+    <!-- Index / Playing indicator -->
+    <div class="w-8 shrink-0 text-center text-sm text-neutral-400">
+      <span v-if="isActive && playerStore.playing" class="text-[#FF5A5F]">♫</span>
+      <span v-else>{{ index + 1 }}</span>
+    </div>
+
+    <!-- Cover -->
+    <div class="h-10 w-10 shrink-0 overflow-hidden rounded-lg">
+      <img
+        v-if="song.album?.picUrl"
+        :src="song.album.picUrl + '?param=80y80'"
+        alt=""
+        class="h-full w-full object-cover"
+        loading="lazy"
+      />
+    </div>
+
+    <!-- Song info -->
+    <div class="min-w-0 flex-1">
+      <p class="truncate text-sm font-medium" :class="{ 'text-[#FF5A5F]': isActive }">{{ song.name }}</p>
+      <p class="truncate text-xs text-neutral-500">
+        {{ song.artists?.map(a => a.name).join(' / ') }}
+      </p>
+    </div>
+
+    <!-- Album -->
+    <div class="hidden min-w-0 w-40 shrink-0 lg:block">
+      <p class="truncate text-xs text-neutral-500">{{ song.album?.name ?? '' }}</p>
+    </div>
+
+    <!-- Duration -->
+    <div class="w-12 shrink-0 text-right text-xs text-neutral-400">
+      {{ formatDuration(song.duration) }}
+    </div>
+
+    <!-- Hover actions -->
+    <div class="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      <button
+        class="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-[#FFF5F3] hover:text-[#FF5A5F]"
+        @click="handlePlay"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { usePlayerStore } from '@/stores/player'
+import type { Song } from '@/stores/player'
+import { formatDuration } from '@/utils/format'
+
+const props = defineProps<{
+  song: Song
+  index: number
+}>()
+
+const emit = defineEmits<{
+  play: [song: Song]
+}>()
+
+const playerStore = usePlayerStore()
+const isActive = computed(() => playerStore.currentSong?.id === props.song.id)
+
+function handlePlay() {
+  emit('play', props.song)
+}
+</script>

@@ -1,0 +1,1 @@
+<template><div class="bg-coral-500 rounded-airbnb">test</div></template>

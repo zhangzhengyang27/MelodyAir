@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+/* Airbnb-style theme for Melody Air */
+@theme {
+  /* Coral palette - Airbnb signature */
+  --color-coral-50: #FFF5F3;
+  --color-coral-100: #FFE8E3;
+  --color-coral-200: #FFD0C7;
+  --color-coral-300: #FFB0A0;
+  --color-coral-400: #FF7F66;
+  --color-coral-500: #FF5A5F;
+  --color-coral-600: #E0484D;
+  --color-coral-700: #C43A3F;
+  --color-coral-800: #9E2F33;
+  --color-coral-900: #7A2528;
+
+  /* Neutral palette - Airbnb grays */
+  --color-neutral-50: #FFFFFF;
+  --color-neutral-100: #F7F7F7;
+  --color-neutral-200: #EBEBEB;
+  --color-neutral-300: #DDDDDD;
+  --color-neutral-400: #C4C4C4;
+  --color-neutral-500: #767676;
+  --color-neutral-600: #484848;
+  --color-neutral-700: #333333;
+  --color-neutral-800: #222222;
+  --color-neutral-900: #111111;
+
+  /* Font family */
+  --font-sans: "Circular", "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  /* Font sizes */
+  --font-display: 32px;
+  --font-title: 24px;
+  --font-subtitle: 18px;
+  --font-body: 14px;
+  --font-caption: 12px;
+}
+
+/* Custom utility classes for component styles (not Tailwind utilities) */
+.player-btn,
+.player-btn-lg,
+.volume-slider,
+.input-field,
+.setting-row,
+.sidebar-link,
+.sidebar-link-active,
+.lyric-container {
+  /* Component class placeholders - defined in Vue <style scoped> */
+}
+
+/* Base styles */
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: var(--font-sans);
+}
+
+/* Dark mode support */
+.dark {
+  color-scheme: dark;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-300);
+  border-radius: 3px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-600);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neutral-400);
+}
