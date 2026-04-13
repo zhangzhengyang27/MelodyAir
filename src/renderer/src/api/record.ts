@@ -7,3 +7,7 @@ export const getRecentSong = (limit = 100) =>
 // 最近播放专辑
 export const getRecentAlbum = (limit = 100) =>
   request.get('/record/recent/album', { params: { limit } })
+
+// 听歌打卡（提交播放记录）
+export const scrobble = (id: number, sourceid: number, time: number) =>
+  request.get('/scrobble', { params: { id, sourceid, time } })

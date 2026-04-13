@@ -164,7 +164,7 @@ onUnmounted(() => {
   border-radius: 50%;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--color-neutral-500, #767676);
   font-size: 18px;
   cursor: pointer;
   display: flex;
@@ -173,9 +173,17 @@ onUnmounted(() => {
   transition: all 0.2s ease;
 }
 
+.dark .volume-button {
+  color: rgba(255, 255, 255, 0.8);
+}
+
 .volume-button:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-neutral-100, #F7F7F7);
   transform: scale(1.05);
+}
+
+.dark .volume-button:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* 弹出层 */
@@ -185,24 +193,37 @@ onUnmounted(() => {
   left: 50%;
   transform: translateX(-50%);
   padding: 16px 20px;
-  background: rgba(30, 30, 46, 0.95);
+  background: white;
   backdrop-filter: blur(20px);
   border-radius: 12px;
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
+    0 8px 28px rgba(0, 0, 0, 0.10),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--color-neutral-200, #EBEBEB);
   min-width: 160px;
   z-index: 100;
+}
+
+.dark .volume-popup {
+  background: rgba(30, 30, 46, 0.95);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+  border-color: transparent;
 }
 
 /* 音量数值 */
 .volume-value {
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary, #1a1a2e);
   text-align: center;
   margin-bottom: 12px;
   font-variant-numeric: tabular-nums;
+}
+
+.dark .volume-value {
+  color: #fff;
 }
 
 /* 滑块 */
@@ -216,8 +237,12 @@ onUnmounted(() => {
 .slider-track {
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--color-neutral-200, #EBEBEB);
   border-radius: 2px;
+}
+
+.dark .slider-track {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .slider-fill {
@@ -225,7 +250,7 @@ onUnmounted(() => {
   left: 0;
   top: 0;
   height: 100%;
-  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  background: linear-gradient(90deg, #FF5A5F, #FF7F66);
   border-radius: 2px;
   transition: width 0.05s linear;
   pointer-events: none;
@@ -244,7 +269,7 @@ onUnmounted(() => {
   border-radius: 50%;
   transform: translate(-50%, -50%);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  transition: left 0.05s linear;
+  transition: left 0.05s linear, transform 0.1s ease;
   pointer-events: none;
 }
 

@@ -18,10 +18,16 @@ export function useLyric() {
   async function fetchLyric(songId: number) {
     loading.value = true
     try {
+      console.log(`[lyric] 请求歌词: songId=${songId}`)
       const res: any = await getLyric(songId)
+      console.log('[lyric] /lyric 返回:', JSON.stringify(res)?.slice(0, 500))
       const lrc = res?.lrc?.lyric || res?.tlyric?.lyric || ''
+      if (!res?.lrc?.lyric && !res?.tlyric?.lyric) {
+        console.warn(`[lyric] songId=${songId} 无歌词数据, 原始响应 code=${res?.code}`)
+      }
       if (lrc) {
         lyrics.value = parseLyric(lrc)
+        console.log(`[lyric] 解析成功, 共 ${lyrics.value.length} 行`)
       } else {
         lyrics.value = []
       }

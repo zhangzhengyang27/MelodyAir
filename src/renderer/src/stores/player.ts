@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { AudioEngine, type PlayMode, type PlayerStatus } from '../utils/player'
+import { getSongUrl } from '../api/song'
+import { scrobble } from '../api/record'
+import { cacheManager, arrayBufferToBlobUrl, blobToArrayBuffer } from '../utils/db'
+import { useSettingsStore } from './settings'
+import { showToast } from '../composables/useToast'
 
 export interface Song {
   id: number
@@ -57,6 +62,15 @@ export const usePlayerStore = defineStore('player', () => {
   // 音频引擎实例
   let audioEngine: AudioEngine | null = null
 
+  // ★ Scrobble 追踪：记录是否已提交当前歌曲的听歌打卡
+  let scrobbleSubmitted = false
+  /** 当前进度已播放时间（秒），用于判断是否达到 scrobble 阈值 */
+  let scrobblePlayedTime = 0
+
+  // ★ 预缓存：下一首歌的 URL 缓存
+  let nextTrackUrlCache: string | null = null
+  let nextTrackIdCache: number | null = null
+
   // 初始化音频引擎
   function initAudioEngine(): void {
     if (!audioEngine) {
@@ -74,6 +88,13 @@ export const usePlayerStore = defineStore('player', () => {
         onProgress: (time: number, dur: number) => {
           currentTime.value = time
           duration.value = dur
+          // ★ Feature 3: 持久化播放进度（每次进度更新时保存）
+          savePlaybackProgress()
+          // ★ Feature 5: Scrobble 检查
+          scrobblePlayedTime += 0.2 // 每 200ms 更新一次
+          checkAndSubmitScrobble()
+          // ★ Feature 1: MediaSession 位置更新
+          updateMediaSessionPlaybackState()
         },
         onError: (error: Error) => {
           console.error('Player error:', error)
@@ -101,21 +122,119 @@ export const usePlayerStore = defineStore('player', () => {
   )
 
   /**
-   * 播放指定歌曲
+   * 获取音频 URL（参照 YPM _getAudioSourceFromNetease）
+   * 优先从 IndexedDB 缓存读取，未命中则从 API 获取并写入缓存
+   */
+  async function getAudioSource(songId: number, useCache = true): Promise<string | null> {
+    const settingsStore = useSettingsStore()
+
+    // 0. 检查预缓存 URL（上一首歌播放时已提前获取）
+    const preloadedUrl = getNextTrackUrl(songId)
+    if (preloadedUrl) {
+      return preloadedUrl
+    }
+
+    // 1. 尝试从 IndexedDB 缓存读取
+    if (useCache && settingsStore.enableCache) {
+      try {
+        const cached = await cacheManager.getTrackSource(songId)
+        if (cached) {
+          const blobUrl = arrayBufferToBlobUrl(cached)
+          return blobUrl
+        }
+      } catch (e) {
+        console.warn('[player] Failed to read cache:', e)
+      }
+    }
+
+    // 2. 从 API 获取
+    try {
+      const quality = settingsStore.musicQuality || 'exhigh'
+      console.log(`[player] 请求音频URL: songId=${songId}, quality=${quality}, apiBase=${settingsStore.apiBase}`)
+      const res: any = await getSongUrl(songId, quality)
+      console.log('[player] /song/url 原始返回:', JSON.stringify(res)?.slice(0, 800))
+      const url = res?.data?.[0]?.url
+      const freeTrialInfo = res?.data?.[0]?.freeTrialInfo
+      console.log(`[player] 解析结果: url=${url ? url.slice(0, 100) + '...' : 'null'}, freeTrialInfo=${JSON.stringify(freeTrialInfo)}`)
+
+      if (!url) {
+        console.warn(`[player] songId=${songId} 无可用音源（可能 VIP 歌曲/地区限制/版权下架）`)
+        return null
+      }
+      // 注意：NCMAPI 中免费歌曲 freeTrialInfo 为 null，VIP 试听歌曲有值
+      // 原逻辑 `!== null` 会把 freeTrialInfo=undefined（正常情况）也误判为跳过！
+      if (freeTrialInfo !== null && freeTrialInfo !== undefined) {
+        console.warn(`[player] songId=${songId} 是试听歌曲，跳过`)
+        return null
+      }
+      return url.replace(/^http:/, 'https:')
+    } catch (e) {
+      console.error('[player] Failed to get audio source:', e)
+      return null
+    }
+  }
+
+  /**
+   * 将音频数据写入 IndexedDB 缓存（异步，不阻塞播放）
+   */
+  async function cacheAudioSource(songId: number, url: string): Promise<void> {
+    const settingsStore = useSettingsStore()
+    if (!settingsStore.enableCache) return
+
+    try {
+      const response = await fetch(url)
+      if (!response.ok) return
+      const blob = await response.blob()
+      const arrayBuffer = await blobToArrayBuffer(blob)
+      await cacheManager.cacheTrackSource(songId, arrayBuffer)
+      console.log(`[player] Cached audio for song ${songId}`)
+    } catch (e) {
+      console.warn('[player] Failed to cache audio source:', e)
+    }
+  }
+
+  /**
+   * 播放指定歌曲（参照 YPM _replaceCurrentTrack 流程）
+   * 核心：song 对象不需要自带 url，内部自动获取
+   * 失败时显示 toast 并自动切下一首
    */
   async function playSong(song: Song): Promise<void> {
     initAudioEngine()
 
-    if (!song.url) {
-      console.warn('Song URL is missing:', song.id)
-      return
-    }
+    // ★ 重置 scrobble 追踪
+    scrobbleSubmitted = false
+    scrobblePlayedTime = 0
 
     try {
-      await audioEngine!.play(song.url)
+      status.value = 'loading'
+
+      // ★ 内部获取播放 URL（不依赖外部传入）
+      const url = await getAudioSource(song.id)
+      if (!url) {
+        console.warn(`[player] No playable source for "${song.name}" (id=${song.id})`)
+        status.value = 'error'
+        playing.value = false
+        showToast(`无法播放「${song.name}」`, { type: 'warning' })
+        setTimeout(() => playNext(), 500)
+        return
+      }
+
+      console.log(`[player] 开始播放: "${song.name}", url=${url.slice(0, 100)}...`)
+      await audioEngine!.play(url)
       updateCurrentSongCache(song)
 
-      // 发送 IPC 事件到主进程（Electron 环境）
+      // ★ Feature 1: MediaSession — 更新系统通知栏歌曲信息
+      updateMediaSession(song)
+
+      // ★ Feature 5: Scrobble — 提交"正在播放"状态
+      submitScrobbleNowPlaying(song)
+
+      // ★ 异步缓存音频到 IndexedDB（不阻塞播放）
+      if (!url.startsWith('blob:')) {
+        cacheAudioSource(song.id, url)
+      }
+
+      // Electron IPC 通知
       if (window.electronAPI?.sendIpcEvent) {
         window.electronAPI.sendIpcEvent('player:updateTrack', {
           title: song.name,
@@ -125,8 +244,16 @@ export const usePlayerStore = defineStore('player', () => {
           duration: song.duration
         })
       }
+
+      // ★ Feature 4: 预缓存下一首
+      preloadNextTrack()
     } catch (error) {
-      console.error('Failed to play song:', error)
+      console.error(`[player] Failed to play "${song.name}":`, error)
+      status.value = 'error'
+      playing.value = false
+      showToast(`播放失败「${song.name}」`, { type: 'error' })
+      // 自动重试或跳过
+      setTimeout(() => playNext(), 500)
     }
   }
 
@@ -138,6 +265,102 @@ export const usePlayerStore = defineStore('player', () => {
     // 更新窗口标题
     if (document.title !== `MelodyAir - ${song.name}`) {
       document.title = `MelodyAir - ${song.name}`
+    }
+  }
+
+  // ==================== Feature 3: 播放状态持久化 ====================
+
+  /**
+   * 保存播放进度到 localStorage（节流，每次调用间隔至少 2 秒）
+   */
+  let lastSaveTime = 0
+  function savePlaybackProgress(): void {
+    const now = Date.now()
+    if (now - lastSaveTime < 2000) return
+    lastSaveTime = now
+
+    try {
+      const data = {
+        songId: currentSong.value?.id ?? null,
+        currentTime: currentTime.value,
+        timestamp: now
+      }
+      localStorage.setItem('melody-air:playbackProgress', JSON.stringify(data))
+    } catch {
+      // 忽略存储错误
+    }
+  }
+
+  /**
+   * 从 localStorage 恢复播放进度
+   * 返回上次保存的播放位置（秒），如果没有则返回 0
+   */
+  function getSavedPlaybackProgress(): number {
+    try {
+      const raw = localStorage.getItem('melody-air:playbackProgress')
+      if (!raw) return 0
+      const data = JSON.parse(raw)
+      // 如果保存时间超过 7 天，不恢复
+      if (Date.now() - data.timestamp > 7 * 24 * 60 * 60 * 1000) return 0
+      // 只有当保存的歌曲 ID 与当前播放列表中的匹配时才恢复
+      if (data.songId && playlist.value.some(s => s.id === data.songId)) {
+        return data.currentTime || 0
+      }
+      return 0
+    } catch {
+      return 0
+    }
+  }
+
+  /**
+   * 恢复上次播放状态（应用启动时调用）
+   */
+  async function restorePlayback(): Promise<void> {
+    if (playlist.value.length === 0 || currentIndex.value < 0) return
+
+    const savedProgress = getSavedPlaybackProgress()
+    const song = playlist.value[currentIndex.value]
+    if (!song) return
+
+    try {
+      status.value = 'loading'
+      const url = await getAudioSource(song.id)
+      if (!url) {
+        console.warn('[player] Failed to restore playback: no source')
+        return
+      }
+
+      await audioEngine!.play(url)
+      updateCurrentSongCache(song)
+      updateMediaSession(song)
+
+      // 恢复播放进度
+      if (savedProgress > 0) {
+        // 需要等待音频加载完成后才能 seek
+        setTimeout(() => {
+          if (audioEngine && savedProgress < duration.value) {
+            seek(savedProgress)
+          }
+        }, 500)
+      }
+
+      // 恢复后暂停（不自动播放），等待用户操作
+      if (audioEngine) {
+        audioEngine.pause()
+      }
+
+      // Electron IPC 通知
+      if (window.electronAPI?.sendIpcEvent) {
+        window.electronAPI.sendIpcEvent('player:updateTrack', {
+          title: song.name,
+          artist: song.artists.map(a => a.name).join(', '),
+          album: song.album.name,
+          cover: song.album.picUrl,
+          duration: song.duration
+        })
+      }
+    } catch (e) {
+      console.error('[player] Failed to restore playback:', e)
     }
   }
 
@@ -407,6 +630,159 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
+  // ==================== Feature 1: MediaSession ====================
+
+  /**
+   * 更新 MediaSession 元数据，让系统通知栏显示歌曲信息和控制按钮
+   * 参考 YPM Player.js:571-665
+   */
+  function updateMediaSession(song: Song): void {
+    if (!('mediaSession' in navigator)) return
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: song.name,
+      artist: song.artists.map(a => a.name).join(', '),
+      album: song.album.name,
+      artwork: song.album.picUrl
+        ? [{ src: song.album.picUrl, sizes: '512x512', type: 'image/jpeg' }]
+        : []
+    })
+
+    navigator.mediaSession.setActionHandler('play', () => {
+      if (!playing.value) togglePlaying()
+    })
+    navigator.mediaSession.setActionHandler('pause', () => {
+      if (playing.value) togglePlaying()
+    })
+    navigator.mediaSession.setActionHandler('previoustrack', () => playPrev())
+    navigator.mediaSession.setActionHandler('nexttrack', () => playNext())
+    navigator.mediaSession.setActionHandler('seekto', (details) => {
+      if (details.seekTime !== undefined) {
+        seek(details.seekTime)
+      }
+    })
+    navigator.mediaSession.setActionHandler('stop', () => {
+      stopPlayback()
+      playing.value = false
+    })
+  }
+
+  /**
+   * 更新 MediaSession 播放状态（用于 seek 进度条）
+   */
+  function updateMediaSessionPlaybackState(): void {
+    if (!('mediaSession' in navigator)) return
+    try {
+      navigator.mediaSession.setPositionState!(duration.value > 0 ? {
+        duration: duration.value,
+        playbackRate: 1,
+        position: Math.min(currentTime.value, duration.value)
+      } : undefined)
+    } catch {
+      // 忽略 position 超出范围的错误
+    }
+  }
+
+  // ==================== Feature 5: Scrobble 听歌打卡 ====================
+
+  /**
+   * 提交"正在播放"通知（立即调用，不等待播放进度）
+   */
+  function submitScrobbleNowPlaying(song: Song): void {
+    // sourceid: 来源 ID（如歌单 ID），此处暂用 0 表示无特定来源
+    scrobble(song.id, 0, 0).catch(() => {
+      // 静默失败，不影响播放体验
+    })
+  }
+
+  /**
+   * 检查并提交 Scrobble（当播放进度达到 50% 或超过 4 分钟时提交）
+   * 参考 YPM: 播放进度超过一半或满 4 分钟时打卡
+   */
+  function checkAndSubmitScrobble(): void {
+    if (scrobbleSubmitted || !currentSong.value) return
+
+    const song = currentSong.value
+    const durationSec = duration.value
+    if (durationSec <= 0) return
+
+    // 播放进度超过 50% 或播放时长超过 4 分钟
+    const progressRatio = currentTime.value / durationSec
+    if (progressRatio >= 0.5 || scrobblePlayedTime >= 240) {
+      scrobbleSubmitted = true
+      scrobble(song.id, 0, Math.floor(currentTime.value)).catch(() => {})
+    }
+  }
+
+  // ==================== Feature 4: 预缓存下一首 ====================
+
+  /**
+   * 预缓存下一首歌的音频数据
+   * 参考 YPM _cacheNextTrack: 播放当前歌曲时提前获取下一首的详情和 URL
+   */
+  async function preloadNextTrack(): Promise<void> {
+    const settingsStore = useSettingsStore()
+    if (!settingsStore.autoCacheNextTrack) return
+
+    // 确定下一首歌
+    let nextSong: Song | null = null
+
+    if (playNextList.value.length > 0) {
+      nextSong = playNextList.value[0]!
+    } else if (isPersonalFM.value && personalFMNextTrack.value) {
+      nextSong = personalFMNextTrack.value
+    } else if (playlist.value.length > 0 && currentIndex.value >= 0) {
+      const nextIdx = (currentIndex.value + 1) % playlist.value.length
+      if (nextIdx !== currentIndex.value) {
+        nextSong = playlist.value[nextIdx]!
+      }
+    }
+
+    if (!nextSong || nextSong.id === nextTrackIdCache) return
+
+    nextTrackIdCache = nextSong.id
+    nextTrackUrlCache = null
+
+    // 尝试从缓存获取 URL
+    try {
+      if (settingsStore.enableCache) {
+        const cached = await cacheManager.getTrackSource(nextSong.id)
+        if (cached) {
+          nextTrackUrlCache = arrayBufferToBlobUrl(cached)
+          console.log(`[player] Pre-cached (from IndexedDB) next track: ${nextSong.name}`)
+          return
+        }
+      }
+
+      // 缓存未命中，从 API 获取并缓存
+      const url = await getAudioSource(nextSong.id, false) // 不读缓存（上面已试过）
+      if (url) {
+        nextTrackUrlCache = url
+        // 异步写入 IndexedDB
+        if (!url.startsWith('blob:')) {
+          cacheAudioSource(nextSong.id, url)
+        }
+        console.log(`[player] Pre-cached next track: ${nextSong.name}`)
+      }
+    } catch (e) {
+      console.warn('[player] Failed to pre-cache next track:', e)
+    }
+  }
+
+  /**
+   * 获取预缓存的下一首 URL（供 getAudioSource 使用）
+   */
+  function getNextTrackUrl(songId: number): string | null {
+    if (nextTrackIdCache === songId && nextTrackUrlCache) {
+      // 使用后清除缓存
+      const url = nextTrackUrlCache
+      nextTrackUrlCache = null
+      nextTrackIdCache = null
+      return url
+    }
+    return null
+  }
+
   /**
    * 停止播放
    */
@@ -414,6 +790,20 @@ export const usePlayerStore = defineStore('player', () => {
     if (audioEngine) {
       audioEngine.stop()
     }
+  }
+
+  /**
+   * 设置当前播放时间（供外部如 useAudio 调用）
+   */
+  function setCurrentTime(time: number): void {
+    currentTime.value = time
+  }
+
+  /**
+   * 设置音频总时长（供外部如 useAudio 调用）
+   */
+  function setDuration(dur: number): void {
+    duration.value = dur
   }
 
   /**
@@ -491,8 +881,11 @@ export const usePlayerStore = defineStore('player', () => {
     setVolume,
     toggleMute,
     seek,
+    setCurrentTime,
+    setDuration,
     enablePersonalFM,
     disablePersonalFM,
+    restorePlayback,
     destroy
   }
 }, {

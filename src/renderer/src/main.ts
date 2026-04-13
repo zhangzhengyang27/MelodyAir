@@ -48,3 +48,12 @@ if (savedTheme) {
     // Ignore parse errors - useTheme will handle default behavior
   }
 }
+
+// ★ Feature 3: 恢复上次播放状态（异步，不阻塞渲染）
+import('@/stores/player').then(({ usePlayerStore }) => {
+  const playerStore = usePlayerStore()
+  // 延迟执行，确保 store 初始化完成
+  setTimeout(() => {
+    playerStore.restorePlayback()
+  }, 1000)
+})

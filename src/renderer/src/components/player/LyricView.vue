@@ -6,7 +6,7 @@
         :key="i"
         :ref="(el) => { if (el) lineRefs[i] = el as HTMLElement }"
         class="cursor-pointer py-2 text-base transition-all duration-300"
-        :class="i === currentIndex ? 'scale-105 font-bold text-[#FF5A5F]' : 'text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300'"
+        :class="i === currentIndex ? 'scale-105 font-bold text-[#FF5A5F]' : 'text-neutral-400 hover:text-neutral-600 dark:text-[#6B6B80] dark:hover:text-[#A1A1B5]'"
         @click="seekToLyric(line.time)"
       >
         {{ line.text }}

@@ -1,7 +1,7 @@
 <template>
   <div
-    class="group flex items-center gap-4 rounded-lg px-3 py-2 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
-    :class="{ 'bg-[#FFF5F3] dark:bg-[rgba(196,58,63,0.1)]': isActive }"
+    class="group flex items-center gap-4 rounded-lg px-3 py-2 transition-colors hover:bg-neutral-100 dark:hover:bg-[rgba(255,255,255,0.05)]"
+    :class="{ 'bg-[#FFF5F3] dark:bg-[rgba(255,90,95,0.15)]': isActive }"
     @dblclick="handlePlay"
   >
     <!-- Index / Playing indicator -->
@@ -42,7 +42,7 @@
     <!-- Hover actions -->
     <div class="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
       <button
-        class="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-[#FFF5F3] hover:text-[#FF5A5F]"
+        class="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-[#FFF5F3] hover:text-[#FF5A5F] dark:hover:bg-[rgba(255,90,95,0.18)] dark:text-[#6B6B80] dark:group-hover:text-[#A1A1B5]"
         @click="handlePlay"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">

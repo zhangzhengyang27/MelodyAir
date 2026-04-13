@@ -82,7 +82,6 @@ const columns: Column[] = [
   width: 100%;
   border-radius: 8px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.03);
 }
 
 /* 表头样式 */
@@ -91,13 +90,19 @@ const columns: Column[] = [
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-neutral-50, #F7F7F7);
+  border-bottom: 1px solid var(--color-neutral-200, #EBEBEB);
   font-size: 12px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-neutral-400, #C4C4C4);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.dark .track-list-header {
+  background: #13131C;
+  border-color: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .header-index {
@@ -130,6 +135,10 @@ const columns: Column[] = [
   max-height: calc(100vh - 300px);
   overflow-y: auto;
   scrollbar-width: thin;
+  scrollbar-color: var(--color-neutral-300, #DDDDDD) transparent;
+}
+
+.dark .track-list-body {
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
@@ -142,8 +151,12 @@ const columns: Column[] = [
 }
 
 .track-list-body::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--color-neutral-300, #DDDDDD);
   border-radius: 3px;
+}
+
+.dark .track-list-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* 空状态 */
@@ -153,7 +166,11 @@ const columns: Column[] = [
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--color-neutral-400, #C4C4C4);
+}
+
+.dark .empty-state {
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .empty-icon {

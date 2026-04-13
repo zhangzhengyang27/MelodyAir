@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <div v-if="!userStore.loggedIn" class="flex min-h-[40vh] items-center justify-center">
       <div class="text-center">
-        <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
+        <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-100 dark:bg-[#1F1F2E]">
           <span class="text-4xl">🎵</span>
         </div>
         <h2 class="text-subtitle font-semibold">登录后查看</h2>
@@ -22,7 +22,7 @@
         <img
           :src="userStore.profile?.avatarUrl + '?param=200y200'"
           alt="avatar"
-          class="h-16 w-16 rounded-full object-cover ring-2 ring-[#FFE8E3] dark:ring-[#9E2F33]"
+          class="h-16 w-16 rounded-full object-cover ring-2 ring-[#FFE8E3] dark:ring-[rgba(255,90,95,0.30)]"
         />
         <div>
           <h1 class="text-title">{{ userStore.profile?.nickname }}</h1>
@@ -30,12 +30,12 @@
       </div>
 
       <!-- Tabs -->
-      <div class="flex gap-1 rounded-xl bg-neutral-100 p-1 dark:bg-neutral-800">
+      <div class="flex gap-1 rounded-xl bg-neutral-100 p-1 dark:bg-[#13131C]">
         <button
           v-for="tab in tabs"
           :key="tab.value"
           class="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
-          :class="activeTab === tab.value ? 'bg-white text-[#FF5A5F] shadow-sm dark:bg-neutral-700 dark:text-[#FF7F66]' : 'text-neutral-500'"
+          :class="activeTab === tab.value ? 'bg-white text-[#FF5A5F] shadow-sm dark:bg-[#1F1F2E] dark:text-[#FF7F66]' : 'text-neutral-500 dark:text-[#A1A1B5]'"
           @click="activeTab = tab.value"
         >
           {{ tab.label }}

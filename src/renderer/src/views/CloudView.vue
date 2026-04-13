@@ -7,7 +7,7 @@
     <div v-else-if="songs.length === 0" class="flex min-h-[30vh] items-center justify-center">
       <div class="text-center">
         <span class="text-5xl">☁️</span>
-        <p class="mt-4 text-neutral-500">云盘中暂无歌曲</p>
+        <p class="mt-4 text-neutral-500 dark:text-[#A1A1B5]">云盘中暂无歌曲</p>
       </div>
     </div>
 

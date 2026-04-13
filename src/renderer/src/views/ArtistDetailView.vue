@@ -5,23 +5,23 @@
     <template v-else-if="artist">
       <!-- Header -->
       <div class="flex gap-6">
-        <div class="h-48 w-48 shrink-0 overflow-hidden rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.1)]">
+        <div class="h-48 w-48 shrink-0 overflow-hidden rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40),0_0_1px_rgba(255,255,255,0.05)]">
           <img v-if="artist.avatar" :src="artist.avatar + '?param=400y400'" alt="" class="h-full w-full object-cover" />
         </div>
         <div class="flex flex-col justify-center">
           <h1 class="text-display">{{ artist.name }}</h1>
           <p v-if="artist.identifyTag" class="mt-1 text-sm text-[#FF5A5F]">{{ artist.identifyTag }}</p>
-          <p class="mt-2 line-clamp-3 text-sm text-neutral-500">{{ artist.briefDesc }}</p>
+          <p class="mt-2 line-clamp-3 text-sm text-neutral-500 dark:text-[#A1A1B5]">{{ artist.briefDesc }}</p>
         </div>
       </div>
 
       <!-- Tabs -->
-      <div class="flex gap-1 rounded-xl bg-neutral-100 p-1 dark:bg-neutral-800">
+      <div class="flex gap-1 rounded-xl bg-neutral-100 p-1 dark:bg-[#13131C]">
         <button
           v-for="tab in tabs"
           :key="tab.value"
           class="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
-          :class="activeTab === tab.value ? 'bg-white text-[#FF5A5F] shadow-sm dark:bg-neutral-700 dark:text-[#FF7F66]' : 'text-neutral-500'"
+          :class="activeTab === tab.value ? 'bg-white text-[#FF5A5F] shadow-sm dark:bg-[#1F1F2E] dark:text-[#FF7F66]' : 'text-neutral-500 dark:text-[#A1A1B5]'"
           @click="activeTab = tab.value"
         >
           {{ tab.label }}

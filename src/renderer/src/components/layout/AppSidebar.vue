@@ -1,5 +1,5 @@
 <template>
-  <aside class="flex w-56 shrink-0 flex-col border-r border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800">
+  <aside class="flex w-56 shrink-0 flex-col border-r border-neutral-200 bg-white dark:border-white/10 dark:bg-[#0F0F14]">
     <!-- Logo -->
     <div class="flex items-center gap-2 px-5 py-4">
       <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FF5A5F] text-white font-bold text-sm">
@@ -71,7 +71,7 @@ const myItems = [
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   color: var(--color-neutral-600);
-  transition: background-color 0.15s;
+  transition: background-color 0.15s, color 0.15s;
 }
 
 .sidebar-link:hover {
@@ -79,11 +79,12 @@ const myItems = [
 }
 
 .dark .sidebar-link {
-  color: var(--color-neutral-300);
+  color: #A1A1B5;
 }
 
 .dark .sidebar-link:hover {
-  background-color: var(--color-neutral-700);
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #F0F0F5;
 }
 
 .sidebar-link-active {
@@ -93,7 +94,7 @@ const myItems = [
 }
 
 .dark .sidebar-link-active {
-  background-color: rgba(196, 58, 63, 0.2);
+  background-color: rgba(255, 90, 95, 0.18);
   color: #FF7F66;
 }
 </style>

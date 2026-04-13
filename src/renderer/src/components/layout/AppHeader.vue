@@ -1,9 +1,9 @@
 <template>
-  <header class="flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 bg-white px-6 dark:border-neutral-700 dark:bg-neutral-800">
+  <header class="flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 bg-white px-6 dark:border-white/10 dark:bg-[#0F0F14]">
     <!-- Navigation buttons -->
     <div class="flex items-center gap-2">
       <button
-        class="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-700"
+        class="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 dark:text-[#A1A1B5] dark:hover:bg-white/6"
         @click="$router.back()"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -11,7 +11,7 @@
         </svg>
       </button>
       <button
-        class="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-700"
+        class="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 dark:text-[#A1A1B5] dark:hover:bg-white/6"
         @click="$router.forward()"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -29,7 +29,7 @@
         v-model="searchQuery"
         type="text"
         placeholder="搜索音乐、歌手、专辑..."
-        class="h-9 w-full rounded-full border border-neutral-200 bg-neutral-50 pl-9 pr-4 text-sm outline-none transition-colors focus:border-[#FFB0A0] focus:bg-white dark:border-neutral-600 dark:bg-neutral-700 dark:focus:border-[#FF7F66] dark:focus:bg-neutral-800"
+        class="h-9 w-full rounded-full border border-neutral-200 bg-neutral-50 pl-9 pr-4 text-sm outline-none transition-colors focus:border-[#FFB0A0] focus:bg-white dark:border-white/10 dark:bg-[#13131C] dark:focus:border-[#FF7F66] dark:focus:bg-[#1A1A28] dark:text-[#F0F0F5]"
         @keydown.enter="handleSearch"
       />
     </div>
@@ -37,9 +37,9 @@
     <!-- User area -->
     <div class="flex items-center gap-3">
       <button
-        class="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-700"
-        @click="toggleTheme"
+        class="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 dark:text-[#A1A1B5] dark:hover:bg-white/6"
         :title="isDark ? '切换亮色' : '切换暗色'"
+        @click="toggleTheme"
       >
         {{ isDark ? '☀️' : '🌙' }}
       </button>
@@ -54,7 +54,7 @@
         <img
           :src="userStore.profile?.avatarUrl"
           alt="avatar"
-          class="h-8 w-8 rounded-full object-cover ring-2 ring-[#FFE8E3] dark:ring-[#9E2F33]"
+          class="h-8 w-8 rounded-full object-cover ring-2 ring-[#FFE8E3] dark:ring-[rgba(255,90,95,0.3)]"
         />
       </RouterLink>
     </div>

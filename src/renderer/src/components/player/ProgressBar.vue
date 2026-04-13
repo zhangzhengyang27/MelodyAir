@@ -175,11 +175,15 @@ onUnmounted(() => {
 
 .time-display {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-neutral-500, #767676);
   font-variant-numeric: tabular-nums;
   min-width: 45px;
   flex-shrink: 0;
   user-select: none;
+}
+
+.dark .time-display {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .current-time {
@@ -194,10 +198,14 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   height: 4px;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--color-neutral-200, #DDDDDD);
   border-radius: 2px;
   cursor: pointer;
   transition: height 0.2s ease;
+}
+
+.dark .progress-bar {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 /* 悬停时增高 */
@@ -211,9 +219,13 @@ onUnmounted(() => {
   left: 0;
   top: 0;
   height: 100%;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--color-neutral-300, #DDDDDD);
   border-radius: 2px;
   pointer-events: none;
+}
+
+.dark .progress-buffer {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* 已播放进度 */
@@ -222,7 +234,7 @@ onUnmounted(() => {
   left: 0;
   top: 0;
   height: 100%;
-  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  background: linear-gradient(90deg, #FF5A5F, #FF7F66);
   border-radius: 2px;
   transition: width 0.1s linear;
   pointer-events: none;
@@ -259,10 +271,17 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   opacity: 0;
-  background: rgba(255, 255, 255, 0.05);
   border-radius: 2px;
   transition: opacity 0.2s ease;
   pointer-events: none;
+}
+
+.progress-hover-layer {
+  background: var(--color-neutral-100, #F7F7F7);
+}
+
+.dark .progress-hover-layer {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .progress-bar:hover .progress-hover-layer {

@@ -5,12 +5,12 @@
     <template v-else-if="album">
       <!-- Header -->
       <div class="flex gap-6">
-        <div class="h-48 w-48 shrink-0 overflow-hidden rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.08)]">
+        <div class="h-48 w-48 shrink-0 overflow-hidden rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40),0_0_1px_rgba(255,255,255,0.05)]">
           <img :src="album.picUrl + '?param=400y400'" alt="" class="h-full w-full object-cover" />
         </div>
         <div class="flex flex-col justify-center">
           <h1 class="text-display">{{ album.name }}</h1>
-          <p class="mt-2 text-sm text-neutral-500">
+          <p class="mt-2 text-sm text-neutral-500 dark:text-[#A1A1B5]">
             {{ album.artist?.name }}
             · {{ formatDate(album.publishTime) }}
             · {{ songs.length }}首歌曲

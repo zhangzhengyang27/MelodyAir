@@ -400,7 +400,7 @@ onMounted(async () => {
   padding-bottom: 60px;
 }
 
-/* 卡片通用样式 */
+/* 卡片通用样式 - Deep Dark elevation system */
 .settings-card {
   background: var(--bg-card, #fff);
   border-radius: 16px;
@@ -412,14 +412,24 @@ onMounted(async () => {
 }
 
 .dark .settings-card {
-  background: #1e1e30;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  background: #171722;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.40),
+    0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .settings-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.10),
+    0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.dark .settings-card:hover {
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.55),
+    0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .card-title {
@@ -433,7 +443,7 @@ onMounted(async () => {
 }
 
 .dark .card-title {
-  color: #f5f5f7;
+  color: #F0F0F5;
 }
 
 /* 设置行 */
@@ -468,7 +478,7 @@ onMounted(async () => {
 }
 
 .dark .setting-label {
-  color: #f5f5f7;
+  color: #F0F0F5;
 }
 
 .setting-description {
@@ -478,14 +488,14 @@ onMounted(async () => {
 }
 
 .dark .setting-description {
-  color: rgba(245, 245, 247, 0.5);
+  color: #A1A1B5;
 }
 
-/* 输入框/选择器 */
+/* 输入框/选择器 - Deep dark input styling */
 .input-field,
 .select-field,
 .number-field {
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid rgba(0, 0, 0, 0.1);
   background: var(--bg-input, #fafafa);
   padding: 8px 12px;
@@ -498,23 +508,23 @@ onMounted(async () => {
 .input-field:focus,
 .select-field:focus,
 .number-field:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  border-color: #FF5A5F;
+  box-shadow: 0 0 0 3px rgba(255, 90, 95, 0.15);
 }
 
 .dark .input-field,
 .dark .select-field,
 .dark .number-field {
-  background: #2a2a42;
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #f5f5f7;
+  background: #13131C;
+  border-color: rgba(255, 255, 255, 0.10);
+  color: #F0F0F5;
 }
 
 .dark .input-field:focus,
 .dark .select-field:focus,
 .dark .number-field:focus {
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15);
+  border-color: rgba(255, 90, 95, 0.55);
+  box-shadow: 0 0 0 3px rgba(255, 90, 95, 0.15);
 }
 
 /* 字号控制 */
@@ -524,13 +534,13 @@ onMounted(async () => {
   gap: 8px;
   background: var(--bg-input, #f5f5f5);
   padding: 6px 10px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .dark .font-size-control {
-  background: #2a2a42;
-  border-color: rgba(255, 255, 255, 0.1);
+  background: #13131C;
+  border-color: rgba(255, 255, 255, 0.10);
 }
 
 .size-btn {
@@ -547,8 +557,12 @@ onMounted(async () => {
 }
 
 .size-btn:hover {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background: rgba(255, 90, 95, 0.10);
+  color: #FF5A5F;
+}
+
+.dark .size-btn:hover {
+  background: rgba(255, 90, 95, 0.18);
 }
 
 .size-value {
@@ -560,16 +574,16 @@ onMounted(async () => {
 }
 
 .dark .size-value {
-  color: #f5f5f7;
+  color: #F0F0F5;
 }
 
-/* 危险按钮 */
+/* 危险按钮 - Adapted for dark mode */
 .danger-button {
   padding: 8px 16px;
-  border-radius: 8px;
-  border: 1px solid #ef4444;
+  border-radius: 10px;
+  border: 1px solid #F87171;
   background: transparent;
-  color: #ef4444;
+  color: #EF4444;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -577,7 +591,18 @@ onMounted(async () => {
 }
 
 .danger-button:hover:not(:disabled) {
-  background: #ef4444;
+  background: #EF4444;
+  color: white;
+}
+
+.dark .danger-button {
+  border-color: rgba(248, 113, 113, 0.50);
+  color: #F87171;
+}
+
+.dark .danger-button:hover:not(:disabled) {
+  background: #DC2626;
+  border-color: #DC2626;
   color: white;
 }
 
@@ -586,7 +611,7 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
-/* Toggle 开关组件 */
+/* Toggle 开关组件 - Dark-adapted */
 .toggle-switch {
   position: relative;
   display: inline-flex;
@@ -614,8 +639,12 @@ onMounted(async () => {
   position: relative;
 }
 
+.dark .toggle-track {
+  background: #3E3E52;
+}
+
 .toggle-switch input:checked + .toggle-track {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: linear-gradient(135deg, #FF5A5F, #E0484D);
 }
 
 .toggle-thumb {
@@ -627,7 +656,7 @@ onMounted(async () => {
   border-radius: 50%;
   background: white;
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
 }
 
 .toggle-switch input:checked + .toggle-track .toggle-thumb {
@@ -646,11 +675,19 @@ onMounted(async () => {
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
 }
 
+.dark .app-icon {
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.35));
+}
+
 .app-name {
   font-size: 24px;
   font-weight: 700;
   color: var(--text-primary, #1a1a2e);
   margin-bottom: 4px;
+}
+
+.dark .app-name {
+  color: #F0F0F5;
 }
 
 .app-version {
@@ -659,12 +696,20 @@ onMounted(async () => {
   margin-bottom: 16px;
 }
 
+.dark .app-version {
+  color: #A1A1B5;
+}
+
 .app-description {
   font-size: 13px;
   line-height: 1.6;
   color: var(--text-secondary, #888);
   max-width: 360px;
   margin: 0 auto 20px;
+}
+
+.dark .app-description {
+  color: #6B6B80;
 }
 
 .tech-stack {
@@ -676,11 +721,16 @@ onMounted(async () => {
 
 .tech-stack span {
   padding: 4px 12px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.1));
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: linear-gradient(135deg, rgba(255, 90, 95, 0.08), rgba(224, 72, 77, 0.08));
+  border: 1px solid rgba(255, 90, 95, 0.15);
   border-radius: 20px;
   font-size: 12px;
-  color: #3b82f6;
+  color: #FF5A5F;
   font-weight: 500;
+}
+
+.dark .tech-stack span {
+  background: linear-gradient(135deg, rgba(255, 90, 95, 0.12), rgba(224, 72, 77, 0.08));
+  border-color: rgba(255, 90, 95, 0.20);
 }
 </style>

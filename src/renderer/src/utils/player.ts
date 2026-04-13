@@ -1,39 +1,34 @@
 import { Howl, Howler } from 'howler'
-import type { Song } from '../stores/player'
 
 export type PlayMode = 'sequence' | 'loop' | 'loopOne' | 'random' | 'reversed'
 export type PlayerStatus = 'playing' | 'paused' | 'loading' | 'error'
 
 export interface PlayerOptions {
-  /** 音量 0-1 */
   volume?: number
-  /** 淡入淡出时长(ms) */
   fadeDuration?: number
-  /** 是否自动播放下一首 */
-  autoNext?: boolean
-  /** 音频结束回调 */
   onEnd?: () => void
-  /** 播放状态变更回调 */
   onPlayStateChange?: (status: PlayerStatus) => void
-  /** 进度更新回调 */
   onProgress?: (currentTime: number, duration: number) => void
-  /** 错误回调 */
   onError?: (error: Error) => void
 }
 
 /**
  * 基于 Howler.js 的音频引擎封装
- * 借鉴 YesPlayMusic 的 Player.js 设计
+ * 参考 YesPlayMusic Player.js 设计：
+ * - 全局单例 Howl 实例（每次播放新歌时 unload 旧的再创建新的）
+ * - HTML5 模式以支持流媒体
+ * - 淡入淡出效果
  */
 export class AudioEngine {
-  private howl: Howl | null = null
+  private _howl: Howl | null = null
   private _volume: number = 0.8
   private _volumeBeforeMuted: number = 0.8
   private _muted: boolean = false
   private _fadeDuration: number = 200
-  private _autoNext: boolean = true
   private _isFadeIn: boolean = false
   private _isFadeOut: boolean = false
+  /** 防止手动 stop() 时误触发 onend 回调 */
+  private _isStopping: boolean = false
 
   // 回调函数
   private onEndCallback?: () => void
@@ -41,10 +36,12 @@ export class AudioEngine {
   private onProgressCallback?: (currentTime: number, duration: number) => void
   private onErrorCallback?: (error: Error) => void
 
+  // 进度追踪定时器
+  private progressInterval: ReturnType<typeof setInterval> | null = null
+
   constructor(options: PlayerOptions = {}) {
     this._volume = options.volume ?? 0.8
     this._fadeDuration = options.fadeDuration ?? 200
-    this._autoNext = options.autoNext ?? true
     this.onEndCallback = options.onEnd
     this.onPlayStateChangeCallback = options.onPlayStateChange
     this.onProgressCallback = options.onProgress
@@ -54,34 +51,35 @@ export class AudioEngine {
   }
 
   /**
-   * 加载并播放音频
-   * @param src 音频URL
-   * @param html5 是否使用HTML5 Audio（支持流媒体）
-   * @param format 音频格式
+   * 播放音频（核心方法）
+   * 参照 YPM: 每次 unload 全局 Howl，创建新实例
    */
-  play(src: string, html5 = true, format?: string[]): Promise<void> {
+  play(src: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      // 停止当前播放的音频
+      // ★ 关键：先卸载全局旧实例（YPM 模式）
       this.stop()
 
       this.emitStateChange('loading')
 
-      const sourceFormat = format || [this.getAudioFormat(src)]
+      const format = this.guessFormat(src)
 
-      this.howl = new Howl({
+      Howler.unload()
+      this._isStopping = false
+
+      this._howl = new Howl({
         src: [src],
-        html5,
-        format: sourceFormat,
-        volume: 0, // 从0开始淡入
+        html5: true,
+        format: [format],
+        volume: 0,
         onplay: () => {
           // 淡入效果
-          if (this.howl && this._fadeDuration > 0 && !this._muted) {
+          if (this._howl && this._fadeDuration > 0 && !this._muted) {
             this._isFadeIn = true
-            this.howl.fade(0, this._volume, this._fadeDuration, () => {
+            this._howl.fade(0, this._volume, this._fadeDuration, () => {
               this._isFadeIn = false
             })
-          } else if (this.howl) {
-            this.howl.volume(this._muted ? 0 : this._volume)
+          } else if (this._howl) {
+            this._howl.volume(this._muted ? 0 : this._volume)
           }
 
           this.emitStateChange('playing')
@@ -89,8 +87,9 @@ export class AudioEngine {
           resolve()
         },
         onend: () => {
-          // 如果正在淡出，不触发onEnd（因为可能是手动停止）
-          if (!this._isFadeOut) {
+          // 如果是手动 stop 导致的，不触发 onEnd（避免自动切歌）
+          if (!this._isStopping && !this._isFadeOut) {
+            this.stopProgressTracking()
             this.onEndCallback?.()
           }
         },
@@ -98,207 +97,162 @@ export class AudioEngine {
           this.emitStateChange('paused')
           this.stopProgressTracking()
         },
-        onloaderror: (_id, error) => {
-          const err = new Error(`加载音频失败: ${error}`)
+        onloaderror: (_id, errCode) => {
+          console.warn(`[AudioEngine] loaderror code=${errCode} for`, src)
+          const err = new Error(`加载音频失败 (code=${errCode})`)
           this.onErrorCallback?.(err)
           this.emitStateChange('error')
           reject(err)
         },
-        onplayerror: (_id, error) => {
-          const err = new Error(`播放错误: ${error}`)
+        onplayerror: (_id, errCode) => {
+          console.warn(`[AudioEngine] playerror code=${errCode}`)
+          const err = new Error(`播放错误 (code=${errCode})`)
           this.onErrorCallback?.(err)
           this.emitStateChange('error')
           reject(err)
         }
       })
 
-      // 开始加载和播放
-      this.howl.play()
+      this._howl.play()
     })
   }
 
-  /**
-   * 继续播放（从暂停状态恢复）
-   */
+  /** 继续播放（暂停后恢复） */
   resume(): void {
-    if (this.howl) {
+    if (!this._howl) return
+    if (this._howl.playing()) return
+
+    this._howl.play()
+
+    // 等待 play 事件后淡入
+    const doFadeIn = () => {
       if (!this._muted && this._fadeDuration > 0) {
-        // 淡入效果
         this._isFadeIn = true
-        this.howl.fade(0, this._volume, this._fadeDuration, () => {
+        this._howl!.fade(0, this._volume, this._fadeDuration, () => {
           this._isFadeIn = false
         })
+      } else {
+        this._howl!.volume(this._muted ? 0 : this._volume)
       }
-      this.howl.play()
+      this.emitStateChange('playing')
+      this.startProgressTracking()
+      this._howl?.off('play', doFadeIn)
     }
+    this._howl.on('play', doFadeIn)
   }
 
-  /**
-   * 暂停播放（带淡出效果）
-   */
+  /** 暂停（带淡出）*/
   pause(): void {
-    if (this.howl && this.howl.playing()) {
+    if (this._howl && this._howl.playing()) {
       if (this._fadeDuration > 0) {
         this._isFadeOut = true
-        this.howl.fade(this.howl.volume(), 0, this._fadeDuration, () => {
+        const currentVol = this._howl.volume()
+        this._howl.fade(currentVol, 0, this._fadeDuration, () => {
           this._isFadeOut = false
-          this.howl?.pause()
-          if (this.howl) {
-            this.howl.volume(this._muted ? 0 : this._volume)
+          this._howl?.pause()
+          // 恢复 volume 属性值，下次 resume/play 时从正确值开始
+          if (this._howl) {
+            this._howl.volume(this._muted ? 0 : this._volume)
           }
         })
       } else {
-        this.howl.pause()
+        this._howl.pause()
       }
     }
   }
 
-  /**
-   * 停止播放
-   */
+  /** 停止并卸载 */
   stop(): void {
-    if (this.howl) {
-      this.stopProgressTracking()
-      this.howl.stop()
-      this.howl.unload()
-      this.howl = null
+    this._isStopping = true
+    this.stopProgressTracking()
+    if (this._howl) {
+      this._howl.stop()
+      this._howl.unload()
+      this._howl = null
     }
+    // 延迟重置标志，确保 onend 回调有机会检查
+    setTimeout(() => { this._isStopping = false }, 100)
   }
 
-  /**
-   * 跳转到指定时间位置
-   */
+  /** 跳转 */
   seek(time: number): void {
-    if (this.howl) {
-      this.howl.seek(time)
-      this.onProgressCallback?.(time, this.howl.duration())
+    if (this._howl) {
+      this._howl.seek(time)
+      this.onProgressCallback?.(time, this._howl.duration())
     }
   }
 
-  /**
-   * 获取当前播放时间
-   */
   getCurrentTime(): number {
-    return this.howl ? this.howl.seek() : 0
+    return this._howl ? this._howl.seek() : 0
   }
 
-  /**
-   * 获取音频总时长
-   */
   getDuration(): number {
-    return this.howl ? this.howl.duration() : 0
+    return this._howl ? this._howl.duration() : 0
   }
 
-  /**
-   * 设置音量
-   */
   setVolume(volume: number): void {
     this._volume = Math.max(0, Math.min(1, volume))
     Howler.volume(this._muted ? 0 : this._volume)
-
-    if (this.howl && !this._isFadeIn && !this._isFadeOut) {
-      this.howl.volume(this._muted ? 0 : this._volume)
+    if (this._howl && !this._isFadeIn && !this._isFadeOut) {
+      this._howl.volume(this._muted ? 0 : this._volume)
     }
   }
 
-  /**
-   * 获取音量
-   */
   getVolume(): number {
     return this._volume
   }
 
-  /**
-   * 静音切换
-   */
   toggleMute(): boolean {
     if (this._muted) {
-      // 取消静音
       this._muted = false
       Howler.volume(this._volume)
-      if (this.howl && !this._isFadeIn && !this._isFadeOut) {
-        this.howl.volume(this._volume)
+      if (this._howl && !this._isFadeIn && !this._isFadeOut) {
+        this._howl.volume(this._volume)
       }
     } else {
-      // 静音
       this._muted = true
       this._volumeBeforeMuted = this._volume
       Howler.volume(0)
-      if (this.howl && !this._isFadeIn && !this._isFadeOut) {
-        this.howl.volume(0)
+      if (this._howl && !this._isFadeIn && !this._isFadeOut) {
+        this._howl.volume(0)
       }
     }
     return this._muted
   }
 
-  /**
-   * 是否处于静音状态
-   */
-  isMuted(): boolean {
-    return this._muted
-  }
-
-  /**
-   * 是否正在播放
-   */
   isPlaying(): boolean {
-    return this.howl ? this.howl.playing() : false
+    return this._howl ? this._howl.playing() : false
   }
 
-  /**
-   * 获取音频缓冲进度 (HTML5模式)
-   */
-  getBuffered(): number[] | null {
-    // Howler.js 在 HTML5 模式下无法直接获取 buffered 信息
-    // 这里返回 null，如果需要可以通过原生 API 实现
-    return null
-  }
-
-  /**
-   * 销毁实例
-   */
   destroy(): void {
     this.stop()
-    this.howl = null
+    this._howl = null
   }
 
-  /**
-   * 根据URL推断音频格式
-   */
-  private getAudioFormat(url: string): string {
+  // ---- 私有方法 ----
+
+  private guessFormat(url: string): string {
     const ext = url.split('?')[0].split('.').pop()?.toLowerCase() || 'mp3'
-    const formatMap: Record<string, string> = {
-      mp3: 'mp3',
-      m4a: 'mp4',
-      ogg: 'ogg',
-      wav: 'wav',
-      flac: 'flac',
-      aac: 'aac'
+    const map: Record<string, string> = {
+      mp3: 'mp3', m4a: 'mp4', ogg: 'ogg', wav: 'wav', flac: 'flac', aac: 'aac'
     }
-    return formatMap[ext] || 'mp3'
+    return map[ext] || 'mp3'
   }
 
-  /**
-   * 发送状态变更通知
-   */
   private emitStateChange(status: PlayerStatus): void {
     this.onPlayStateChangeCallback?.(status)
   }
 
-  /**
-   * 进度追踪定时器
-   */
-  private progressInterval: ReturnType<typeof setInterval> | null = null
-
   private startProgressTracking(): void {
     this.stopProgressTracking()
     this.progressInterval = setInterval(() => {
-      if (this.howl && this.howl.playing()) {
-        const currentTime = this.howl.seek()
-        const duration = this.howl.duration()
-        this.onProgressCallback?.(currentTime, duration)
+      if (this._howl && this._howl.playing()) {
+        this.onProgressCallback?.(
+          this._howl.seek(),
+          this._howl.duration()
+        )
       }
-    }, 200) // 每200ms更新一次
+    }, 200)
   }
 
   private stopProgressTracking(): void {

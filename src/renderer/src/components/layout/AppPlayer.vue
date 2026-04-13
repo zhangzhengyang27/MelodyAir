@@ -1,10 +1,10 @@
 <template>
-  <footer class="flex h-20 shrink-0 items-center border-t border-neutral-200 bg-white px-4 dark:border-neutral-700 dark:bg-neutral-800" style="-webkit-app-region: no-drag;">
+  <footer class="flex h-20 shrink-0 items-center border-t border-neutral-200 bg-white px-4 dark:border-white/10 dark:bg-[#0F0F14]" style="-webkit-app-region: no-drag;">
     <!-- Song info -->
     <div class="flex w-72 items-center gap-3">
       <div
         v-if="playerStore.currentSong"
-        class="group relative h-12 w-12 shrink-0 cursor-pointer overflow-hidden rounded-lg bg-neutral-200 dark:bg-neutral-700"
+        class="group relative h-12 w-12 shrink-0 cursor-pointer overflow-hidden rounded-lg bg-neutral-200 dark:bg-[#1F1F2E]"
         @click="showFullPlayer = true"
       >
         <img
@@ -84,7 +84,7 @@
       <div class="flex w-full max-w-xl items-center gap-2 text-xs text-neutral-400">
         <span class="w-10 text-right">{{ formatTime(playerStore.currentTime) }}</span>
         <div
-          class="group relative h-1.5 flex-1 cursor-pointer rounded-full bg-neutral-200 dark:bg-neutral-600"
+          class="group relative h-1.5 flex-1 cursor-pointer rounded-full bg-neutral-200 dark:bg-[#252535]"
           @click="handleProgressClick"
           @mousemove="handleProgressHover"
           @mouseleave="hoverTime = null"
@@ -137,9 +137,9 @@
     <Transition name="slide-up">
       <div
         v-if="showPlaylist"
-        class="fixed bottom-20 right-4 z-50 max-h-96 w-80 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl dark:border-neutral-700 dark:bg-neutral-800"
+        class="fixed bottom-20 right-4 z-50 max-h-96 w-80 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#171722] dark:shadow-[0_16px_48px_rgba(0,0,0,0.6),0_0_1px_rgba(255,255,255,0.09)]"
       >
-        <div class="flex items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-neutral-700">
+        <div class="flex items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-white/6">
           <span class="text-sm font-medium">播放列表 ({{ playerStore.playlist.length }})</span>
           <button class="text-xs text-neutral-400 hover:text-[#FF5A5F]" @click="playerStore.clearPlaylist?.()">清空</button>
         </div>
@@ -147,9 +147,9 @@
           <div
             v-for="(song, idx) in playerStore.playlist"
             :key="song.id"
-            class="flex cursor-pointer items-center gap-3 px-4 py-2 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-700"
+            class="flex cursor-pointer items-center gap-3 px-4 py-2 transition-colors hover:bg-neutral-50 dark:hover:bg-[rgba(255,255,255,0.05)]"
             :class="{ 'bg-[#FFF5F3] dark:bg-[rgba(196,58,63,0.2)]': idx === playerStore.currentIndex }"
-            @click="playerStore.currentIndex = idx; playerStore.playing = true"
+            @click="handlePlayFromQueue(idx, song)"
           >
             <span class="w-5 text-xs text-neutral-400">{{ idx === playerStore.currentIndex ? '▶' : idx + 1 }}</span>
             <div class="min-w-0 flex-1">
@@ -210,6 +210,11 @@ function handleProgressHover(e: MouseEvent) {
   hoverProgress.value = (e.clientX - rect.left) / rect.width
   hoverTime.value = hoverProgress.value * playerStore.duration
 }
+
+function handlePlayFromQueue(idx: number, song: any) {
+  playerStore.currentIndex = idx
+  playerStore.playSong(song)
+}
 </script>
 
 <style scoped>
@@ -229,9 +234,13 @@ function handleProgressHover(e: MouseEvent) {
   color: var(--color-neutral-700);
 }
 
+.dark .player-btn {
+  color: #A1A1B5;
+}
+
 .dark .player-btn:hover {
-  background-color: var(--color-neutral-700);
-  color: var(--color-neutral-300);
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #F0F0F5;
 }
 
 .volume-slider {
@@ -245,7 +254,7 @@ function handleProgressHover(e: MouseEvent) {
 }
 
 .dark .volume-slider {
-  background-color: var(--color-neutral-600);
+  background-color: #252535;
 }
 
 .volume-slider::-webkit-slider-thumb {

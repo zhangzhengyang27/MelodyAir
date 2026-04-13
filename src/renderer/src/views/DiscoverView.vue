@@ -2,7 +2,7 @@
   <div class="space-y-8">
     <!-- Banner -->
     <section v-if="banners.length > 0">
-      <div class="relative h-56 overflow-hidden rounded-2xl">
+      <div class="relative h-56 overflow-hidden rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40),0_0_1px_rgba(255,255,255,0.05)]">
         <div
           v-for="(banner, i) in banners"
           :key="i"
@@ -40,7 +40,7 @@
           @click="$router.push(`/playlist/${item.id}`)"
         >
           <CoverImage :src="item.picUrl" :alt="item.name" size="md" playable />
-          <p class="mt-2 line-clamp-2 text-sm">{{ item.name }}</p>
+          <p class="mt-2 line-clamp-2 text-sm dark:text-[#A1A1B5]">{{ item.name }}</p>
           <p class="mt-0.5 text-xs text-neutral-400">{{ formatPlayCount(item.playCount) }}</p>
         </div>
       </div>
@@ -65,7 +65,7 @@
           <div class="relative overflow-hidden rounded-lg">
             <img :src="item.picUrl" :alt="item.name" class="h-36 w-full object-cover transition-transform group-hover:scale-105" />
           </div>
-          <p class="mt-2 line-clamp-1 text-sm">{{ item.name }}</p>
+          <p class="mt-2 line-clamp-1 text-sm dark:text-[#A1A1B5]">{{ item.name }}</p>
           <p class="text-xs text-neutral-400">{{ item.artistName }}</p>
         </div>
       </div>

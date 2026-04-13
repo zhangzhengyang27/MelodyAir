@@ -13,7 +13,7 @@
           class="rounded-full px-3 py-1 text-xs transition-colors"
           :class="activeTab === t.value
             ? 'bg-[#FF5A5F] text-white'
-            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-600'"
+            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-[#1F1F2E] dark:text-[#A1A1B5] dark:hover:bg-[rgba(255,255,255,0.08)]'"
           @click="activeTab = t.value; fetchComments()"
         >
           {{ t.label }}
@@ -32,7 +32,7 @@
         <textarea
           v-model="commentText"
           :placeholder="replyTo ? `回复 @${replyTo.nickname}...` : '写下你的评论...'"
-          class="w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm outline-none transition-colors focus:border-[#FFB0A0] dark:border-neutral-600 dark:bg-neutral-700 dark:focus:border-[#FF7F66]"
+          class="w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm outline-none transition-colors focus:border-[#FFB0A0] dark:border-white/10 dark:bg-[#13131C] dark:focus:border-[#FF7F66] dark:text-[#F0F0F5]"
           rows="2"
         />
         <div class="mt-2 flex justify-end">
@@ -46,7 +46,7 @@
         </div>
       </div>
     </div>
-    <div v-else class="rounded-xl bg-neutral-50 p-4 text-center text-sm text-neutral-400 dark:bg-neutral-800">
+    <div v-else class="rounded-xl bg-neutral-50 p-4 text-center text-sm text-neutral-400 dark:bg-[#13131C] dark:text-[#6B6B80]">
       <RouterLink to="/login" class="text-[#FF5A5F] hover:underline">登录</RouterLink> 后即可评论
     </div>
 
@@ -72,7 +72,7 @@
           <p class="text-sm">
             <span class="font-medium text-[#FF5A5F]">{{ comment.user.nickname }}</span>
           </p>
-          <p class="mt-1 text-sm text-neutral-700 dark:text-neutral-300">{{ comment.content }}</p>
+          <p class="mt-1 text-sm text-neutral-700 dark:text-[#A1A1B5]">{{ comment.content }}</p>
           <div class="mt-1.5 flex items-center gap-4 text-xs text-neutral-400">
             <span>{{ formatCommentTime(comment.time) }}</span>
             <button class="flex items-center gap-1 hover:text-[#FF5A5F]" @click="handleLike(comment)">

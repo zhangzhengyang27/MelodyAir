@@ -9,7 +9,7 @@
         v-model="query"
         type="text"
         placeholder="搜索音乐、歌手、专辑、歌单..."
-        class="h-12 w-full rounded-2xl border border-neutral-200 bg-white pl-12 pr-4 text-base outline-none transition-colors focus:border-[#FFB0A0] dark:border-neutral-600 dark:bg-neutral-800 dark:focus:border-[#E0484D]"
+        class="h-12 w-full rounded-2xl border border-neutral-200 bg-white pl-12 pr-4 text-base outline-none transition-colors focus:border-[#FFB0A0] dark:border-white/10 dark:bg-[#13131C] dark:focus:border-[#E0484D] dark:text-[#F0F0F5]"
         @keydown.enter="doSearch"
       />
     </div>
@@ -21,7 +21,7 @@
         <div
           v-for="(item, i) in hotSearches"
           :key="i"
-          class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-neutral-100 dark:hover:bg-[rgba(255,255,255,0.05)]"
           @click="query = item.searchWord; doSearch()"
         >
           <span class="w-6 text-center text-sm font-bold" :class="i < 3 ? 'text-[#FF5A5F]' : 'text-neutral-400'">{{ i + 1 }}</span>
@@ -39,7 +39,7 @@
         <div
           v-for="item in suggestions"
           :key="item.name"
-          class="cursor-pointer rounded-lg px-3 py-2 text-sm transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          class="cursor-pointer rounded-lg px-3 py-2 text-sm transition-colors hover:bg-neutral-100 dark:hover:bg-[rgba(255,255,255,0.05)]"
           @click="query = item.name; doSearch()"
         >
           {{ item.name }}
@@ -50,12 +50,12 @@
     <!-- Search results -->
     <section v-if="hasSearched">
       <!-- Tabs -->
-      <div class="mb-4 flex gap-1 rounded-xl bg-neutral-100 p-1 dark:bg-neutral-800">
+      <div class="mb-4 flex gap-1 rounded-xl bg-neutral-100 p-1 dark:bg-[#13131C] dark:border dark:border-white/6">
         <button
           v-for="tab in tabs"
           :key="tab.value"
           class="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
-          :class="activeTab === tab.value ? 'bg-white text-[#FF5A5F] shadow-sm dark:bg-neutral-700 dark:text-[#FF7F66]' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'"
+          :class="activeTab === tab.value ? 'bg-white text-[#FF5A5F] shadow-sm dark:bg-[#1F1F2E] dark:text-[#FF7F66]' : 'text-neutral-500 hover:text-neutral-700 dark:text-[#A1A1B5] dark:hover:text-[#F0F0F5]'"
           @click="activeTab = tab.value"
         >
           {{ tab.label }}

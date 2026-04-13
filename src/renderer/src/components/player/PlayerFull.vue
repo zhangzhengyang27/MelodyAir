@@ -1,6 +1,6 @@
 <template>
   <div
-    class="fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-neutral-900 to-neutral-950 text-white"
+    class="fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-[#09090B] to-[#050507] text-[#F0F0F5]"
   >
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4" style="-webkit-app-region: drag;">
@@ -33,14 +33,14 @@
               alt="cover"
               class="h-full w-full object-cover"
             />
-            <div v-else class="flex h-full w-full items-center justify-center bg-neutral-800">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 text-neutral-600" fill="currentColor" viewBox="0 0 24 24">
+            <div v-else class="flex h-full w-full items-center justify-center bg-[#13131C]">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 text-[#3E3E52]" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
               </svg>
             </div>
           </div>
           <!-- Center hole -->
-          <div class="absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-900 ring-4 ring-neutral-800" />
+          <div class="absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#09090B] ring-4 ring-[#0F0F14]" />
         </div>
 
         <!-- Song info -->
@@ -57,7 +57,7 @@
         <!-- Progress -->
         <div class="w-full max-w-sm">
           <div
-            class="group relative h-1.5 cursor-pointer rounded-full bg-neutral-700"
+            class="group relative h-1.5 cursor-pointer rounded-full bg-[#1F1F2E]"
             @click="handleProgressClick"
           >
             <div
@@ -217,7 +217,7 @@ function handleLyricSeek(time: number) {
 }
 
 .volume-slider {
-  @apply h-1 w-24 cursor-pointer appearance-none rounded-full bg-neutral-700 outline-none;
+  @apply h-1 w-24 cursor-pointer appearance-none rounded-full bg-[#1F1F2E] outline-none;
 }
 
 .volume-slider::-webkit-slider-thumb {

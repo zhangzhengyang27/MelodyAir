@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-0.5">
     <!-- Header -->
-    <div class="flex items-center gap-4 rounded-lg px-3 py-2 text-xs font-medium text-neutral-400">
+    <div class="flex items-center gap-4 rounded-lg px-3 py-2 text-xs font-medium text-neutral-400 dark:text-[#6B6B80] dark:bg-[#13131C]">
       <div class="w-8 text-center">#</div>
       <div class="h-10 w-10" />
       <div class="flex-1">标题</div>

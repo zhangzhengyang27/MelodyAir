@@ -5,12 +5,12 @@
     <template v-else-if="mv">
       <!-- Header -->
       <div class="flex gap-6">
-        <div class="h-48 w-80 shrink-0 overflow-hidden rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.08)]">
+        <div class="h-48 w-80 shrink-0 overflow-hidden rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40),0_0_1px_rgba(255,255,255,0.05)]">
           <img :src="mv.cover" alt="" class="h-full w-full object-cover" />
         </div>
         <div class="flex flex-col justify-center">
           <h1 class="text-display">{{ mv.name }}</h1>
-          <p class="mt-2 text-sm text-neutral-500">{{ mv.artistName }}</p>
+          <p class="mt-2 text-sm text-neutral-500 dark:text-[#A1A1B5]">{{ mv.artistName }}</p>
           <p class="mt-1 text-xs text-neutral-400">{{ formatPlayCount(mv.playCount) }}次播放</p>
           <p v-if="mv.desc" class="mt-2 line-clamp-3 text-xs text-neutral-400">{{ mv.desc }}</p>
         </div>
@@ -39,7 +39,7 @@
             <div class="overflow-hidden rounded-lg">
               <img :src="item.cover" alt="" class="h-32 w-full object-cover" />
             </div>
-            <p class="mt-2 line-clamp-1 text-sm">{{ item.name }}</p>
+            <p class="mt-2 line-clamp-1 text-sm dark:text-[#A1A1B5]">{{ item.name }}</p>
             <p class="text-xs text-neutral-400">{{ item.artistName }}</p>
           </div>
         </div>

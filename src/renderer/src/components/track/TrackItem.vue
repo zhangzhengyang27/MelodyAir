@@ -153,15 +153,23 @@ const menuItems = computed(() => [
 }
 
 .track-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-neutral-100, #F7F7F7);
+}
+
+.dark .track-item:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .track-item.active {
-  background: rgba(100, 150, 255, 0.15);
+  background: rgba(255, 90, 95, 0.08);
+}
+
+.dark .track-item.active {
+  background: rgba(255, 90, 95, 0.12);
 }
 
 .track-item.playing .track-name {
-  color: #3b82f6;
+  color: #FF5A5F;
   font-weight: 500;
 }
 
@@ -174,7 +182,11 @@ const menuItems = computed(() => [
 
 .index-number {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-neutral-400, #C4C4C4);
+}
+
+.dark .index-number {
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .play-button {
@@ -209,26 +221,34 @@ const menuItems = computed(() => [
 
 .track-name {
   font-size: 14px;
-  color: #fff;
+  color: var(--text-primary, #1a1a2e);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.dark .track-name {
+  color: #F0F0F5;
+}
+
 .track-artist {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-neutral-500, #767676);
   margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.dark .track-artist {
+  color: rgba(255, 255, 255, 0.40);
+}
+
 /* 专辑列 */
 .track-album {
   width: 200px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--color-secondary, #666666);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -239,12 +259,20 @@ const menuItems = computed(() => [
   }
 }
 
+.dark .track-album {
+  color: rgba(255, 255, 255, 0.55);
+}
+
 /* 时长列 */
 .track-duration {
   width: 50px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-neutral-400, #C4C4C4);
   text-align: right;
   flex-shrink: 0;
+}
+
+.dark .track-duration {
+  color: rgba(255, 255, 255, 0.35);
 }
 </style>

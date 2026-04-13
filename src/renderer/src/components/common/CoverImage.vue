@@ -7,7 +7,7 @@
       class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
       loading="lazy"
     />
-    <div v-else class="flex h-full w-full items-center justify-center bg-neutral-200 dark:bg-neutral-700">
+    <div v-else class="flex h-full w-full items-center justify-center bg-neutral-200 dark:bg-[#1F1F2E]">
       <span class="text-2xl text-neutral-400">🎵</span>
     </div>
     <!-- Play overlay -->

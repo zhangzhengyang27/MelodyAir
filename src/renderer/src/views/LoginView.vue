@@ -1,8 +1,8 @@
 <template>
   <div class="flex min-h-[calc(100vh-8rem)] items-center justify-center">
-    <div class="w-full max-w-sm space-y-6 rounded-2xl bg-white p-8 shadow-[0_2px_16px_rgba(0,0,0,0.08)] dark:bg-neutral-800">
+    <div class="w-full max-w-sm space-y-6 rounded-2xl bg-white p-8 shadow-[0_2px_16px_rgba(0,0,0,0.08)] dark:bg-[#171722] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40),0_0_1px_rgba(255,255,255,0.05)]">
       <div class="text-center">
-        <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#FFF5F3] dark:bg-[rgba(196,58,63,0.2)]">
+        <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#FFF5F3] dark:bg-[rgba(255,90,95,0.15)]">
           <span class="text-3xl">🎵</span>
         </div>
         <h1 class="text-title">登录 Melody Air</h1>
@@ -10,18 +10,18 @@
       </div>
 
       <!-- Tab switch -->
-      <div class="flex gap-1 rounded-xl bg-neutral-100 p-1 dark:bg-neutral-700">
+      <div class="flex gap-1 rounded-xl bg-neutral-100 p-1 dark:bg-[#13131C]">
         <button
           class="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
-          :class="loginMode === 'phone' ? 'bg-white text-[#FF5A5F] shadow-sm dark:bg-neutral-600 dark:text-[#FF7F66]' : 'text-neutral-500'"
+          :class="loginMode === 'phone' ? 'bg-white text-[#FF5A5F] shadow-sm dark:bg-[#1F1F2E] dark:text-[#FF7F66]' : 'text-neutral-500 dark:text-[#A1A1B5]'"
           @click="loginMode = 'phone'"
         >
           手机号
         </button>
         <button
           class="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
-          :class="loginMode === 'qr' ? 'bg-white text-[#FF5A5F] shadow-sm dark:bg-neutral-600 dark:text-[#FF7F66]' : 'text-neutral-500'"
-          @click="loginMode = 'qr'; startQrLogin()"
+          :class="loginMode === 'qr' ? 'bg-white text-[#FF5A5F] shadow-sm dark:bg-[#1F1F2E] dark:text-[#FF7F66]' : 'text-neutral-500 dark:text-[#A1A1B5]'"
+          @click="switchToQrMode"
         >
           扫码登录
         </button>
@@ -46,7 +46,7 @@
           />
           <button
             class="shrink-0 rounded-xl px-4 text-sm font-medium transition-colors"
-            :class="countdown > 0 ? 'bg-neutral-100 text-neutral-400 dark:bg-neutral-700' : 'bg-[#FFF5F3] text-[#E0484D] hover:bg-[#FFE8E3] dark:bg-[rgba(196,58,63,0.2)] dark:text-[#FF7F66]'"
+            :class="countdown > 0 ? 'bg-neutral-100 text-neutral-400 dark:bg-[#1F1F2E] dark:text-[#6B6B80]' : 'bg-[#FFF5F3] text-[#E0484D] hover:bg-[#FFE8E3] dark:bg-[rgba(255,90,95,0.15)] dark:text-[#FF7F66]'"
             :disabled="countdown > 0"
             @click="sendCaptcha"
           >
@@ -55,26 +55,34 @@
         </div>
         <button
           class="w-full rounded-xl bg-[#FF5A5F] py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#E0484D] disabled:opacity-50"
-          :disabled="!phone || !captcha"
+          :disabled="!phone || !captcha || processing"
           @click="handlePhoneLogin"
         >
-          登录
+          {{ processing ? '登录中...' : '登录' }}
         </button>
       </div>
 
-      <!-- QR Code login -->
+      <!-- QR Code login（参照 YPM loginAccount.vue） -->
       <div v-else class="flex flex-col items-center gap-4">
         <div
-          class="flex h-48 w-48 items-center justify-center rounded-2xl border border-neutral-200 bg-white dark:border-neutral-600 dark:bg-neutral-700"
+          class="qr-code-container"
+          @click="getQrCodeKey"
         >
-          <img v-if="qrImg" :src="qrImg" alt="QR Code" class="h-44 w-44" />
-          <div v-else class="text-center text-sm text-neutral-400">
-            {{ qrStatus === 'loading' ? '加载中...' : '点击扫码登录' }}
+          <img v-if="qrCodeSvg" :src="qrCodeSvg" alt="QR Code" class="h-48 w-48" />
+          <div v-else class="flex h-48 w-48 items-center justify-center text-sm text-neutral-400">
+            {{ qrCodeInformation === '正在生成二维码...' ? '加载中...' : '点击获取二维码' }}
           </div>
         </div>
-        <p class="text-sm text-neutral-500">
-          {{ qrStatusMessage }}
+        <p class="qr-code-info">
+          {{ qrCodeInformation }}
         </p>
+      </div>
+
+      <!-- Other login methods -->
+      <div class="other-login">
+        <a v-show="loginMode === 'qr'" @click="loginMode = 'phone'">手机号登录</a>
+        <span v-show="loginMode === 'phone'">|</span>
+        <a v-show="loginMode === 'phone'" @click="switchToQrMode">二维码登录</a>
       </div>
 
       <!-- Error message -->
@@ -84,9 +92,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { loginCellphone, sendCaptcha as sendCaptchaApi, getQrKey, createQr, checkQr, getLoginStatus } from '@/api/auth'
+import QRCode from 'qrcode'
+import { loginCellphone, sendCaptcha as sendCaptchaApi } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
@@ -97,25 +106,17 @@ const phone = ref('')
 const captcha = ref('')
 const countdown = ref(0)
 const errorMsg = ref('')
+const processing = ref(false)
 
-// QR code state
-const qrImg = ref('')
-const qrKey = ref('')
-const qrStatus = ref<'idle' | 'loading' | 'waiting' | 'scanned' | 'success' | 'expired'>('idle')
-let qrTimer: ReturnType<typeof setInterval> | null = null
+// QR code state（参照 YPM loginAccount.vue）
+const qrCodeKey = ref('')
+const qrCodeSvg = ref('')
+const qrCodeCheckInterval = ref<ReturnType<typeof setInterval> | null>(null)
+const qrCodeInformation = ref('打开网易云音乐APP扫码登录')
+
 let captchaTimer: ReturnType<typeof setInterval> | null = null
 
-const qrStatusMessage = computed(() => {
-  const messages: Record<string, string> = {
-    idle: '点击上方切换到扫码登录',
-    loading: '正在生成二维码...',
-    waiting: '请使用网易云音乐APP扫码登录',
-    scanned: '扫描成功，请在手机上确认',
-    success: '登录成功！',
-    expired: '二维码已过期，请刷新'
-  }
-  return messages[qrStatus.value] || ''
-})
+// ==================== 手机号登录 =====================
 
 async function sendCaptcha() {
   if (!phone.value || countdown.value > 0) return
@@ -138,105 +139,138 @@ async function sendCaptcha() {
 async function handlePhoneLogin() {
   if (!phone.value || !captcha.value) return
   errorMsg.value = ''
+  processing.value = true
   try {
-    const res: any = await loginCellphone(phone.value, captcha.value)
-    if (res?.cookie || res?.code === 200) {
-      // 保存 cookie 到 userStore 和 localStorage（API 拦截器从这里读取）
-      if (res.cookie) {
-        userStore.cookie = res.cookie
-        localStorage.setItem('user', JSON.stringify({ cookie: res.cookie }))
-      }
-      await fetchUserProfile()
-      router.push('/')
+    const result = await userStore.loginByPhone(phone.value, captcha.value)
+    if (result.success) {
+      router.push('/library')
     } else {
-      errorMsg.value = res?.message || '登录失败'
+      errorMsg.value = result.message || '登录失败'
     }
   } catch (e: any) {
-    errorMsg.value = e?.response?.data?.message || e?.msg || '登录失败'
+    errorMsg.value = e?.message || '登录失败'
+  } finally {
+    processing.value = false
   }
 }
 
-async function startQrLogin() {
-  qrStatus.value = 'loading'
+// ==================== 扫码登录（参照 YPM loginAccount.vue）====================
+
+function switchToQrMode() {
+  loginMode.value = 'qr'
+  getQrCodeKey()
+}
+
+/**
+ * 获取二维码 Key 并生成二维码图片
+ * 参照 YPM loginAccount.vue: getQrCodeKey()
+ */
+async function getQrCodeKey() {
+  qrCodeInformation.value = '正在生成二维码...'
+  qrCodeSvg.value = ''
   errorMsg.value = ''
-  try {
-    const keyRes: any = await getQrKey()
-    qrKey.value = keyRes?.data?.unikey || ''
-    if (!qrKey.value) {
-      errorMsg.value = '获取二维码 key 失败'
-      qrStatus.value = 'idle'
-      return
-    }
-    const qrRes: any = await createQr(qrKey.value)
-    qrImg.value = qrRes?.data?.qrimg || ''
-    qrStatus.value = 'waiting'
 
-    // Poll for QR status
-    if (qrTimer) clearInterval(qrTimer)
-    qrTimer = setInterval(async () => {
-      try {
-        const checkRes: any = await checkQr(qrKey.value)
-        console.log('[QR Check] Response:', checkRes)
-        if (checkRes.code === 803) {
-          // Authorized
-          qrStatus.value = 'success'
-          clearInterval(qrTimer!)
-          qrTimer = null
-          // 保存扫码登录返回的 cookie
-          if (checkRes.cookie) {
-            userStore.cookie = checkRes.cookie
-            localStorage.setItem('user', JSON.stringify({ cookie: checkRes.cookie }))
-          }
-          await fetchUserProfile()
-          router.push('/')
-        } else if (checkRes.code === 802) {
-          // Scanned, waiting for confirm
-          qrStatus.value = 'scanned'
-        } else if (checkRes.code === 800) {
-          // Expired
-          qrStatus.value = 'expired'
-          clearInterval(qrTimer!)
-          qrTimer = null
-        }
-      } catch (e) {
-        console.error('[QR Check] Error:', e)
-        // Continue polling
+  const key = await userStore.getQrCodeKey()
+  if (!key) {
+    errorMsg.value = '获取二维码 key 失败'
+    qrCodeInformation.value = '获取二维码失败，点击重试'
+    return
+  }
+
+  qrCodeKey.value = key
+
+  // ★ 使用 qrcode 库本地渲染 SVG（参照 YPM: QRCode.toString()）
+  try {
+    const svg = await QRCode.toString(
+      `https://music.163.com/login?codekey=${key}`,
+      {
+        width: 192,
+        margin: 0,
+        color: {
+          dark: '#335eea',
+          light: '#00000000'
+        },
+        type: 'svg'
       }
-    }, 2000)
-  } catch (e: any) {
+    )
+    qrCodeSvg.value = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+  } catch (err) {
+    console.error('[QR] Failed to generate QR code SVG:', err)
     errorMsg.value = '生成二维码失败'
-    qrStatus.value = 'idle'
+    return
   }
+
+  // 启动轮询
+  checkQrCodeLogin()
 }
 
-async function fetchUserProfile() {
-  try {
-    // getLoginStatus 需要携带 cookie，但此时可能还没有
-    // 直接从 loginCellphone 响应中获取的 profile 已在 handlePhoneLogin 中处理
-    // 这里额外获取完整用户信息
-    const res: any = await getLoginStatus()
-    const profile = res?.data?.profile || res?.profile
-    if (profile) {
-      userStore.setProfile({
-        userId: profile.userId,
-        nickname: profile.nickname,
-        avatarUrl: profile.avatarUrl,
-        backgroundUrl: profile.backgroundUrl
-      })
-      // 同时将完整用户信息（含 cookie）写入 localStorage，供 API 拦截器使用
-      const userData = JSON.parse(localStorage.getItem('user') || '{}')
-      userData.profile = profile
-      localStorage.setItem('user', JSON.stringify(userData))
-    }
-  } catch {
-    // Ignore
+/**
+ * 轮询检测扫码状态
+ * 参照 YPM loginAccount.vue: checkQrCodeLogin()
+ * - 1秒间隔（YPM 也是 1000ms）
+ * - 800 过期 → 自动重新生成
+ * - 801 等待 → 提示文字
+ * - 802 已扫码 → 提示文字
+ * - 803 成功 → 清除轮询 + 处理登录
+ */
+function checkQrCodeLogin() {
+  // 清除旧的轮询
+  if (qrCodeCheckInterval.value) {
+    clearInterval(qrCodeCheckInterval.value)
   }
+
+  qrCodeCheckInterval.value = setInterval(async () => {
+    if (!qrCodeKey.value) return
+
+    const result = await userStore.checkQrCodeStatus(qrCodeKey.value)
+
+    if (result.code === 800) {
+      // ★ 二维码过期 → 自动重新生成（参照 YPM: this.getQrCodeKey()）
+      qrCodeInformation.value = '二维码已失效，请重新扫码'
+      getQrCodeKey()
+    } else if (result.code === 802) {
+      qrCodeInformation.value = '扫描成功，请在手机上确认登录'
+    } else if (result.code === 801) {
+      qrCodeInformation.value = '打开网易云音乐APP扫码登录'
+    } else if (result.code === 803) {
+      // ★ 授权登录成功
+      if (qrCodeCheckInterval.value) {
+        clearInterval(qrCodeCheckInterval.value)
+        qrCodeCheckInterval.value = null
+      }
+      qrCodeInformation.value = '登录成功，请稍等...'
+
+      // ★ 处理登录成功（参照 YPM: result.code = 200; result.cookie = result.cookie.replaceAll(' HTTPOnly', '')）
+      if (result.cookie) {
+        userStore.handleLoginSuccess(result.cookie)
+      }
+
+      // ★ 获取用户资料和歌单（参照 YPM: fetchUserProfile + fetchLikedPlaylist）
+      try {
+        await userStore.fetchUserProfile()
+        await userStore.fetchLikedPlaylist()
+      } catch (e) {
+        console.error('[QR Login] Failed to fetch user data:', e)
+      }
+
+      router.push('/library')
+    }
+    // 其他状态码继续轮询
+  }, 1000)
 }
+
+// ==================== 生命周期 =====================
+
+onMounted(() => {
+  // 默认进入扫码登录模式（参照 YPM: mode 默认 'qrCode'）
+  loginMode.value = 'qr'
+  getQrCodeKey()
+})
 
 onUnmounted(() => {
-  if (qrTimer) {
-    clearInterval(qrTimer)
-    qrTimer = null
+  if (qrCodeCheckInterval.value) {
+    clearInterval(qrCodeCheckInterval.value)
+    qrCodeCheckInterval.value = null
   }
   if (captchaTimer) {
     clearInterval(captchaTimer)
@@ -248,26 +282,76 @@ onUnmounted(() => {
 <style scoped>
 .input-field {
   width: 100%;
-  border-radius: 0.75rem;
-  border: 1px solid var(--color-neutral-200);
-  background-color: var(--color-neutral-50);
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  background-color: #fafafa;
   padding: 0.625rem 1rem;
   font-size: 0.875rem;
   outline: none;
-  transition: background-color 0.15s, border-color 0.15s;
+  transition: all 0.2s ease;
+  color: #1a1a2e;
 }
 
 .input-field:focus {
   border-color: #FFB0A0;
   background-color: white;
+  box-shadow: 0 0 0 3px rgba(255, 176, 160, 0.15);
 }
 
 .dark .input-field {
-  border-color: var(--color-neutral-600);
-  background-color: var(--color-neutral-700);
+  border-color: rgba(255, 255, 255, 0.10);
+  background-color: #13131C;
+  color: #F0F0F5;
 }
 
 .dark .input-field:focus {
-  border-color: #FF7F66;
+  border-color: rgba(255, 127, 102, 0.55);
+  box-shadow: 0 0 0 3px rgba(255, 90, 95, 0.15);
+}
+
+/* 参照 YPM qr-code-container 样式 */
+.qr-code-container {
+  background-color: rgba(51, 94, 234, 0.06);
+  padding: 24px 24px 21px 24px;
+  border-radius: 1.25rem;
+  margin-bottom: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.qr-code-container:hover {
+  background-color: rgba(51, 94, 234, 0.1);
+}
+
+.dark .qr-code-container {
+  background-color: rgba(51, 94, 234, 0.1);
+}
+
+.qr-code-info {
+  color: var(--color-text, #666);
+  text-align: center;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.other-login {
+  margin-top: 8px;
+  font-size: 13px;
+  text-align: center;
+  color: #666;
+  opacity: 0.68;
+}
+
+.dark .other-login {
+  color: #A1A1B5;
+}
+
+.other-login a {
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.other-login a:hover {
+  color: #335eea;
 }
 </style>

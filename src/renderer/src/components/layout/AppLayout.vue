@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-screen flex-col bg-neutral-50 text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
+  <div class="flex h-screen flex-col bg-neutral-50 text-neutral-900 dark:bg-[#09090B] dark:text-[#F0F0F5]">
     <!-- Title bar (drag region) with window controls -->
     <div class="app-header-drag flex h-9 shrink-0 items-center justify-between px-4">
       <div class="flex items-center gap-1.5">
@@ -46,6 +46,9 @@
         @close="showFullPlayer = false"
       />
     </Transition>
+
+    <!-- Toast notifications -->
+    <ToastContainer />
   </div>
 </template>
 
@@ -55,6 +58,7 @@ import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
 import AppPlayer from './AppPlayer.vue'
 import PlayerFull from '@/components/player/PlayerFull.vue'
+import ToastContainer from '@/components/common/ToastContainer.vue'
 
 const showFullPlayer = ref(false)
 

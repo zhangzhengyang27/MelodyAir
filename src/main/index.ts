@@ -65,7 +65,8 @@ function createWindow(): BrowserWindow {
         'style-src': ["'self'", "'unsafe-inline'"],
         'script-src': ["'self'"],
         'img-src': ["'self'", "data:", "https:"],
-        'connect-src': ["'self'", "http://localhost:*", "https://*"]
+        'connect-src': ["'self'", "http://localhost:*", "https://*"],
+        'media-src': ["'self'", "https:", "blob:"]
       }
     }
   })

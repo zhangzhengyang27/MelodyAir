@@ -6,7 +6,7 @@ import type { Song } from '@/stores/player'
 
 export function usePlayer() {
   const playerStore = usePlayerStore()
-  const { loading, seek, seekByProgress } = useAudio()
+  const { seek, seekByProgress } = useAudio()
 
   const playModeIcon = computed(() => {
     const icons: Record<string, string> = { sequence: '🔀', loop: '🔁', random: '🎲' }
@@ -20,12 +20,13 @@ export function usePlayer() {
 
   async function playSong(song: Song) {
     playerStore.addToPlaylist(song)
-    playerStore.playing = true
+    // 注意：不需要设置 playing=true，因为 addToPlaylist 内部调用 playSong()
+    // AudioEngine 的 onPlay 回调会自动将状态设为 'playing'
   }
 
   async function playSongList(songs: Song[], index = 0) {
     playerStore.setPlaylist(songs, index)
-    playerStore.playing = true
+    // 同上：setPlaylist 内部已触发播放，回调自动管理 playing 状态
   }
 
   async function playSongById(id: number) {
@@ -52,7 +53,6 @@ export function usePlayer() {
   }
 
   return {
-    loading,
     playModeIcon,
     playModeLabel,
     seek,
