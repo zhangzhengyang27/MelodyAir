@@ -22,7 +22,7 @@
     </div>
 
     <!-- Input -->
-    <div v-if="userStore.loggedIn" class="flex gap-3">
+    <div v-if="userStore.isAccountLoggedIn" class="flex gap-3">
       <img
         :src="userStore.profile?.avatarUrl + '?param=50y50'"
         class="h-9 w-9 shrink-0 rounded-full object-cover"
@@ -119,7 +119,7 @@ interface Comment {
 }
 
 const props = defineProps<{
-  type: number // 0: song, 1: mv, 2: playlist, 3: album, 4: dj
+  type: number // 0: song, 1: mv, 2: playlist, 3: album, 4: dj, 5: video, 6: event, 7: radio
   id: number
   title?: string
 }>()
@@ -133,6 +133,7 @@ const commentText = ref('')
 const replyTo = ref<{ commentId: number; nickname: string } | null>(null)
 const page = ref(1)
 const hasMore = ref(false)
+let cursor = 0
 
 const tabs = [
   { label: '热门', value: 0 },
@@ -147,14 +148,28 @@ async function fetchComments() {
   loading.value = true
   page.value = 1
   comments.value = []
+  cursor = 0
   try {
-    const typeMap: Record<number, string> = { 0: 'music', 1: 'mv', 2: 'playlist', 3: 'album', 4: 'dj' }
-    const typeStr = typeMap[props.type] || 'music'
-    const fetcher = activeTab.value === 0 ? getCommentHot : getCommentNew
-    const res: any = await fetcher(props.id, typeStr, 20, (page.value - 1) * 20)
-    total.value = res?.total || 0
-    comments.value = (res?.hotComments || res?.comments || []).map(mapComment)
-    hasMore.value = res?.more || false
+    if (activeTab.value === 0) {
+      // 热门评论：使用数字 type
+      const res: any = await getCommentHot(props.id, props.type, 20, 0)
+      total.value = res?.total || 0
+      comments.value = (res?.hotComments || res?.comments || []).map(mapComment)
+      hasMore.value = res?.more || false
+    } else {
+      // 最新评论：使用新版接口
+      const res: any = await getCommentNew({
+        id: props.id,
+        type: props.type,
+        pageNo: 1,
+        pageSize: 20,
+        sortType: 3
+      })
+      total.value = res?.data?.total || res?.total || 0
+      comments.value = (res?.data?.comments || res?.comments || []).map(mapComment)
+      hasMore.value = res?.data?.more || res?.more || false
+      cursor = res?.data?.cursor || 0
+    }
   } catch {
     // Silent
   } finally {
@@ -165,13 +180,25 @@ async function fetchComments() {
 async function loadMore() {
   page.value++
   try {
-    const typeMap: Record<number, string> = { 0: 'music', 1: 'mv', 2: 'playlist', 3: 'album', 4: 'dj' }
-    const typeStr = typeMap[props.type] || 'music'
-    const fetcher = activeTab.value === 0 ? getCommentHot : getCommentNew
-    const res: any = await fetcher(props.id, typeStr, 20, (page.value - 1) * 20)
-    const newComments = (res?.hotComments || res?.comments || []).map(mapComment)
-    comments.value.push(...newComments)
-    hasMore.value = res?.more || false
+    if (activeTab.value === 0) {
+      const res: any = await getCommentHot(props.id, props.type, 20, (page.value - 1) * 20)
+      const newComments = (res?.hotComments || res?.comments || []).map(mapComment)
+      comments.value.push(...newComments)
+      hasMore.value = res?.more || false
+    } else {
+      const res: any = await getCommentNew({
+        id: props.id,
+        type: props.type,
+        pageNo: page.value,
+        pageSize: 20,
+        sortType: 3,
+        cursor: cursor || undefined
+      })
+      const newComments = (res?.data?.comments || res?.comments || []).map(mapComment)
+      comments.value.push(...newComments)
+      hasMore.value = res?.data?.more || res?.more || false
+      cursor = res?.data?.cursor || cursor
+    }
   } catch {
     // Silent
   }
@@ -180,7 +207,13 @@ async function loadMore() {
 async function submitComment() {
   if (!commentText.value.trim()) return
   try {
-    await sendComment(1, props.type, props.id, commentText.value.trim(), replyTo.value?.commentId)
+    await sendComment({
+      t: replyTo.value ? 2 : 1,
+      type: props.type,
+      id: props.id,
+      content: commentText.value.trim(),
+      commentId: replyTo.value?.commentId
+    })
     commentText.value = ''
     replyTo.value = null
     fetchComments()
@@ -191,9 +224,7 @@ async function submitComment() {
 
 async function handleLike(comment: Comment) {
   try {
-    const typeMap: Record<number, string> = { 0: 'music', 1: 'mv', 2: 'playlist', 3: 'album', 4: 'dj' }
-    const typeStr = typeMap[props.type] || 'music'
-    await likeComment(props.id, comment.commentId, comment.liked ? 0 : 1, typeStr)
+    await likeComment(props.id, comment.commentId, comment.liked ? 0 : 1, props.type)
     comment.liked = !comment.liked
     comment.likedCount += comment.liked ? 1 : -1
   } catch {

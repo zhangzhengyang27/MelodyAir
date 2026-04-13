@@ -51,8 +51,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { getMvDetail, getMvUrl } from '@/api/mv'
-import { getSimiSong } from '@/api/simi'
+import { getMvDetail, getMvUrl, getSimiMv } from '@/api/mv'
 import SectionHeader from '@/components/common/SectionHeader.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { formatPlayCount } from '@/utils/format'
@@ -67,9 +66,10 @@ const simiMvs = ref<any[]>([])
 async function fetchData(id: number) {
   loading.value = true
   try {
-    const [detailRes, urlRes] = await Promise.allSettled([
+    const [detailRes, urlRes, simiRes] = await Promise.allSettled([
       getMvDetail(id),
-      getMvUrl(id)
+      getMvUrl(id),
+      getSimiMv(id)
     ])
 
     if (detailRes.status === 'fulfilled') {
@@ -77,6 +77,9 @@ async function fetchData(id: number) {
     }
     if (urlRes.status === 'fulfilled') {
       mvUrl.value = (urlRes.value as any)?.data?.url || ''
+    }
+    if (simiRes.status === 'fulfilled') {
+      simiMvs.value = (simiRes.value as any)?.mvs || []
     }
   } finally {
     loading.value = false

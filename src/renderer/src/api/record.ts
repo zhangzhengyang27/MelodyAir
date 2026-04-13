@@ -4,10 +4,22 @@ import request from './index'
 export const getRecentSong = (limit = 100) =>
   request.get('/record/recent/song', { params: { limit } })
 
+// 最近播放视频
+export const getRecentVideo = (limit = 100) =>
+  request.get('/record/recent/video', { params: { limit } })
+
+// 最近播放歌单
+export const getRecentPlaylist = (limit = 100) =>
+  request.get('/record/recent/playlist', { params: { limit } })
+
 // 最近播放专辑
 export const getRecentAlbum = (limit = 100) =>
   request.get('/record/recent/album', { params: { limit } })
 
-// 听歌打卡（提交播放记录）
-export const scrobble = (id: number, sourceid: number, time: number) =>
+// 最近播放播客
+export const getRecentDj = (limit = 100) =>
+  request.get('/record/recent/dj', { params: { limit } })
+
+// 听歌打卡
+export const scrobble = (id: number, sourceid: number, time?: number) =>
   request.get('/scrobble', { params: { id, sourceid, time } })

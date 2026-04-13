@@ -20,10 +20,17 @@
         </button>
         <button
           class="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
+          :class="loginMode === 'email' ? 'bg-white text-[#FF5A5F] shadow-sm dark:bg-[#1F1F2E] dark:text-[#FF7F66]' : 'text-neutral-500 dark:text-[#A1A1B5]'"
+          @click="loginMode = 'email'"
+        >
+          邮箱
+        </button>
+        <button
+          class="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
           :class="loginMode === 'qr' ? 'bg-white text-[#FF5A5F] shadow-sm dark:bg-[#1F1F2E] dark:text-[#FF7F66]' : 'text-neutral-500 dark:text-[#A1A1B5]'"
           @click="switchToQrMode"
         >
-          扫码登录
+          扫码
         </button>
       </div>
 
@@ -40,8 +47,8 @@
           <input
             v-model="captcha"
             type="text"
-            placeholder="验证码"
-            maxlength="6"
+            placeholder="验证码 / 密码"
+            maxlength="20"
             class="input-field flex-1"
           />
           <button
@@ -57,6 +64,29 @@
           class="w-full rounded-xl bg-[#FF5A5F] py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#E0484D] disabled:opacity-50"
           :disabled="!phone || !captcha || processing"
           @click="handlePhoneLogin"
+        >
+          {{ processing ? '登录中...' : '登录' }}
+        </button>
+      </div>
+
+      <!-- Email login -->
+      <div v-else-if="loginMode === 'email'" class="space-y-3">
+        <input
+          v-model="email"
+          type="email"
+          placeholder="163网易邮箱"
+          class="input-field"
+        />
+        <input
+          v-model="emailPassword"
+          type="password"
+          placeholder="密码"
+          class="input-field"
+        />
+        <button
+          class="w-full rounded-xl bg-[#FF5A5F] py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#E0484D] disabled:opacity-50"
+          :disabled="!email || !emailPassword || processing"
+          @click="handleEmailLogin"
         >
           {{ processing ? '登录中...' : '登录' }}
         </button>
@@ -92,18 +122,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import QRCode from 'qrcode'
-import { loginCellphone, sendCaptcha as sendCaptchaApi } from '@/api/auth'
+import { sendCaptcha as sendCaptchaApi } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
 const userStore = useUserStore()
 
-const loginMode = ref<'phone' | 'qr'>('phone')
+const loginMode = ref<'phone' | 'qr' | 'email'>('phone')
 const phone = ref('')
 const captcha = ref('')
+const password = ref('')
+const email = ref('')
+const emailPassword = ref('')
 const countdown = ref(0)
 const errorMsg = ref('')
 const processing = ref(false)
@@ -141,7 +173,33 @@ async function handlePhoneLogin() {
   errorMsg.value = ''
   processing.value = true
   try {
-    const result = await userStore.loginByPhone(phone.value, captcha.value)
+    // 如果 captcha 长度 <=6 且为纯数字，视为验证码登录；否则视为密码登录
+    let result
+    if (/^\d{1,6}$/.test(captcha.value)) {
+      result = await userStore.loginByPhone(phone.value, captcha.value)
+    } else {
+      result = await userStore.loginByPassword(phone.value, captcha.value)
+    }
+    if (result.success) {
+      router.push('/library')
+    } else {
+      errorMsg.value = result.message || '登录失败'
+    }
+  } catch (e: any) {
+    errorMsg.value = e?.message || '登录失败'
+  } finally {
+    processing.value = false
+  }
+}
+
+// ==================== 邮箱登录 =====================
+
+async function handleEmailLogin() {
+  if (!email.value || !emailPassword.value) return
+  errorMsg.value = ''
+  processing.value = true
+  try {
+    const result = await userStore.loginByEmail(email.value, emailPassword.value)
     if (result.success) {
       router.push('/library')
     } else {
@@ -161,44 +219,42 @@ function switchToQrMode() {
   getQrCodeKey()
 }
 
+function stopQrPolling() {
+  if (qrCodeCheckInterval.value) {
+    clearInterval(qrCodeCheckInterval.value)
+    qrCodeCheckInterval.value = null
+  }
+}
+
 /**
- * 获取二维码 Key 并生成二维码图片
- * 参照 YPM loginAccount.vue: getQrCodeKey()
+ * 获取二维码 Key 并注册会话（两步）
+ * Step1: /login/qr/key  → 获取 unikey
+ * Step2: /login/qr/create → 注册会话 + 获取二维码内容
  */
 async function getQrCodeKey() {
   qrCodeInformation.value = '正在生成二维码...'
   qrCodeSvg.value = ''
   errorMsg.value = ''
+  stopQrPolling()
 
+  // Step 1: 获取 unikey
   const key = await userStore.getQrCodeKey()
   if (!key) {
     errorMsg.value = '获取二维码 key 失败'
     qrCodeInformation.value = '获取二维码失败，点击重试'
     return
   }
-
   qrCodeKey.value = key
 
-  // ★ 使用 qrcode 库本地渲染 SVG（参照 YPM: QRCode.toString()）
-  try {
-    const svg = await QRCode.toString(
-      `https://music.163.com/login?codekey=${key}`,
-      {
-        width: 192,
-        margin: 0,
-        color: {
-          dark: '#335eea',
-          light: '#00000000'
-        },
-        type: 'svg'
-      }
-    )
-    qrCodeSvg.value = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
-  } catch (err) {
-    console.error('[QR] Failed to generate QR code SVG:', err)
-    errorMsg.value = '生成二维码失败'
+  // Step 2: 注册会话（必须！否则服务端不知道该 key，扫码后无法回调）
+  const qrimgBase64 = await userStore.getQrCodeImage(key)
+  if (!qrimgBase64) {
+    errorMsg.value = '生成二维码失败，点击重试'
     return
   }
+
+  // 使用服务端返回的二维码图片（优先使用 base64 图片，兼容性更好）
+  qrCodeSvg.value = qrimgBase64
 
   // 启动轮询
   checkQrCodeLogin()
@@ -261,10 +317,15 @@ function checkQrCodeLogin() {
 
 // ==================== 生命周期 =====================
 
+// 监听登录模式切换：离开扫码 tab 时停止轮询
+watch(loginMode, (mode) => {
+  if (mode !== 'qr') {
+    stopQrPolling()
+  }
+})
+
 onMounted(() => {
-  // 默认进入扫码登录模式（参照 YPM: mode 默认 'qrCode'）
-  loginMode.value = 'qr'
-  getQrCodeKey()
+  // 默认不启动扫码轮询，等用户点击"扫码"tab 时再启动
 })
 
 onUnmounted(() => {

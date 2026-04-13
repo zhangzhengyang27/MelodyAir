@@ -22,6 +22,10 @@
           <option value="exhigh">高品质 (320K)</option>
           <option value="lossless">无损 (FLAC)</option>
           <option value="hires">Hi-Res 无损</option>
+          <option value="jyeffect">高清环绕声</option>
+          <option value="sky">沉浸环绕声</option>
+          <option value="dolby">杜比全景声</option>
+          <option value="jymaster">超清母带</option>
         </select>
       </div>
 
@@ -49,6 +53,15 @@
           class="number-field w-24"
           @change="($event) => settingsStore.fadeDuration = Number(($event.target as HTMLInputElement).value)"
         />
+      </div>
+
+      <!-- 解灰（替换不可用歌曲） -->
+      <div class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">自动替换灰歌</p>
+          <p class="setting-description">当歌曲不可用时，自动尝试从其他音源替换</p>
+        </div>
+        <ToggleSwitch v-model="settingsStore.enableUnblock" />
       </div>
     </section>
 
@@ -194,6 +207,49 @@
     <section class="settings-card">
       <h2 class="card-title">⚙️ 系统设置</h2>
 
+      <!-- 账号登录（Cookie 导入） -->
+      <div class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">账号状态</p>
+          <p class="setting-description">{{ userStore.isAccountLoggedIn ? `已登录: ${userStore.profile?.nickname || '用户'}` : '未登录' }}</p>
+        </div>
+        <div class="flex gap-2">
+          <button
+            v-if="userStore.isAccountLoggedIn"
+            class="danger-button"
+            @click="handleLogout"
+          >
+            退出登录
+          </button>
+        </div>
+      </div>
+
+      <!-- Cookie 导入 -->
+      <div class="setting-row" v-if="!userStore.isAccountLoggedIn">
+        <div class="setting-info">
+          <p class="setting-label">导入 Cookie 登录</p>
+          <p class="setting-description">从 music.163.com 复制 MUSIC_U 值，快速登录（绕过风控）</p>
+        </div>
+        <div class="flex gap-2 items-center">
+          <input
+            v-model="cookieInput"
+            type="text"
+            class="input-field w-80"
+            placeholder="粘贴 MUSIC_U 值..."
+          />
+          <button
+            class="primary-button"
+            @click="handleImportCookie"
+            :disabled="!cookieInput.trim() || isImportingCookie"
+          >
+            {{ isImportingCookie ? '导入中...' : '导入' }}
+          </button>
+        </div>
+      </div>
+      <div v-if="cookieImportMsg" class="text-xs mt-1 px-3 py-2 rounded-lg" :class="cookieImportSuccess ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'">
+        {{ cookieImportMsg }}
+      </div>
+
       <!-- API 地址 -->
       <div class="setting-row">
         <div class="setting-info">
@@ -272,6 +328,7 @@
 <script setup lang="ts">
 import { ref, onMounted,computed } from 'vue'
 import { useSettingsStore, type MusicQuality } from '@/stores/settings'
+import { useUserStore } from '@/stores/user'
 import { cacheManager } from '@/utils/db'
 
 // 子组件：开关按钮
@@ -294,6 +351,13 @@ const ToggleSwitch = {
 }
 
 const settingsStore = useSettingsStore()
+const userStore = useUserStore()
+
+// Cookie 导入相关
+const cookieInput = ref('')
+const isImportingCookie = ref(false)
+const cookieImportMsg = ref('')
+const cookieImportSuccess = ref(false)
 
 // 缓存相关状态
 const cacheSizeUsed = ref(0)
@@ -369,6 +433,39 @@ function handleMinimizeToTrayChange(enabled: boolean): void {
 function handleAutoLaunchChange(enabled: boolean): void {
   settingsStore.toggleAutoLaunch()
   window.electronAPI?.setAutoLaunch?.(enabled)
+}
+
+/**
+ * 导入 Cookie 登录
+ */
+async function handleImportCookie(): Promise<void> {
+  const value = cookieInput.value.trim()
+  if (!value) return
+
+  isImportingCookie.value = true
+  cookieImportMsg.value = ''
+
+  try {
+    const result = await userStore.importMusicUCookie(value)
+    cookieImportSuccess.value = result.success
+    cookieImportMsg.value = result.message || (result.success ? '登录成功！' : '登录失败')
+    if (result.success) {
+      cookieInput.value = ''
+      setTimeout(() => { cookieImportMsg.value = '' }, 3000)
+    }
+  } catch (e: any) {
+    cookieImportSuccess.value = false
+    cookieImportMsg.value = e?.message || '导入失败'
+  } finally {
+    isImportingCookie.value = false
+  }
+}
+
+/**
+ * 退出登录
+ */
+async function handleLogout(): Promise<void> {
+  await userStore.logout()
 }
 
 /**
@@ -604,6 +701,28 @@ onMounted(async () => {
   background: #DC2626;
   border-color: #DC2626;
   color: white;
+}
+
+.primary-button {
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #FF5A5F, #E0484D);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.primary-button:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.primary-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .danger-button:disabled {

@@ -1,6 +1,6 @@
 <template>
   <div
-    class="fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-[#09090B] to-[#050507] text-[#F0F0F5]"
+    class="fixed inset-0 z-50 grid grid-rows-[auto_1fr] bg-gradient-to-b from-[#09090B] to-[#050507] text-[#F0F0F5]"
   >
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4" style="-webkit-app-region: drag;">
@@ -17,13 +17,14 @@
       <div class="w-10" />
     </div>
 
-    <div class="flex flex-1 items-center gap-12 px-16">
+    <!-- Main Content: 固定高度区域 -->
+    <div class="grid min-h-0 grid-cols-[1fr_384px] gap-12 overflow-hidden px-16">
       <!-- Left: Cover + Controls -->
-      <div class="flex flex-1 flex-col items-center gap-6">
+      <div class="flex flex-col items-center gap-5">
         <!-- Cover with spinning animation -->
-        <div class="relative">
+        <div class="relative shrink-0">
           <div
-            class="h-80 w-80 overflow-hidden rounded-full shadow-2xl transition-transform duration-1000"
+            class="h-72 w-72 overflow-hidden rounded-full shadow-2xl transition-transform duration-1000"
             :class="{ 'animate-spin-slow': playerStore.playing }"
             :style="{ animationDuration: '20s' }"
           >
@@ -40,11 +41,11 @@
             </div>
           </div>
           <!-- Center hole -->
-          <div class="absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#09090B] ring-4 ring-[#0F0F14]" />
+          <div class="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#09090B] ring-4 ring-[#0F0F14]" />
         </div>
 
         <!-- Song info -->
-        <div class="w-full max-w-sm text-center">
+        <div class="w-full max-w-sm text-center shrink-0">
           <h2 class="text-xl font-bold">{{ playerStore.currentSong?.name || '未在播放' }}</h2>
           <p class="mt-1 text-sm text-neutral-400">
             {{ playerStore.currentSong?.artists?.map(a => a.name).join(' / ') || '--' }}
@@ -55,17 +56,17 @@
         </div>
 
         <!-- Progress -->
-        <div class="w-full max-w-sm">
+        <div class="w-full max-w-sm shrink-0">
           <div
             class="group relative h-1.5 cursor-pointer rounded-full bg-[#1F1F2E]"
             @click="handleProgressClick"
           >
             <div
-            class="absolute left-0 top-0 h-full rounded-full bg-[#FF5A5F] transition-[width] duration-100"
-            :style="{ width: (playerStore.progress * 100) + '%' }"
-          />
-          <div
-            class="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#FF5A5F] opacity-0 shadow transition-opacity group-hover:opacity-100"
+              class="absolute left-0 top-0 h-full rounded-full bg-[#FF5A5F] transition-[width] duration-100"
+              :style="{ width: (playerStore.progress * 100) + '%' }"
+            />
+            <div
+              class="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#FF5A5F] opacity-0 shadow transition-opacity group-hover:opacity-100"
               :style="{ left: (playerStore.progress * 100) + '%' }"
             />
           </div>
@@ -76,7 +77,7 @@
         </div>
 
         <!-- Controls -->
-        <div class="flex items-center gap-6">
+        <div class="flex items-center gap-6 shrink-0">
           <button class="player-btn-lg" @click="playerStore.togglePlayMode" :title="playModeLabel">
             <span class="text-lg">{{ playModeIcon }}</span>
           </button>
@@ -130,9 +131,9 @@
         </div>
       </div>
 
-      <!-- Right: Lyrics -->
-      <div class="flex h-full w-96 flex-col">
-        <div class="mb-4 flex items-center justify-between">
+      <!-- Right: Lyrics - 使用 overflow-hidden 确保高度约束传递给子级 -->
+      <div class="flex flex-col overflow-hidden">
+        <div class="mb-3 shrink-0">
           <h3 class="text-sm font-medium text-neutral-400">歌词</h3>
         </div>
         <LyricView
@@ -174,12 +175,12 @@ const isLiked = computed(() =>
 )
 
 const playModeIcon = computed(() => {
-  const icons: Record<string, string> = { sequence: '🔀', loop: '🔁', random: '🎲' }
+  const icons: Record<string, string> = { sequence: '🔀', loop: '🔁', random: '🎲', loopOne: '🔂', reversed: '⏮' }
   return icons[playerStore.playMode]
 })
 
 const playModeLabel = computed(() => {
-  const labels: Record<string, string> = { sequence: '顺序播放', loop: '单曲循环', random: '随机播放' }
+  const labels: Record<string, string> = { sequence: '顺序播放', loop: '列表循环', random: '随机播放', loopOne: '单曲循环', reversed: '倒序播放' }
   return labels[playerStore.playMode]
 })
 

@@ -15,15 +15,21 @@ export function useLyric() {
   let lastUpdateTime = 0
   const UPDATE_INTERVAL_MS = 100
 
+  // ★ 记录上次加载歌词的 songId，避免重复请求
+  let lastFetchedSongId: number | null = null
+
   async function fetchLyric(songId: number) {
+    if (songId === lastFetchedSongId && lyrics.value.length > 0) return
+    lastFetchedSongId = songId
+
     loading.value = true
     try {
       console.log(`[lyric] 请求歌词: songId=${songId}`)
       const res: any = await getLyric(songId)
-      console.log('[lyric] /lyric 返回:', JSON.stringify(res)?.slice(0, 500))
-      const lrc = res?.lrc?.lyric || res?.tlyric?.lyric || ''
-      if (!res?.lrc?.lyric && !res?.tlyric?.lyric) {
-        console.warn(`[lyric] songId=${songId} 无歌词数据, 原始响应 code=${res?.code}`)
+      console.log('[lyric] /lyric 返回:', JSON.stringify(res)?.slice(0, 800))
+      const lrc = res?.lrc?.lyric || ''
+      if (!res?.lrc?.lyric) {
+        console.warn(`[lyric] songId=${songId} 无歌词数据, 原始响应 code=${res?.code}, keys=${Object.keys(res || {}).join(',')}`)
       }
       if (lrc) {
         lyrics.value = parseLyric(lrc)
@@ -40,6 +46,7 @@ export function useLyric() {
   }
 
   // Watch current song changes to fetch lyrics
+  // ★ immediate: true 确保组件挂载时如果已有歌曲也能立即加载歌词
   watch(
     () => playerStore.currentSong?.id,
     (newId) => {
@@ -47,8 +54,10 @@ export function useLyric() {
         fetchLyric(newId)
       } else {
         lyrics.value = []
+        lastFetchedSongId = null
       }
-    }
+    },
+    { immediate: true }
   )
 
   // Watch current time to update lyric index (throttled)

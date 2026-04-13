@@ -7,9 +7,25 @@ const request = axios.create({
 })
 
 /**
+ * 从 localStorage 读取并拼接完整的 cookie 字符串
+ * 用于通过 URL params 传递给后端（绕过浏览器 Cookie 头限制）
+ */
+function getCookieString(): string {
+  const parts: string[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key?.startsWith('cookie-')) {
+      const value = localStorage.getItem(key)
+      if (value) parts.push(`${encodeURIComponent(key.replace('cookie-', ''))}=${encodeURIComponent(value)}`)
+    }
+  }
+  return parts.join('; ')
+}
+
+/**
  * 请求拦截器：参照 YPM utils/request.js
  * 1. 动态设置 baseURL
- * 2. 注入 MUSIC_U cookie（从 localStorage 读取拆分存储的 cookie）
+ * 2. 注入 MUSIC_U cookie（通过 URL params 传递，避免浏览器拦截 Cookie 头）
  * 3. 登录相关接口不注入 cookie
  */
 request.interceptors.request.use(
@@ -20,58 +36,30 @@ request.interceptors.request.use(
     }
 
     // 登录相关接口不注入 cookie（避免干扰登录流程）
-    const isLoginRelatedUrl = config.url?.includes('/login/qr/') ||
+    // /login 邮箱登录需精确匹配（排除 /login/cellphone、/login/qr/ 等）
+    const isLoginEmailUrl = config.url === '/login' || config.url?.startsWith('/login?')
+    const isLoginRelatedUrl = isLoginEmailUrl ||
+                              config.url?.includes('/login/qr/') ||
                               config.url?.includes('/login/cellphone') ||
                               config.url?.includes('/captcha/sent') ||
                               config.url?.includes('/captcha/verify') ||
-                              config.url?.includes('/login/captcha') ||
-                              config.url === '/login'
+                              config.url?.includes('/register/anonimous') ||
+                              config.url?.includes('/register/cellphone')
 
     if (isLoginRelatedUrl) {
       return config
     }
 
-    // ★ 参照 YPM: 使用 MUSIC_U cookie 注入
-    // 优先从 localStorage 读取拆分存储的 cookie
-    const musicU = localStorage.getItem('cookie-MUSIC_U')
-    if (musicU) {
-      // 拼接完整 cookie 字符串（包含 __csrf 等）
-      const cookieParts: string[] = []
-      // 遍历 localStorage 中所有 cookie- 前缀的键
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key?.startsWith('cookie-')) {
-          const value = localStorage.getItem(key)
-          if (value) {
-            cookieParts.push(`${key.replace('cookie-', '')}=${value}`)
-          }
-        }
-      }
-      if (cookieParts.length > 0) {
-        config.headers.Cookie = cookieParts.join('; ')
-        console.log(`[api] ${config.method?.toUpperCase()} ${config.baseURL}${config.url} 注入 cookie (${cookieParts.length} 个)`)
-      } else {
-        console.warn(`[api] MUSIC_U 存在但无 cookie parts`)
-      }
-      return config
-    }
-
-    // Fallback: 兼容旧版整串 cookie 存储方式
-    const userCookie = localStorage.getItem('user')
-    if (userCookie) {
-      try {
-        const userData = JSON.parse(userCookie)
-        if (userData?.cookie) {
-          config.headers.Cookie = userData.cookie
-          console.log(`[api] ${config.method?.toUpperCase()} ${config.url} 使用 fallback cookie`)
-        }
-      } catch {
-        // Ignore parse errors
-      }
+    // ★ 通过 URL params 注入 cookie（浏览器会拦截 headers.Cookie 设置）
+    // 后端 server.js 会从 req.query.cookie 合并到模块参数中
+    const cookieStr = getCookieString()
+    if (cookieStr) {
+      config.params = config.params || {}
+      ;(config.params as any).cookie = cookieStr
     }
 
     // 无 cookie 时警告（部分接口需要登录）
-    if (!config.headers.Cookie && !isLoginRelatedUrl) {
+    if (!cookieStr && !isLoginRelatedUrl) {
       console.warn(`[api] ${config.method?.toUpperCase()} ${config.baseURL}${config.url} 无 Cookie，接口可能需要登录`)
     }
 

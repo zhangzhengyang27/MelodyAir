@@ -4,7 +4,7 @@ import { ref, computed } from 'vue'
 /**
  * 音质选项
  */
-export type MusicQuality = 'standard' | 'higher' | 'exhigh' | 'lossless' | 'hires'
+export type MusicQuality = 'standard' | 'higher' | 'exhigh' | 'lossless' | 'hires' | 'jyeffect' | 'sky' | 'dolby' | 'jymaster'
 
 /**
  * 主题模式
@@ -30,6 +30,9 @@ export interface SettingsState {
   enableCache: boolean
   cacheLimitMB: number
   autoCacheNextTrack: boolean
+
+  // 解灰设置
+  enableUnblock: boolean
 
   // 歌词设置
   showLyricTranslation: boolean
@@ -61,6 +64,9 @@ export const useSettingsStore = defineStore('settings', () => {
   const cacheLimitMB = ref(500) // 默认 500MB
   const autoCacheNextTrack = ref(true)
 
+  // 解灰设置
+  const enableUnblock = ref(true)
+
   // 歌词设置
   const showLyricTranslation = ref(true)
   const lyricFontSize = ref(16)
@@ -86,7 +92,11 @@ export const useSettingsStore = defineStore('settings', () => {
     higher: '较高音质 (192K)',
     exhigh: '高品质 (320K)',
     lossless: '无损音质',
-    hires: 'Hi-Res 无损'
+    hires: 'Hi-Res 无损',
+    jyeffect: '高清环绕声',
+    sky: '沉浸环绕声',
+    dolby: '杜比全景声',
+    jymaster: '超清母带'
   }
 
   /**
@@ -128,6 +138,7 @@ export const useSettingsStore = defineStore('settings', () => {
     enableCache,
     cacheLimitMB,
     autoCacheNextTrack,
+    enableUnblock,
     showLyricTranslation,
     lyricFontSize,
     lyricFontFamily,
@@ -155,7 +166,7 @@ export const useSettingsStore = defineStore('settings', () => {
   persist: {
     pick: [
       'theme', 'lyricsBackground', 'musicQuality', 'autoPlay', 'fadeDuration',
-      'enableCache', 'cacheLimitMB', 'autoCacheNextTrack',
+      'enableCache', 'cacheLimitMB', 'autoCacheNextTrack', 'enableUnblock',
       'showLyricTranslation', 'lyricFontSize', 'lyricFontFamily', 'lyricAlignment',
       'minimizeToTray', 'globalShortcut', 'autoLaunch', '_apiBase'
     ]

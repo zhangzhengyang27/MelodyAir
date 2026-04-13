@@ -59,6 +59,12 @@
           <p class="mt-2 line-clamp-1 text-sm">{{ mv.name }}</p>
         </div>
       </div>
+
+      <!-- Description -->
+      <div v-if="activeTab === 'desc'" class="space-y-4">
+        <p v-if="desc" class="text-sm leading-relaxed text-neutral-700 dark:text-[#A1A1B5]">{{ desc }}</p>
+        <p v-else class="text-sm text-neutral-400">暂无简介</p>
+      </div>
     </template>
   </div>
 </template>
@@ -66,43 +72,61 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { getArtistDetail, getArtistSongs, getArtistAlbum, getArtistMv } from '@/api/artist'
+import { getArtistDetail, getArtistDetailDynamic, getArtistSongs, getArtistAlbum, getArtistMv, getArtistDesc } from '@/api/artist'
 import SongTable from '@/components/common/SongTable.vue'
 import CoverImage from '@/components/common/CoverImage.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { usePlayer } from '@/composables/usePlayer'
+import { useUserStore } from '@/stores/user'
 import { formatDate } from '@/utils/format'
 import type { Song } from '@/stores/player'
 
 const route = useRoute()
 const { playSongList } = usePlayer()
+const userStore = useUserStore()
 
 const loading = ref(false)
 const songsLoading = ref(false)
 const artist = ref<any>(null)
+const artistDynamic = ref<any>(null)
 const hotSongs = ref<Song[]>([])
 const albums = ref<any[]>([])
 const mvs = ref<any[]>([])
+const desc = ref('')
 const activeTab = ref('songs')
 
 const tabs = [
   { label: '热门歌曲', value: 'songs' },
   { label: '专辑', value: 'albums' },
-  { label: 'MV', value: 'mvs' }
+  { label: 'MV', value: 'mvs' },
+  { label: '简介', value: 'desc' }
 ]
 
 async function fetchData(id: number) {
   loading.value = true
   try {
-    const res: any = await getArtistDetail(id)
-    const data = res?.data?.artist || res?.artist
-    if (data) {
-      artist.value = {
-        name: data.name,
-        avatar: data.picUrl || data.cover,
-        briefDesc: data.briefDesc || '',
-        identifyTag: data.identify?.imageDesc || ''
+    const [detailRes, dynamicRes, descRes] = await Promise.allSettled([
+      getArtistDetail(id),
+      getArtistDetailDynamic(id),
+      getArtistDesc(id)
+    ])
+    if (detailRes.status === 'fulfilled') {
+      const data = (detailRes.value as any)?.data?.artist || (detailRes.value as any)?.artist
+      if (data) {
+        artist.value = {
+          name: data.name,
+          avatar: data.picUrl || data.cover,
+          briefDesc: data.briefDesc || '',
+          identifyTag: data.identify?.imageDesc || ''
+        }
       }
+    }
+    if (dynamicRes.status === 'fulfilled') {
+      artistDynamic.value = (dynamicRes.value as any)?.data || {}
+    }
+    if (descRes.status === 'fulfilled') {
+      const descData = (descRes.value as any)
+      desc.value = descData?.briefDesc || ''
     }
   } finally {
     loading.value = false

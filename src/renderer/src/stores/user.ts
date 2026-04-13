@@ -2,15 +2,17 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import {
   loginCellphone,
+  loginEmail,
+  loginAnonimous,
   loginQrCodeKey,
+  loginQrCodeCreate,
   loginQrCodeCheck,
   getLoginStatus,
   refreshCookie,
   logout as apiLogout
 } from '@/api/auth'
-import { getUserPlaylist } from '@/api/user'
+import { getUserPlaylist, getUserAccount, getLikeList, likeSong, likeSongV2 } from '@/api/user'
 import { getPlaylistDetail } from '@/api/playlist'
-import { getLikeList } from '@/api/user'
 
 export interface UserProfile {
   userId: number
@@ -41,7 +43,6 @@ export const useUserStore = defineStore('user', () => {
 
   const loggedIn = computed(() => !!profile.value)
 
-  // ★ YPM 风格的 cookie 判断：MUSIC_U 存在即为账号登录
   const isAccountLoggedIn = computed(() => {
     return loginMode.value === 'account' && !!cookie.value
   })
@@ -63,17 +64,10 @@ export const useUserStore = defineStore('user', () => {
     profile.value = p
   }
 
-  // ==================== Cookie 处理（参照 YPM setCookies）====================
+  // ==================== Cookie 处理 ====================
 
-  /**
-   * 将 cookie 字符串拆分写入 document.cookie 和 localStorage
-   * 参照 YPM utils/auth.js: setCookies()
-   * YPM 的 cookie 格式：key=value;;key=value;;... （用 ;; 分隔）
-   * 但 NCM API 返回的 cookie 可能也用 ; 分隔，这里兼容两种
-   */
   function setCookies(cookieStr: string): void {
     if (!cookieStr) return
-    // 兼容 ;; 和 ; 分隔
     const cookies = cookieStr.split(/;;|;(?![a-zA-Z])/)
     for (const c of cookies) {
       const trimmed = c.trim()
@@ -90,28 +84,17 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  /**
-   * 从 localStorage 读取单个 cookie 值
-   */
   function getCookie(key: string): string | null {
-    // 先从 document.cookie 读取
     const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${key}=([^;]*)`))
     if (match?.[1]) return match[1]
-    // fallback 到 localStorage
     return localStorage.getItem(`cookie-${key}`)
   }
 
-  /**
-   * 移除单个 cookie
-   */
   function removeCookie(key: string): void {
     document.cookie = `${key}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
     localStorage.removeItem(`cookie-${key}`)
   }
 
-  /**
-   * 是否已登录（通过 MUSIC_U cookie 判断）
-   */
   function isLoggedIn(): boolean {
     return getCookie('MUSIC_U') !== null
   }
@@ -137,9 +120,6 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  /**
-   * 获取用户资料（参照 YPM fetchUserProfile）
-   */
   async function fetchUserProfile(): Promise<void> {
     try {
       const res: any = await getLoginStatus()
@@ -166,8 +146,17 @@ export const useUserStore = defineStore('user', () => {
   }
 
   /**
-   * 获取用户歌单（参照 YPM fetchLikedPlaylist）
+   * 获取用户账号信息（/user/account）
    */
+  async function fetchUserAccount(): Promise<any> {
+    try {
+      const res: any = await getUserAccount()
+      return res
+    } catch {
+      return null
+    }
+  }
+
   async function fetchLikedPlaylist(): Promise<void> {
     if (!profile.value) return
     try {
@@ -180,7 +169,6 @@ export const useUserStore = defineStore('user', () => {
           trackCount: p.trackCount,
           playCount: p.playCount
         }))
-        // 更新"喜欢的歌曲"歌单 ID（第一个歌单即为"我喜欢的音乐"）
         if (res.playlist[0]) {
           likedSongPlaylistId.value = res.playlist[0].id
         }
@@ -191,11 +179,11 @@ export const useUserStore = defineStore('user', () => {
   }
 
   /**
-   * 手机号登录
+   * 手机号+验证码登录
    */
   async function loginByPhone(phone: string, captcha: string) {
     try {
-      const res: any = await loginCellphone(phone, captcha)
+      const res: any = await loginCellphone({ phone, captcha })
       if (res?.cookie || res?.code === 200) {
         if (res.cookie) {
           handleLoginSuccess(res.cookie)
@@ -206,7 +194,65 @@ export const useUserStore = defineStore('user', () => {
       }
       return { success: false, message: res?.message || '登录失败' }
     } catch (e: any) {
-      return { success: false, message: e?.message || '登录失败' }
+      return { success: false, message: e?.response?.data?.message || e?.message || '登录失败' }
+    }
+  }
+
+  /**
+   * 手机号+密码登录
+   */
+  async function loginByPassword(phone: string, password: string, countrycode?: string) {
+    try {
+      const res: any = await loginCellphone({ phone, password, countrycode })
+      if (res?.cookie || res?.code === 200) {
+        if (res.cookie) {
+          handleLoginSuccess(res.cookie)
+        }
+        await fetchUserProfile()
+        await fetchLikedPlaylist()
+        return { success: true }
+      }
+      return { success: false, message: res?.message || '登录失败' }
+    } catch (e: any) {
+      return { success: false, message: e?.response?.data?.message || e?.message || '登录失败' }
+    }
+  }
+
+  /**
+   * 邮箱登录
+   */
+  async function loginByEmail(email: string, password: string) {
+    try {
+      const res: any = await loginEmail(email, password)
+      if (res?.cookie || res?.code === 200) {
+        if (res.cookie) {
+          handleLoginSuccess(res.cookie)
+        }
+        await fetchUserProfile()
+        await fetchLikedPlaylist()
+        return { success: true }
+      }
+      return { success: false, message: res?.message || '登录失败' }
+    } catch (e: any) {
+      return { success: false, message: e?.response?.data?.message || e?.message || '登录失败' }
+    }
+  }
+
+  /**
+   * 游客登录
+   */
+  async function loginAsAnonimous() {
+    try {
+      const res: any = await loginAnonimous()
+      if (res?.cookie || res?.code === 200) {
+        if (res.cookie) {
+          handleLoginSuccess(res.cookie)
+        }
+        return { success: true }
+      }
+      return { success: false, message: res?.message || '游客登录失败' }
+    } catch (e: any) {
+      return { success: false, message: e?.message || '游客登录失败' }
     }
   }
 
@@ -218,6 +264,21 @@ export const useUserStore = defineStore('user', () => {
       const res: any = await loginQrCodeKey()
       if (res?.code === 200) {
         return res.data?.unikey || null
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * 扫码登录 - 生成二维码图片（第二步）
+   */
+  async function getQrCodeImage(key: string): Promise<string | null> {
+    try {
+      const res: any = await loginQrCodeCreate(key, true)
+      if (res?.code === 200) {
+        return res.data?.qrimg || null
       }
       return null
     } catch {
@@ -242,21 +303,58 @@ export const useUserStore = defineStore('user', () => {
   }
 
   /**
-   * 登录成功的统一处理（参照 YPM handleLoginResponse）
+   * 登录成功的统一处理
    */
   function handleLoginSuccess(cookieStr: string): void {
-    // 1. 清理 HTTPOnly 标记（Electron 端不需要）
     const cleanCookie = cookieStr.replaceAll(' HTTPOnly', '')
-    // 2. 保存 cookie（YPM 风格：拆分写入）
     setCookies(cleanCookie)
-    // 3. 同时保存整串 cookie 到 Pinia（供持久化）
     cookie.value = cleanCookie
-    // 4. 标记登录模式
     loginMode.value = 'account'
   }
 
   /**
-   * 刷新 Cookie（参照 YPM dailyTask）
+   * 直接导入 MUSIC_U Cookie（从浏览器复制）
+   * 导入后自动获取用户信息（获取失败不影响登录状态）
+   */
+  async function importMusicUCookie(musicUValue: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      // 写入 localStorage（api/index.ts 拦截器从这里读取）
+      localStorage.setItem('cookie-MUSIC_U', musicUValue)
+      // ★ 文档要求：cookie 需要传入 os=pc 保证返回正常码率的 url
+      localStorage.setItem('cookie-os', 'pc')
+      // 同步到 cookie 状态
+      cookie.value = `MUSIC_U=${musicUValue}`
+      loginMode.value = 'account'
+
+      // 尝试多种方式获取用户信息
+      await fetchUserProfile()
+      if (!profile.value) {
+        // 备用：尝试 /user/account 接口
+        const accountRes: any = await fetchUserAccount()
+        if (accountRes?.account) {
+          const acc = accountRes.account
+          profile.value = {
+            userId: acc.id,
+            nickname: acc.userName || acc.nickname || '',
+            avatarUrl: accountRes.profile?.avatarUrl || '',
+            backgroundUrl: '',
+            vipType: accountRes.profile?.vipType || 0
+          }
+        }
+      }
+      if (profile.value) {
+        await fetchLikedPlaylist()
+        return { success: true, message: `登录成功：${profile.value.nickname}` }
+      }
+      return { success: true, message: 'Cookie 已导入（用户信息将在下次请求时刷新）' }
+    } catch (e: any) {
+      console.warn('[User] importMusicUCookie 异常:', e.message)
+      return { success: true, message: 'Cookie 已导入' }
+    }
+  }
+
+  /**
+   * 刷新 Cookie
    */
   async function refreshLoginCookie(): Promise<void> {
     if (!isAccountLoggedIn.value) return
@@ -282,7 +380,6 @@ export const useUserStore = defineStore('user', () => {
         trackCount: p.trackCount,
         playCount: p.playCount
       }))
-      // 更新"喜欢的歌曲"歌单 ID
       if (res?.playlist?.[0]) {
         likedSongPlaylistId.value = res.playlist[0].id
       }
@@ -303,7 +400,23 @@ export const useUserStore = defineStore('user', () => {
   }
 
   /**
-   * 退出登录（参照 YPM doLogout）
+   * 喜欢歌曲（旧版 /like）
+   */
+  async function likeSongById(songId: number, like = true): Promise<boolean> {
+    try {
+      const res: any = await likeSong(songId, like)
+      if (res?.code === 200) {
+        toggleLike(songId)
+        return true
+      }
+      return false
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * 退出登录
    */
   async function logout() {
     try {
@@ -340,14 +453,21 @@ export const useUserStore = defineStore('user', () => {
     isLoggedIn,
     checkLoginStatus,
     fetchUserProfile,
+    fetchUserAccount,
     fetchLikedPlaylist,
     loginByPhone,
+    loginByPassword,
+    loginByEmail,
+    loginAsAnonimous,
     getQrCodeKey,
+    getQrCodeImage,
     checkQrCodeStatus,
     handleLoginSuccess,
+    importMusicUCookie,
     refreshLoginCookie,
     fetchUserPlaylists,
     fetchLikedSongIds,
+    likeSongById,
     logout
   }
 }, {

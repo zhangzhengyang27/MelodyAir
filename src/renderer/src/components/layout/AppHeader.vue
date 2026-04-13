@@ -44,7 +44,7 @@
         {{ isDark ? '☀️' : '🌙' }}
       </button>
       <RouterLink
-        v-if="!userStore.loggedIn"
+        v-if="!userStore.isAccountLoggedIn"
         to="/login"
         class="flex h-8 items-center rounded-full bg-[#FF5A5F] px-4 text-sm font-medium text-white transition-colors hover:bg-[#E0484D]"
       >
@@ -52,10 +52,17 @@
       </RouterLink>
       <RouterLink v-else to="/library" class="flex items-center gap-2">
         <img
-          :src="userStore.profile?.avatarUrl"
+          v-if="userStore.profile?.avatarUrl"
+          :src="userStore.profile.avatarUrl"
           alt="avatar"
           class="h-8 w-8 rounded-full object-cover ring-2 ring-[#FFE8E3] dark:ring-[rgba(255,90,95,0.3)]"
         />
+        <div
+          v-else
+          class="flex h-8 w-8 items-center justify-center rounded-full bg-[#FF5A5F] text-sm font-bold text-white ring-2 ring-[#FFE8E3] dark:ring-[rgba(255,90,95,0.3)]"
+        >
+          {{ (userStore.profile?.nickname || 'U').charAt(0).toUpperCase() }}
+        </div>
       </RouterLink>
     </div>
   </header>

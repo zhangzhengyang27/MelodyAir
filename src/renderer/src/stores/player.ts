@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { AudioEngine, type PlayMode, type PlayerStatus } from '../utils/player'
-import { getSongUrl } from '../api/song'
+import { getSongUrlV1, getSongUrlMatch } from '../api/song'
 import { scrobble } from '../api/record'
 import { cacheManager, arrayBufferToBlobUrl, blobToArrayBuffer } from '../utils/db'
 import { useSettingsStore } from './settings'
@@ -147,22 +147,29 @@ export const usePlayerStore = defineStore('player', () => {
       }
     }
 
-    // 2. 从 API 获取
+    // 2. 从 API 获取（使用 /song/url/v1 新版接口）
     try {
       const quality = settingsStore.musicQuality || 'exhigh'
       console.log(`[player] 请求音频URL: songId=${songId}, quality=${quality}, apiBase=${settingsStore.apiBase}`)
-      const res: any = await getSongUrl(songId, quality)
-      console.log('[player] /song/url 原始返回:', JSON.stringify(res)?.slice(0, 800))
+      const res: any = await getSongUrlV1(songId, quality)
+      console.log('[player] /song/url/v1 原始返回:', JSON.stringify(res)?.slice(0, 800))
       const url = res?.data?.[0]?.url
       const freeTrialInfo = res?.data?.[0]?.freeTrialInfo
       console.log(`[player] 解析结果: url=${url ? url.slice(0, 100) + '...' : 'null'}, freeTrialInfo=${JSON.stringify(freeTrialInfo)}`)
 
       if (!url) {
+        // 3. 尝试解灰获取
+        if (settingsStore.enableUnblock) {
+          console.log(`[player] songId=${songId} 尝试解灰获取`)
+          const unblockRes: any = await getSongUrlMatch(songId)
+          const unblockUrl = unblockRes?.data?.[0]?.url
+          if (unblockUrl) {
+            return unblockUrl.replace(/^http:/, 'https:')
+          }
+        }
         console.warn(`[player] songId=${songId} 无可用音源（可能 VIP 歌曲/地区限制/版权下架）`)
         return null
       }
-      // 注意：NCMAPI 中免费歌曲 freeTrialInfo 为 null，VIP 试听歌曲有值
-      // 原逻辑 `!== null` 会把 freeTrialInfo=undefined（正常情况）也误判为跳过！
       if (freeTrialInfo !== null && freeTrialInfo !== undefined) {
         console.warn(`[player] songId=${songId} 是试听歌曲，跳过`)
         return null
@@ -323,6 +330,7 @@ export const usePlayerStore = defineStore('player', () => {
     if (!song) return
 
     try {
+      initAudioEngine()
       status.value = 'loading'
       const url = await getAudioSource(song.id)
       if (!url) {

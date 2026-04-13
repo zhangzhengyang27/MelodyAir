@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-6">
-    <div v-if="!userStore.loggedIn" class="flex min-h-[40vh] items-center justify-center">
+    <div v-if="!userStore.isAccountLoggedIn" class="flex min-h-[40vh] items-center justify-center">
       <div class="text-center">
         <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-100 dark:bg-[#1F1F2E]">
           <span class="text-4xl">🎵</span>
@@ -97,7 +97,12 @@ const tabs = [
 ]
 
 onMounted(async () => {
-  if (!userStore.profile) return
+  if (!userStore.isAccountLoggedIn) return
+  // Cookie 导入时可能暂无 profile，尝试从 /login/status 获取
+  if (!userStore.profile) {
+    await userStore.fetchUserProfile()
+    if (!userStore.profile) return
+  }
   loading.value = true
   const uid = userStore.profile.userId
 

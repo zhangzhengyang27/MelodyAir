@@ -1,36 +1,61 @@
 import request from './index'
 
-// 热门评论
-export const getCommentHot = (
-  id: number,
-  type: 'music' | 'mv' | 'playlist' | 'album' | 'dj' = 'music',
-  limit = 20,
-  offset = 0
-) =>
-  request.get('/comment/hot', { params: { id, type, limit, offset } })
+// 歌曲评论
+export const getCommentMusic = (id: number, limit = 20, offset = 0, before?: number) =>
+  request.get('/comment/music', { params: { id, limit, offset, before } })
 
-// 最新评论
-export const getCommentNew = (
-  id: number,
-  type: 'music' | 'mv' | 'playlist' | 'album' | 'dj' = 'music',
-  limit = 20,
-  offset = 0
-) =>
-  request.get('/comment/new', { params: { id, type, limit, offset } })
+// 专辑评论
+export const getCommentAlbum = (id: number, limit = 20, offset = 0, before?: number) =>
+  request.get('/comment/album', { params: { id, limit, offset, before } })
 
-// 点赞评论
-export const likeComment = (id: number, cid: number, t: 1 | 0, type: 'music' | 'mv' | 'playlist' | 'album' | 'dj' = 'music') =>
+// 歌单评论
+export const getCommentPlaylist = (id: number, limit = 20, offset = 0, before?: number) =>
+  request.get('/comment/playlist', { params: { id, limit, offset, before } })
+
+// MV 评论
+export const getCommentMv = (id: number, limit = 20, offset = 0, before?: number) =>
+  request.get('/comment/mv', { params: { id, limit, offset, before } })
+
+// 电台节目评论
+export const getCommentDj = (id: number, limit = 20, offset = 0, before?: number) =>
+  request.get('/comment/dj', { params: { id, limit, offset, before } })
+
+// 视频评论
+export const getCommentVideo = (id: number, limit = 20, offset = 0, before?: number) =>
+  request.get('/comment/video', { params: { id, limit, offset, before } })
+
+// 热门评论（通用）
+export const getCommentHot = (id: number, type: number, limit = 20, offset = 0, before?: number) =>
+  request.get('/comment/hot', { params: { id, type, limit, offset, before } })
+
+// 新版评论接口
+export const getCommentNew = (params: { id: number; type: number; pageNo?: number; pageSize?: number; sortType?: number; cursor?: number }) =>
+  request.get('/comment/new', { params })
+
+// 楼层评论
+export const getCommentFloor = (params: { parentCommentId: number; id: number; type: number; limit?: number; time?: number }) =>
+  request.get('/comment/floor', { params })
+
+// 评论统计数据
+export const getCommentInfoList = (type: number, ids: string) =>
+  request.get('/comment/info/list', { params: { type, ids } })
+
+// 给评论点赞
+export const likeComment = (id: number, cid: number, t: 1 | 0, type: number) =>
   request.get('/comment/like', { params: { id, cid, t, type } })
 
-// 发送评论
-export const sendComment = (
-  t: number, // 1: 发送, 2: 回复
-  type: number, // 0: song, 1: mv, 2: playlist, 3: album
-  id: number,
-  content: string,
-  commentId?: number
-) => {
-  const params: Record<string, any> = { t, type, id, content }
-  if (commentId) params.commentId = commentId
-  return request.get('/comment', { params })
-}
+// 发送/删除评论
+export const sendComment = (params: { t: number; type: number; id: number; content: string; commentId?: number; threadId?: string }) =>
+  request.get('/comment', { params })
+
+// 获取动态评论
+export const getCommentEvent = (threadId: string) =>
+  request.get('/comment/event', { params: { threadId } })
+
+// 抱一抱评论
+export const hugComment = (uid: number, cid: number, sid: number) =>
+  request.get('/hug/comment', { params: { uid, cid, sid } })
+
+// 评论抱一抱列表
+export const getCommentHugList = (params: { uid: number; cid: number; sid: number; page?: number; cursor?: number; idCursor?: number; pageSize?: number }) =>
+  request.get('/comment/hug/list', { params })

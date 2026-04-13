@@ -70,18 +70,14 @@ export class AudioEngine {
         src: [src],
         html5: true,
         format: [format],
-        volume: 0,
+        // ★ 修复：不再初始化 volume=0（HTML5 模式下 fade 不可靠会导致永久静音）
+        // 淡入效果改为 onplay 后手动处理
+        volume: this._muted ? 0 : this._volume,
         onplay: () => {
-          // 淡入效果
-          if (this._howl && this._fadeDuration > 0 && !this._muted) {
-            this._isFadeIn = true
-            this._howl.fade(0, this._volume, this._fadeDuration, () => {
-              this._isFadeIn = false
-            })
-          } else if (this._howl) {
+          // 确保音量正确（HTML5 模式下 fade 不可靠）
+          if (this._howl) {
             this._howl.volume(this._muted ? 0 : this._volume)
           }
-
           this.emitStateChange('playing')
           this.startProgressTracking()
           resolve()
@@ -123,41 +119,23 @@ export class AudioEngine {
     if (this._howl.playing()) return
 
     this._howl.play()
-
-    // 等待 play 事件后淡入
-    const doFadeIn = () => {
-      if (!this._muted && this._fadeDuration > 0) {
-        this._isFadeIn = true
-        this._howl!.fade(0, this._volume, this._fadeDuration, () => {
-          this._isFadeIn = false
-        })
-      } else {
-        this._howl!.volume(this._muted ? 0 : this._volume)
+    // 等待 play 事件后设置正确音量
+    const doResume = () => {
+      if (this._howl) {
+        this._howl.volume(this._muted ? 0 : this._volume)
       }
       this.emitStateChange('playing')
       this.startProgressTracking()
-      this._howl?.off('play', doFadeIn)
+      this._howl?.off('play', doResume)
     }
-    this._howl.on('play', doFadeIn)
+    this._howl.on('play', doResume)
   }
 
-  /** 暂停（带淡出）*/
+  /** 暂停 */
   pause(): void {
     if (this._howl && this._howl.playing()) {
-      if (this._fadeDuration > 0) {
-        this._isFadeOut = true
-        const currentVol = this._howl.volume()
-        this._howl.fade(currentVol, 0, this._fadeDuration, () => {
-          this._isFadeOut = false
-          this._howl?.pause()
-          // 恢复 volume 属性值，下次 resume/play 时从正确值开始
-          if (this._howl) {
-            this._howl.volume(this._muted ? 0 : this._volume)
-          }
-        })
-      } else {
-        this._howl.pause()
-      }
+      // ★ HTML5 模式下 fade 不可靠，直接 pause
+      this._howl.pause()
     }
   }
 

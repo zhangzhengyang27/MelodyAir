@@ -62,7 +62,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { getToplist, getToplistDetail } from '@/api/top'
+import { getToplist } from '@/api/top'
+import { getPlaylistDetail } from '@/api/playlist'
 import SongTable from '@/components/common/SongTable.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { usePlayer } from '@/composables/usePlayer'
@@ -99,24 +100,17 @@ async function viewDetail(id: number, name: string) {
   detailLoading.value = true
 
   try {
-    const res: any = await getToplistDetail(id)
-    // /toplist/detail 返回格式与标准歌单不同，兼容多种字段名
-    const rawSongs = res?.songs || res?.list || []
-    if (rawSongs.length > 0) {
-      console.log('[Toplist] 首条数据样本:', JSON.stringify(rawSongs[0]).slice(0, 500))
-    }
+    const res: any = await getPlaylistDetail(id)
+    const rawSongs = res?.songs || []
     detailSongs.value = (rawSongs).map((s: any) => ({
       id: s.id,
       name: s.name || '',
-      // 兼容两种歌手字段：ar（标准）/ artists（toplist）
-      artists: (s.ar || s.artists || [])?.map((a: any) => ({ id: a.id || 0, name: a.name || '' })) || [],
-      // 兼容两种专辑字段：al（标准）/ album（toplist）
+      artists: s.ar?.map((a: any) => ({ id: a.id || 0, name: a.name || '' })) || [],
       album: (() => {
-        const al = s.al || s.album || {}
-        return { id: al.id || 0, name: al.name || '', picUrl: al.picUrl || al.coverImgUrl || '' }
+        const al = s.al || {}
+        return { id: al.id || 0, name: al.name || '', picUrl: al.picUrl || '' }
       })(),
-      // 兼容两种时长字段：dt（标准）/ duration（toplist）
-      duration: s.dt || s.duration || 0
+      duration: s.dt || 0
     }))
   } catch (err: any) {
     console.error('加载榜单详情失败:', err)
