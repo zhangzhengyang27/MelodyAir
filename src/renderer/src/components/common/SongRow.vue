@@ -23,7 +23,14 @@
 
     <!-- Song info -->
     <div class="min-w-0 flex-1">
-      <p class="truncate text-sm font-medium" :class="{ 'text-[#FF5A5F]': isActive }">{{ song.name }}</p>
+      <div class="flex items-center gap-2">
+        <p class="truncate text-sm font-medium" :class="{ 'text-[#FF5A5F]': isActive }">{{ song.name }}</p>
+        <span
+          v-if="song.fee === 1"
+          class="inline-flex shrink-0 items-center rounded px-1 py-px text-[10px] leading-none font-medium"
+          :class="isActive ? 'bg-[#FF5A5F]/15 text-[#FF5A5F]' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'"
+        >VIP</span>
+      </div>
       <p class="truncate text-xs text-neutral-500">
         {{ song.artists?.map(a => a.name).join(' / ') }}
       </p>

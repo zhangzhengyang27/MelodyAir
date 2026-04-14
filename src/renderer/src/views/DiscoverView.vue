@@ -121,7 +121,8 @@ onMounted(async () => {
         name: s.name,
         artists: s.song?.artists?.map((a: any) => ({ id: a.id, name: a.name })) || [],
         album: { id: s.song?.album?.id || 0, name: s.song?.album?.name || '', picUrl: s.song?.album?.picUrl || s.picUrl || '' },
-        duration: s.song?.duration || 0
+        duration: s.song?.duration || 0,
+        fee: s.song?.fee || 0
       }))
     }
     if (mvRes.status === 'fulfilled') {

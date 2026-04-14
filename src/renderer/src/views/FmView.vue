@@ -41,7 +41,8 @@ async function fetchFmSongs() {
       name: s.name,
       artists: s.artists?.map((a: any) => ({ id: a.id, name: a.name })) || [],
       album: { id: s.album?.id || 0, name: s.album?.name || '', picUrl: s.album?.picUrl || '' },
-      duration: s.duration || 0
+      duration: s.duration || 0,
+      fee: s.fee || 0
     }))
   } finally {
     loading.value = false

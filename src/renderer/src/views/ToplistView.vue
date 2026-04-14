@@ -101,7 +101,7 @@ async function viewDetail(id: number, name: string) {
 
   try {
     const res: any = await getPlaylistDetail(id)
-    const rawSongs = res?.songs || []
+    const rawSongs = res?.playlist?.tracks || []
     detailSongs.value = (rawSongs).map((s: any) => ({
       id: s.id,
       name: s.name || '',
@@ -110,7 +110,8 @@ async function viewDetail(id: number, name: string) {
         const al = s.al || {}
         return { id: al.id || 0, name: al.name || '', picUrl: al.picUrl || '' }
       })(),
-      duration: s.dt || 0
+      duration: s.dt || 0,
+      fee: s.fee || 0
     }))
   } catch (err: any) {
     console.error('加载榜单详情失败:', err)

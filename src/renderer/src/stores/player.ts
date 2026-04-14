@@ -14,6 +14,8 @@ export interface Song {
   album: { id: number; name: string; picUrl: string }
   duration: number
   url?: string
+  /** 0=免费, 1=VIP/付费, 4=专辑购买 */
+  fee?: number
 }
 
 interface PlayerState {
@@ -171,8 +173,7 @@ export const usePlayerStore = defineStore('player', () => {
         return null
       }
       if (freeTrialInfo !== null && freeTrialInfo !== undefined) {
-        console.warn(`[player] songId=${songId} 是试听歌曲，跳过`)
-        return null
+        console.warn(`[player] songId=${songId} 是 VIP 试听歌曲(${freeTrialInfo.start}-${freeTrialInfo.end}秒)，仍可播放`)
       }
       return url.replace(/^http:/, 'https:')
     } catch (e) {

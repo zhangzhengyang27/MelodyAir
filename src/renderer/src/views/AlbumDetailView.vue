@@ -56,7 +56,8 @@ async function fetchData(id: number) {
       name: s.name,
       artists: s.ar?.map((a: any) => ({ id: a.id, name: a.name })) || [],
       album: { id: s.al?.id || 0, name: s.al?.name || '', picUrl: s.al?.picUrl || '' },
-      duration: s.dt || 0
+      duration: s.dt || 0,
+      fee: s.fee || 0
     }))
   } finally {
     loading.value = false
