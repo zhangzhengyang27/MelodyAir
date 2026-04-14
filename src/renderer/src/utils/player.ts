@@ -36,8 +36,10 @@ export class AudioEngine {
   private onProgressCallback?: (currentTime: number, duration: number) => void
   private onErrorCallback?: (error: Error) => void
 
-  // 进度追踪定时器
-  private progressInterval: ReturnType<typeof setInterval> | null = null
+  // 进度追踪（requestAnimationFrame）
+  private rafId: number | null = null
+  private lastProgressTime: number = 0
+  private readonly PROGRESS_INTERVAL_MS = 66 // ~15fps
 
   constructor(options: PlayerOptions = {}) {
     this._volume = options.volume ?? 0.8
@@ -223,20 +225,26 @@ export class AudioEngine {
 
   private startProgressTracking(): void {
     this.stopProgressTracking()
-    this.progressInterval = setInterval(() => {
+    this.lastProgressTime = 0
+    const tick = (timestamp: number) => {
       if (this._howl && this._howl.playing()) {
-        this.onProgressCallback?.(
-          this._howl.seek(),
-          this._howl.duration()
-        )
+        if (timestamp - this.lastProgressTime >= this.PROGRESS_INTERVAL_MS) {
+          this.lastProgressTime = timestamp
+          this.onProgressCallback?.(
+            this._howl.seek(),
+            this._howl.duration()
+          )
+        }
       }
-    }, 200)
+      this.rafId = requestAnimationFrame(tick)
+    }
+    this.rafId = requestAnimationFrame(tick)
   }
 
   private stopProgressTracking(): void {
-    if (this.progressInterval) {
-      clearInterval(this.progressInterval)
-      this.progressInterval = null
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId)
+      this.rafId = null
     }
   }
 }

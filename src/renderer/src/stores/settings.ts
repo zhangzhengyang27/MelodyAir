@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { cacheManager } from '../utils/db'
+import { settingsDefaults, migrateWithDefaults } from './defaults'
 
 /**
  * 音质选项
@@ -83,6 +85,14 @@ export const useSettingsStore = defineStore('settings', () => {
   const apiBase = import.meta.env.DEV
     ? computed(() => '/api')
     : _apiBase
+
+  // ★ 初始化时同步缓存大小到 CacheManager
+  cacheManager.setMaxCacheSize(cacheLimitMB.value)
+
+  // ★ 监听缓存大小变更，动态同步
+  watch(cacheLimitMB, (newVal) => {
+    cacheManager.setMaxCacheSize(newVal)
+  })
 
   /**
    * 音质显示名称映射
@@ -169,6 +179,14 @@ export const useSettingsStore = defineStore('settings', () => {
       'enableCache', 'cacheLimitMB', 'autoCacheNextTrack', 'enableUnblock',
       'showLyricTranslation', 'lyricFontSize', 'lyricFontFamily', 'lyricAlignment',
       'minimizeToTray', 'globalShortcut', 'autoLaunch', '_apiBase'
-    ]
+    ],
+    afterHydrate: (ctx) => {
+      try {
+        const merged = migrateWithDefaults(settingsDefaults, ctx.store.$state as Partial<typeof settingsDefaults>)
+        Object.assign(ctx.store.$state, merged)
+      } catch {
+        // 迁移失败时使用当前值（已是代码中的默认值）
+      }
+    }
   }
 })

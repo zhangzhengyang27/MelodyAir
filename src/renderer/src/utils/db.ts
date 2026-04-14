@@ -71,12 +71,33 @@ class MelodyAirDatabase extends Dexie {
   constructor() {
     super('MelodyAirDB')
 
-    // 定义数据库表和索引
+    // v1: 初始 schema（表名不一致的旧版）
     this.version(1).stores({
-      trackSources: '&id, createTime',        // 主键id + 创建时间索引（用于LRU）
+      trackSources: '&id, createTime',
       trackDetail: '&id, updateTime',
       lyric: '&id, updateTime',
       album: '&id, updateTime'
+    })
+
+    // v2: 统一表名（schema 名与 TS 属性名一致）
+    this.version(2).stores({
+      trackSources: '&id, createTime',
+      trackDetails: '&id, updateTime',
+      lyrics: '&id, updateTime',
+      albums: '&id, updateTime'
+    }).upgrade(tx => {
+      // 迁移旧表数据到新表
+      return Promise.all([
+        tx.table('trackDetail').toArray().then(rows =>
+          rows.length > 0 ? tx.table('trackDetails').bulkPut(rows) : Promise.resolve()
+        ),
+        tx.table('lyric').toArray().then(rows =>
+          rows.length > 0 ? tx.table('lyrics').bulkPut(rows) : Promise.resolve()
+        ),
+        tx.table('album').toArray().then(rows =>
+          rows.length > 0 ? tx.table('albums').bulkPut(rows) : Promise.resolve()
+        )
+      ])
     })
   }
 }
@@ -145,7 +166,7 @@ export class CacheManager {
    * 缓存歌曲详情
    */
   async cacheTrackDetail(id: number | string, detail: unknown): Promise<void> {
-    await db.trackDetail.put({
+    await db.trackDetails.put({
       id,
       detail,
       updateTime: Date.now()
@@ -156,7 +177,7 @@ export class CacheManager {
    * 获取歌曲详情缓存
    */
   async getTrackDetail(id: number | string): Promise<unknown | null> {
-    const cached = await db.trackDetail.get(id)
+    const cached = await db.trackDetails.get(id)
     return cached?.detail ?? null
   }
 
@@ -212,7 +233,7 @@ export class CacheManager {
   async clearAll(): Promise<void> {
     await Promise.all([
       db.trackSources.clear(),
-      db.trackDetail.clear(),
+      db.trackDetails.clear(),
       db.lyrics.clear(),
       db.albums.clear()
     ])

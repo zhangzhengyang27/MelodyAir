@@ -71,14 +71,16 @@ export function mergeLyricsWithTranslation(
   })
 }
 
-/** Find current lyric index by time */
+/** Find current lyric index by time (二分查找，O(log n)) */
 export function findCurrentLyricIndex(lyrics: LyricLine[], currentTime: number): number {
-  for (let i = lyrics.length - 1; i >= 0; i--) {
-    if (currentTime >= lyrics[i].time) {
-      return i
-    }
+  if (lyrics.length === 0) return 0
+  let low = 0, high = lyrics.length - 1
+  while (low <= high) {
+    const mid = (low + high) >> 1
+    if (lyrics[mid]!.time <= currentTime) low = mid + 1
+    else high = mid - 1
   }
-  return 0
+  return Math.max(0, high)
 }
 
 /**

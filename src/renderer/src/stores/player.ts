@@ -6,6 +6,7 @@ import { scrobble } from '../api/record'
 import { cacheManager, arrayBufferToBlobUrl, blobToArrayBuffer } from '../utils/db'
 import { useSettingsStore } from './settings'
 import { showToast } from '../composables/useToast'
+import { playerDefaults, migrateWithDefaults } from './defaults'
 
 export interface Song {
   id: number
@@ -75,6 +76,10 @@ export const usePlayerStore = defineStore('player', () => {
   let nextTrackUrlCache: string | null = null
   let nextTrackIdCache: number | null = null
 
+  // ★ Blob URL 内存管理：追踪已创建的 Blob URL，切歌时释放避免内存泄漏
+  const createdBlobUrls: string[] = []
+  let activeBlobUrl: string | null = null
+
   // 初始化音频引擎
   function initAudioEngine(): void {
     if (!audioEngine) {
@@ -126,6 +131,20 @@ export const usePlayerStore = defineStore('player', () => {
   )
 
   /**
+   * 释放所有非活跃的 Blob URL（切歌时调用）
+   */
+  function releaseStaleBlobUrls(): void {
+    const toRelease = createdBlobUrls.filter(url => url !== activeBlobUrl)
+    for (const url of toRelease) {
+      URL.revokeObjectURL(url)
+    }
+    createdBlobUrls.length = 0
+    if (activeBlobUrl) {
+      createdBlobUrls.push(activeBlobUrl)
+    }
+  }
+
+  /**
    * 获取音频 URL（参照 YPM _getAudioSourceFromNetease）
    * 优先从 IndexedDB 缓存读取，未命中则从 API 获取并写入缓存
    */
@@ -149,6 +168,7 @@ export const usePlayerStore = defineStore('player', () => {
         const cached = await cacheManager.getTrackSource(songId)
         if (cached) {
           const blobUrl = arrayBufferToBlobUrl(cached)
+          createdBlobUrls.push(blobUrl)
           return blobUrl
         }
       } catch (e) {
@@ -216,6 +236,9 @@ export const usePlayerStore = defineStore('player', () => {
   async function playSong(song: Song): Promise<void> {
     initAudioEngine()
 
+    // ★ 切歌时释放旧的 Blob URL（避免内存泄漏）
+    releaseStaleBlobUrls()
+
     // ★ 重置 scrobble 追踪
     scrobbleSubmitted = false
     scrobblePlayedTime = 0
@@ -229,13 +252,15 @@ export const usePlayerStore = defineStore('player', () => {
         console.warn(`[player] No playable source for "${song.name}" (id=${song.id})`)
         status.value = 'error'
         playing.value = false
-        showToast(`无法播放「${song.name}」`, { type: 'warning' })
+        showToast(`无法播放「${song.name}」`, { type: 'warning', dedupeKey: 'player-unplayable' })
         setTimeout(() => playNext(), 500)
         return
       }
 
       console.log(`[player] 开始播放: "${song.name}", url=${url.slice(0, 100)}...`)
       await audioEngine!.play(url)
+      // ★ 标记当前活跃的 Blob URL（不会被释放）
+      activeBlobUrl = url.startsWith('blob:') ? url : null
       updateCurrentSongCache(song)
 
       // ★ Feature 1: MediaSession — 更新系统通知栏歌曲信息
@@ -266,7 +291,7 @@ export const usePlayerStore = defineStore('player', () => {
       console.error(`[player] Failed to play "${song.name}":`, error)
       status.value = 'error'
       playing.value = false
-      showToast(`播放失败「${song.name}」`, { type: 'error' })
+      showToast(`播放失败「${song.name}」`, { type: 'error', dedupeKey: 'player-error' })
       // 自动重试或跳过
       setTimeout(() => playNext(), 500)
     }
@@ -765,6 +790,7 @@ export const usePlayerStore = defineStore('player', () => {
         const cached = await cacheManager.getTrackSource(nextSong.id)
         if (cached) {
           nextTrackUrlCache = arrayBufferToBlobUrl(cached)
+          createdBlobUrls.push(nextTrackUrlCache)
           console.log(`[player] Pre-cached (from IndexedDB) next track: ${nextSong.name}`)
           return
         }
@@ -857,6 +883,13 @@ export const usePlayerStore = defineStore('player', () => {
    * 销毁播放器（组件卸载时调用）
    */
   function destroy(): void {
+    // 释放所有 Blob URL
+    for (const url of createdBlobUrls) {
+      URL.revokeObjectURL(url)
+    }
+    createdBlobUrls.length = 0
+    activeBlobUrl = null
+
     if (audioEngine) {
       audioEngine.destroy()
       audioEngine = null
@@ -912,7 +945,35 @@ export const usePlayerStore = defineStore('player', () => {
       'muted',
       'playlist',
       'currentIndex'
-    ]
+    ],
+    afterHydrate: (ctx) => {
+      try {
+        const state = ctx.store.$state as Record<string, unknown>
+        // 持久化数据与默认值合并（自动填充新增字段）
+        const merged = migrateWithDefaults(playerDefaults, {
+          playMode: state.playMode,
+          volume: state.volume,
+          muted: state.muted,
+          playlist: state.playlist,
+          currentIndex: state.currentIndex,
+        })
+        Object.assign(ctx.store.$state, merged)
+
+        // 校验 playlist 数据完整性
+        const playlist = state.playlist as Song[] | undefined
+        if (Array.isArray(playlist)) {
+          const validPlaylist = playlist.filter(s =>
+            s && typeof s.id === 'number' && s.name && s.artists && s.album
+          )
+          if (validPlaylist.length !== playlist.length) {
+            console.warn(`[player] Migration: filtered ${playlist.length - validPlaylist.length} invalid songs`)
+            ctx.store.$state.playlist = validPlaylist
+          }
+        }
+      } catch {
+        // 迁移失败时保持当前值
+      }
+    }
   }
 })
 

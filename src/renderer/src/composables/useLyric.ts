@@ -2,7 +2,8 @@ import { ref, watch, onUnmounted } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { getLyric } from '@/api/song'
 import { getLocalLyrics } from '@/api/local'
-import { parseLyric, findCurrentLyricIndex, type LyricLine } from '@/utils/lyric'
+import { parseLyric, findCurrentLyricIndex, mergeLyricsWithTranslation, type LyricLine } from '@/utils/lyric'
+import { cacheManager } from '@/utils/db'
 
 export function useLyric() {
   const playerStore = usePlayerStore()
@@ -29,13 +30,36 @@ export function useLyric() {
       const currentSong = playerStore.currentSong
       let lrc = ''
 
+      // ★ 先尝试从 IndexedDB 缓存读取（仅网易云歌曲）
+      if (!currentSong?._localTrackId) {
+        try {
+          const cached = await cacheManager.getLyric(songId)
+          if (cached?.lyric) {
+            lrc = cached.lyric
+            const tlyric = cached.tlyric || undefined
+            lyrics.value = mergeLyricsWithTranslation(parseLyric(lrc), tlyric)
+            lastFetchedSongId = songId
+            console.log(`[lyric] 命中 IDB 缓存: songId=${songId}`)
+            // 后台静默更新缓存（fire-and-forget）
+            getLyric(songId).then((res: any) => {
+              const newLrc = res?.lrc?.lyric || ''
+              const newTlyric = res?.tlyric?.lyric || undefined
+              if (newLrc && newLrc !== cached.lyric) {
+                cacheManager.cacheLyric(songId, newLrc, newTlyric)
+              }
+            }).catch(() => {})
+            return
+          }
+        } catch (e) {
+          console.warn('[lyric] IDB 缓存读取失败:', e)
+        }
+      }
+
       // 本地歌曲：走 /lyrics/:songId 接口
       if (currentSong?._localTrackId) {
         console.log(`[lyric] 请求本地歌词: songId=${songId}, trackId=${currentSong._localTrackId}`)
         const res: any = await getLocalLyrics(songId)
         const data = res?.body ?? res
-        // 本地歌词格式: { id, plain, synced: '{"00:00.000":"歌词",...}' }
-        // synced 是 JSON 字符串，键为 "mm:ss.xxx"（无方括号），需要转为标准 LRC 格式
         lrc = data?.lrc?.lyric || ''
         if (!lrc && data?.synced && typeof data.synced === 'string') {
           try {
@@ -43,7 +67,6 @@ export function useLyric() {
             if (syncedObj && typeof syncedObj === 'object') {
               const parts: string[] = []
               for (const [k, v] of Object.entries(syncedObj)) {
-                // 匹配 mm:ss.xxx 或 m:ss.xxx 格式的时间戳键
                 if (/^\d{1,2}:\d{2}\.\d{2,3}$/.test(k) && v) {
                   const [min, sec] = k.split(':')
                   parts.push(`[${min.padStart(2, '0')}:${sec}]${v}`)
@@ -55,31 +78,32 @@ export function useLyric() {
             console.warn('[lyric] synced JSON 解析失败:', e)
           }
         }
-        // 兜底：尝试 plain 字段（纯文本无时间戳）
         if (!lrc) lrc = data?.plain || ''
       } else {
         // 网易云歌曲：走原有 /lyric 接口
         console.log(`[lyric] 请求网易云歌词: songId=${songId}`)
         const res: any = await getLyric(songId)
         lrc = res?.lrc?.lyric || ''
+        const tlyric = res?.tlyric?.lyric || undefined
         if (!res?.lrc?.lyric) {
           console.warn(`[lyric] songId=${songId} 无歌词数据, 原始响应 code=${res?.code}, keys=${Object.keys(res || {}).join(',')}`)
+        }
+        // ★ 写入 IDB 缓存
+        if (lrc) {
+          cacheManager.cacheLyric(songId, lrc, tlyric).catch(() => {})
         }
       }
 
       if (lrc) {
         lyrics.value = parseLyric(lrc)
         console.log(`[lyric] 解析成功, 共 ${lyrics.value.length} 行`)
-        // ★ 只有成功获取歌词后才缓存 songId
         lastFetchedSongId = songId
       } else {
         lyrics.value = []
-        // ★ 无歌词不缓存，下次会重试（可能后台已自动刮削完成）
       }
     } catch (e) {
       console.error('[lyric] Failed to fetch lyric:', e)
       lyrics.value = []
-      // ★ 请求失败不缓存 songId，下次切换歌曲时会重试
     } finally {
       loading.value = false
     }

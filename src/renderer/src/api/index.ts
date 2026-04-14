@@ -7,6 +7,41 @@ const request = axios.create({
 })
 
 /**
+ * 需要登录才能访问的 API 路径前缀白名单
+ * 匹配时只要 URL 以这些前缀开头即视为需要登录
+ */
+const ACCOUNT_REQUIRED_APIS = [
+  '/daily_recommend',
+  '/likelist',
+  '/playlist/subscribe',
+  '/playlist/tracks',
+  '/like',
+  '/song/like',
+  '/scrobble',
+  '/recommend/songs',
+  '/recommend/resource',
+  '/user/cloud',
+  '/user/playlist',
+  '/playlist/my',
+  '/song/order',
+  '/mv/sublist',
+  '/artist/sub',
+  '/album/sublist',
+  '/toplist/detail',
+  '/msg',
+  '/simi',
+  '/song/detail',
+]
+
+/**
+ * 检查请求 URL 是否需要登录
+ */
+function isAccountRequired(url?: string): boolean {
+  if (!url) return false
+  return ACCOUNT_REQUIRED_APIS.some(prefix => url.startsWith(prefix))
+}
+
+/**
  * 从 localStorage 读取并拼接完整的 cookie 字符串
  * 用于通过 URL params 传递给后端（绕过浏览器 Cookie 头限制）
  */
@@ -61,6 +96,12 @@ request.interceptors.request.use(
     // 无 cookie 时警告（部分接口需要登录）
     if (!cookieStr && !isLoginRelatedUrl) {
       console.warn(`[api] ${config.method?.toUpperCase()} ${config.baseURL}${config.url} 无 Cookie，接口可能需要登录`)
+    }
+
+    // ★ 登录态前置校验：需要登录的接口在无 cookie 时直接拦截
+    if (!cookieStr && isAccountRequired(config.url)) {
+      console.warn(`[api] ${config.url} 需要登录，但当前无 Cookie，请求已拦截`)
+      return Promise.reject(new axios.Cancel('ACCOUNT_REQUIRED'))
     }
 
     return config

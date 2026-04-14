@@ -13,6 +13,7 @@ import {
 } from '@/api/auth'
 import { getUserPlaylist, getUserAccount, getLikeList, likeSong, likeSongV2 } from '@/api/user'
 import { getPlaylistDetail } from '@/api/playlist'
+import { userDefaults, migrateWithDefaults } from './defaults'
 
 export interface UserProfile {
   userId: number
@@ -472,6 +473,22 @@ export const useUserStore = defineStore('user', () => {
   }
 }, {
   persist: {
-    pick: ['profile', 'cookie', 'likedSongIds', 'loginMode', 'likedSongPlaylistId', 'lastRefreshCookieDate']
+    pick: ['profile', 'cookie', 'likedSongIds', 'loginMode', 'likedSongPlaylistId', 'lastRefreshCookieDate'],
+    afterHydrate: (ctx) => {
+      try {
+        const state = ctx.store.$state as Record<string, unknown>
+        const merged = migrateWithDefaults(userDefaults, {
+          profile: state.profile,
+          cookie: state.cookie,
+          likedSongIds: state.likedSongIds,
+          loginMode: state.loginMode,
+          likedSongPlaylistId: state.likedSongPlaylistId,
+          lastRefreshCookieDate: state.lastRefreshCookieDate,
+        })
+        Object.assign(ctx.store.$state, merged)
+      } catch {
+        // 迁移失败时保持当前值
+      }
+    }
   }
 })
