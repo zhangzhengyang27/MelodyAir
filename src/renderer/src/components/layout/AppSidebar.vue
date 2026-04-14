@@ -57,6 +57,7 @@ const discoverItems = [
 
 const myItems = [
   { to: '/library', icon: '📚', label: '我的音乐' },
+  { to: '/local', icon: '💾', label: '本地音乐' },
   { to: '/fm', icon: '📻', label: '私人FM' },
   { to: '/cloud', icon: '☁️', label: '云盘' }
 ]

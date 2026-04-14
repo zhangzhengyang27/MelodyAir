@@ -43,6 +43,24 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '云盘' }
       },
       {
+        path: 'local',
+        name: 'local-music',
+        component: () => import('@/views/LocalMusicView.vue'),
+        meta: { title: '本地音乐' }
+      },
+      {
+        path: 'local/album/:id',
+        name: 'local-album',
+        component: () => import('@/views/LocalAlbumDetailView.vue'),
+        meta: { title: '本地专辑' }
+      },
+      {
+        path: 'local/artist/:id',
+        name: 'local-artist',
+        component: () => import('@/views/LocalArtistDetailView.vue'),
+        meta: { title: '本地歌手' }
+      },
+      {
         path: 'playlist/:id',
         name: 'playlist',
         component: () => import('@/views/PlaylistDetailView.vue'),

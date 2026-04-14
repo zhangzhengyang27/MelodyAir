@@ -16,6 +16,8 @@ export interface Song {
   url?: string
   /** 0=免费, 1=VIP/付费, 4=专辑购买 */
   fee?: number
+  /** 本地音轨 ID（有此字段时直接用 /stream/:localTrackId 播放） */
+  _localTrackId?: number
 }
 
 interface PlayerState {
@@ -127,8 +129,13 @@ export const usePlayerStore = defineStore('player', () => {
    * 获取音频 URL（参照 YPM _getAudioSourceFromNetease）
    * 优先从 IndexedDB 缓存读取，未命中则从 API 获取并写入缓存
    */
-  async function getAudioSource(songId: number, useCache = true): Promise<string | null> {
+  async function getAudioSource(songId: number, useCache = true, localTrackId?: number): Promise<string | null> {
     const settingsStore = useSettingsStore()
+
+    // 本地音轨：直接走 /stream/:trackId
+    if (localTrackId) {
+      return `${settingsStore.apiBase}/stream/${localTrackId}`
+    }
 
     // 0. 检查预缓存 URL（上一首歌播放时已提前获取）
     const preloadedUrl = getNextTrackUrl(songId)
@@ -217,7 +224,7 @@ export const usePlayerStore = defineStore('player', () => {
       status.value = 'loading'
 
       // ★ 内部获取播放 URL（不依赖外部传入）
-      const url = await getAudioSource(song.id)
+      const url = await getAudioSource(song.id, true, song._localTrackId)
       if (!url) {
         console.warn(`[player] No playable source for "${song.name}" (id=${song.id})`)
         status.value = 'error'
@@ -333,7 +340,7 @@ export const usePlayerStore = defineStore('player', () => {
     try {
       initAudioEngine()
       status.value = 'loading'
-      const url = await getAudioSource(song.id)
+      const url = await getAudioSource(song.id, true, song._localTrackId)
       if (!url) {
         console.warn('[player] Failed to restore playback: no source')
         return
@@ -764,7 +771,7 @@ export const usePlayerStore = defineStore('player', () => {
       }
 
       // 缓存未命中，从 API 获取并缓存
-      const url = await getAudioSource(nextSong.id, false) // 不读缓存（上面已试过）
+      const url = await getAudioSource(nextSong.id, false, nextSong._localTrackId) // 不读缓存（上面已试过）
       if (url) {
         nextTrackUrlCache = url
         // 异步写入 IndexedDB

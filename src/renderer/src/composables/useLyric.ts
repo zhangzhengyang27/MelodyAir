@@ -1,6 +1,7 @@
 import { ref, watch, onUnmounted } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { getLyric } from '@/api/song'
+import { getLocalLyrics } from '@/api/local'
 import { parseLyric, findCurrentLyricIndex, type LyricLine } from '@/utils/lyric'
 
 export function useLyric() {
@@ -24,13 +25,28 @@ export function useLyric() {
 
     loading.value = true
     try {
-      console.log(`[lyric] 请求歌词: songId=${songId}`)
-      const res: any = await getLyric(songId)
-      console.log('[lyric] /lyric 返回:', JSON.stringify(res)?.slice(0, 800))
-      const lrc = res?.lrc?.lyric || ''
-      if (!res?.lrc?.lyric) {
-        console.warn(`[lyric] songId=${songId} 无歌词数据, 原始响应 code=${res?.code}, keys=${Object.keys(res || {}).join(',')}`)
+      const currentSong = playerStore.currentSong
+      let lrc = ''
+
+      // 本地歌曲：走 /lyrics/:songId 接口
+      if (currentSong?._localTrackId) {
+        console.log(`[lyric] 请求本地歌词: songId=${songId}`)
+        const res: any = await getLocalLyrics(songId)
+        const data = res?.body ?? res
+        lrc = data?.plain || data?.lrc?.lyric || ''
+        if (!lrc) {
+          console.warn(`[lyric] songId=${songId} 无本地歌词`)
+        }
+      } else {
+        // 网易云歌曲：走原有 /lyric 接口
+        console.log(`[lyric] 请求网易云歌词: songId=${songId}`)
+        const res: any = await getLyric(songId)
+        lrc = res?.lrc?.lyric || ''
+        if (!res?.lrc?.lyric) {
+          console.warn(`[lyric] songId=${songId} 无歌词数据, 原始响应 code=${res?.code}, keys=${Object.keys(res || {}).join(',')}`)
+        }
       }
+
       if (lrc) {
         lyrics.value = parseLyric(lrc)
         console.log(`[lyric] 解析成功, 共 ${lyrics.value.length} 行`)
