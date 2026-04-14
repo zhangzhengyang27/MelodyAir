@@ -44,6 +44,12 @@
           </div>
           <div class="flex gap-2">
             <button
+              class="rounded-lg bg-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-300 dark:bg-[#2A2A3A] dark:text-[#A1A1B5] dark:hover:bg-[#333345]"
+              @click="openUploadDialog(lib.id)"
+            >
+              上传
+            </button>
+            <button
               class="rounded-lg bg-[#FF5A5F] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#E0484D] disabled:opacity-50"
               :disabled="localStore.scanning"
               @click="handleScan(lib.id)"
@@ -158,6 +164,34 @@
         </div>
       </div>
     </div>
+
+    <!-- 上传文件对话框 -->
+    <div v-if="showUploadDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @click.self="showUploadDialog = false">
+      <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-[#1F1F2E]">
+        <h2 class="text-lg font-semibold">上传音频文件</h2>
+        <div class="mt-4">
+          <label class="text-sm font-medium">选择文件</label>
+          <input
+            ref="uploadFileRef"
+            type="file"
+            accept="audio/*,.mp3,.flac,.wav,.aac,.ogg,.m4a"
+            class="mt-1 w-full text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-[#FF5A5F] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-[#E0484D]"
+            :disabled="uploading"
+          />
+          <p class="mt-2 text-xs text-neutral-500">支持 MP3、FLAC、WAV、AAC、OGG、M4A 格式</p>
+        </div>
+        <div v-if="uploading" class="mt-4">
+          <div class="h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-[#2A2A3A]">
+            <div class="h-full bg-[#FF5A5F] transition-all" :style="{ width: `${uploadProgress}%` }"></div>
+          </div>
+          <p class="mt-2 text-center text-sm text-neutral-500">上传中... {{ uploadProgress }}%</p>
+        </div>
+        <div class="mt-5 flex justify-end gap-3">
+          <button class="rounded-lg px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700" :disabled="uploading" @click="showUploadDialog = false">取消</button>
+          <CoralButton :disabled="uploading" @click="handleUpload">上传</CoralButton>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -165,6 +199,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useLocalStore } from '@/stores/local'
 import { useSettingsStore } from '@/stores/settings'
+import { uploadFile, getOssUrl } from '@/api/local'
 import SongTable from '@/components/common/SongTable.vue'
 import CoralButton from '@/components/common/CoralButton.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
@@ -178,8 +213,13 @@ const { playSongList } = usePlayer()
 
 const activeTab = ref('libraries')
 const showAddDialog = ref(false)
+const showUploadDialog = ref(false)
 const newLibName = ref('')
 const newLibPath = ref('')
+const uploadLibraryId = ref<number | null>(null)
+const uploadFileRef = ref<HTMLInputElement | null>(null)
+const uploading = ref(false)
+const uploadProgress = ref(0)
 
 const tabs = [
   { label: '音乐库', value: 'libraries' },
@@ -204,6 +244,7 @@ const songListForPlayer = computed<Song[]>(() =>
   localStore.songs.map((s) => {
     const track = s.tracks?.[0]
     const album = track?.album
+    const sourceFile = track?.sourceFile
     // 优先用专辑封面路径（本地/下载），其次用网易云 picUrl
     const picUrl = album?.coverPath
       ? `${settingsStore.apiBase}/cover?type=album&id=0&path=${encodeURIComponent(album.coverPath)}`
@@ -213,8 +254,9 @@ const songListForPlayer = computed<Song[]>(() =>
       name: s.name,
       artists: s.artist ? [{ id: s.artist.id, name: s.artist.name }] : [],
       album: { id: album?.id ?? s.id, name: album?.name || '', picUrl },
-      duration: track?.sourceFile?.duration || 0,
+      duration: sourceFile?.duration || 0,
       _localTrackId: track?.id,
+      _ossUrl: sourceFile?.ossUrl || null,
     }
   })
 )
@@ -260,6 +302,43 @@ async function handleDeleteLibrary(id: number) {
   }
 }
 
+function openUploadDialog(libraryId: number) {
+  uploadLibraryId.value = libraryId
+  showUploadDialog.value = true
+  uploadProgress.value = 0
+}
+
+async function handleUpload() {
+  const file = uploadFileRef.value?.files?.[0]
+  if (!file) {
+    showToast('请选择文件', { type: 'warning' })
+    return
+  }
+  if (!uploadLibraryId.value) {
+    showToast('未选择音乐库', { type: 'error' })
+    return
+  }
+
+  uploading.value = true
+  uploadProgress.value = 0
+
+  try {
+    const result = await uploadFile(file, uploadLibraryId.value, (p) => {
+      uploadProgress.value = p
+    })
+    showToast(`上传成功：${result.track?.name || file.name}`, { type: 'success' })
+    showUploadDialog.value = false
+    uploadProgress.value = 0
+    localStore.fetchStats()
+  } catch (e: any) {
+    const msg = e.response?.data?.message || e.message || '上传失败'
+    showToast(`上传失败：${msg}`, { type: 'error' })
+  } finally {
+    uploading.value = false
+    if (uploadFileRef.value) uploadFileRef.value.value = ''
+  }
+}
+
 async function handleAutoScrape() {
   try {
     const result = await localStore.triggerAutoScrape()
@@ -279,11 +358,16 @@ function playAllLocal() {
 }
 
 function playLocalSongs(songs: Song[], index: number) {
-  // 本地歌曲通过 /stream/:trackId 播放，需要改写 URL
-  const mapped = songs.map(s => ({
-    ...s,
-    url: `${settingsStore.apiBase}/stream/${(s as any)._localTrackId}`,
-  }))
+  // 本地歌曲播放：优先 OSS URL，其次 /stream/:trackId
+  const mapped = songs.map(s => {
+    const trackId = (s as any)._localTrackId
+    const ossUrl = (s as any)._ossUrl
+    return {
+      ...s,
+      // OSS URL 直接可用，stream URL 需要拼接
+      url: ossUrl || `${settingsStore.apiBase}/stream/${trackId}`,
+    }
+  })
   playSongList(mapped, index)
 }
 

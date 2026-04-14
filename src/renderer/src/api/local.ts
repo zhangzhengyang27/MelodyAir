@@ -25,6 +25,37 @@ export const getFile = (id: number) => request.get(`/audio-file/${id}`)
 
 export const deleteFile = (id: number) => request.delete(`/audio-file/${id}`)
 
+/**
+ * 上传音频文件（本地磁盘 + OSS 双写）
+ * @param file 音频文件
+ * @param libraryId 音乐库 ID
+ * @param onProgress 上传进度回调
+ */
+export const uploadFile = (
+  file: File,
+  libraryId: number,
+  onProgress?: (percent: number) => void,
+) => {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  return request.post<any, any>(`/audio-file/upload?libraryId=${libraryId}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (e) => {
+      if (onProgress && e.total) {
+        onProgress(Math.round((e.loaded * 100) / e.total))
+      }
+    },
+  })
+}
+
+/**
+ * 获取文件的 OSS 签名访问 URL（私有 Bucket 临时 URL）
+ * @param id 文件 ID
+ * @returns 签名 URL（有效期 1 小时）
+ */
+export const getOssUrl = (id: number) => request.get<{ url: string }>(`/audio-file/${id}/oss-url`)
+
 // ==================== 本地音轨 ====================
 
 export const getTracks = (params?: { songId?: number; albumId?: number; page?: number; limit?: number }) =>

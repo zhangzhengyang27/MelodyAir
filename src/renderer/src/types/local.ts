@@ -21,6 +21,8 @@ export interface LocalFile {
   duration: number | null
   registerDate: string
   libraryId: number
+  ossKey?: string | null
+  ossUrl?: string | null
   track?: LocalTrack | null
 }
 
@@ -175,4 +177,16 @@ export interface StreamInfo {
     album: string | null
     hasLyrics: boolean
   } | null
+}
+
+// 文件上传响应
+export interface UploadResponse {
+  track: LocalTrack
+  localFile: { id: number; path: string }
+  oss: {
+    ossKey: string
+    ossUrl: string
+    etag: string
+  } | null
+  pgOssRecord: { id: number; ossKey: string } | null
 }
