@@ -1,28 +1,22 @@
 <template>
   <div
-    class="lyric-container flex-1 overflow-y-auto px-6"
+    class="lyric-container flex-1 overflow-y-auto"
     ref="containerRef"
   >
-    <!-- 上方留白，让首行歌词能居中 -->
-    <div class="h-[35vh] shrink-0" />
-    <div text-center>
+    <div class="lyric-spacer" />
+    <div class="lyric-lines">
       <p
         v-for="(line, i) in lyrics"
         :key="i"
         :ref="(el) => { if (el) lineRefs[i] = el as HTMLElement }"
-        class="lyric-line cursor-pointer py-1.5 text-base transition-all duration-500 ease-out"
-        :class="[
-          i === currentIndex
-            ? 'scale-105 font-bold text-lg text-white'
-            : 'text-neutral-500 hover:text-neutral-300'
-        ]"
+        class="lyric-line"
+        :class="{ active: i === currentIndex, adjacent: Math.abs(i - currentIndex) === 1 }"
         @click="seekToLyric(line.time)"
       >
         {{ line.text }}
       </p>
     </div>
-    <!-- 下方留白，让末行歌词能居中 -->
-    <div class="h-[35vh] shrink-0" />
+    <div class="lyric-spacer" />
   </div>
 </template>
 
@@ -42,7 +36,6 @@ const emit = defineEmits<{
 const containerRef = ref<HTMLElement | null>(null)
 const lineRefs: Record<number, HTMLElement> = {}
 
-/** 用户是否正在手动滚动 */
 let isUserScrolling = false
 let userScrollTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -50,7 +43,6 @@ function seekToLyric(time: number) {
   emit('seek', time)
 }
 
-/** 用户主动滚动时暂停自动跟随 */
 function onUserScroll() {
   isUserScrolling = true
   if (userScrollTimer) clearTimeout(userScrollTimer)
@@ -71,7 +63,6 @@ watch(() => props.currentIndex, async (newIdx, oldIdx) => {
   await scrollToLine(newIdx)
 })
 
-// 切歌时立即定位
 watch(
   () => props.lyrics,
   async () => {
@@ -83,7 +74,6 @@ watch(
   { deep: false }
 )
 
-// 绑定用户滚动事件（模板中的 @scroll 可能不触发）
 import { onMounted, onUnmounted } from 'vue'
 onMounted(() => {
   containerRef.value?.addEventListener('wheel', onUserScroll, { passive: true })
@@ -96,8 +86,11 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+@reference "tailwindcss";
+
+/* Container */
 .lyric-container {
-  /* 隐藏原生滚动条，保留滚动功能 */
+  padding: 0 2rem;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -105,25 +98,64 @@ onUnmounted(() => {
   display: none;
 }
 
-/* 渐隐遮罩效果 */
+/* Gradient mask for fade effect at top/bottom */
 .lyric-container {
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0%,
-    black 12%,
-    black 88%,
+    rgba(0, 0, 0, 1) 15%,
+    rgba(0, 0, 0, 1) 85%,
     transparent 100%
   );
   mask-image: linear-gradient(
     to bottom,
     transparent 0%,
-    black 12%,
-    black 88%,
+    black 15%,
+    black 85%,
     transparent 100%
   );
 }
 
+/* Spacer for vertical centering */
+.lyric-spacer {
+  height: 38vh;
+  flex-shrink: 0;
+}
+
+/* Lines wrapper */
+.lyric-lines {
+  text-align: center;
+}
+
+/* Individual lyric line */
 .lyric-line {
-  line-height: 1.9;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  line-height: 2;
+  color: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 8px;
+  user-select: none;
+}
+
+.lyric-line:hover {
+  color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Active (current playing) line */
+.lyric-line.active {
+  font-size: 1.175rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 0 24px rgba(255, 90, 95, 0.25), 0 0 48px rgba(255, 90, 95, 0.12);
+  transform: scale(1.04);
+  letter-spacing: 0.01em;
+}
+
+/* Adjacent lines (subtle highlight) */
+.lyric-line.adjacent {
+  color: rgba(255, 255, 255, 0.4);
 }
 </style>

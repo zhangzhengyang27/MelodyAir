@@ -193,7 +193,7 @@ const totalDuration = computed(() =>
   width: 380px;
   max-width: 90vw;
   height: calc(100vh - 100px);
-  margin: auto;
+  margin: 50px 0; /* 仅上下留边距，靠右对齐 */
   background: #1a1a2e;
   border-radius: 16px 0 0 16px;
   display: flex;

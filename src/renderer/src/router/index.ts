@@ -25,6 +25,18 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '排行榜' }
       },
       {
+        path: 'dj',
+        name: 'dj',
+        component: () => import('@/views/DjView.vue'),
+        meta: { title: '播客' }
+      },
+      {
+        path: 'dj/:rid',
+        name: 'dj-detail',
+        component: () => import('@/views/DjDetailView.vue'),
+        meta: { title: '电台' }
+      },
+      {
         path: 'library',
         name: 'library',
         component: () => import('@/views/LibraryView.vue'),
