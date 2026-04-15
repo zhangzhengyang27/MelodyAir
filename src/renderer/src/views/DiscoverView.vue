@@ -71,23 +71,37 @@
       </div>
     </section>
 
+    <!-- Recommended DJ -->
+    <section v-if="djPrograms.length > 0">
+      <SectionHeader title="推荐电台" />
+      <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        <div
+          v-for="item in djPrograms"
+          :key="item.id"
+          class="group cursor-pointer"
+          @click="$router.push(`/dj/${item.id}`)"
+        >
+          <CoverImage :src="item.picUrl" :alt="item.name" size="md" playable />
+          <p class="mt-2 line-clamp-2 text-sm dark:text-[#A1A1B5]">{{ item.name }}</p>
+        </div>
+      </div>
+    </section>
+
     <LoadingSpinner v-if="loading" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { getBanner, getPersonalized, getPersonalizedNewSong, getPersonalizedMv } from '@/api/personalized'
+import { getBanner, getPersonalized, getPersonalizedNewSong, getPersonalizedMv, getPersonalizedDjprogram } from '@/api/personalized'
 import CoverImage from '@/components/common/CoverImage.vue'
 import SectionHeader from '@/components/common/SectionHeader.vue'
 import SongTable from '@/components/common/SongTable.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
-import { usePlayerStore } from '@/stores/player'
 import { usePlayer } from '@/composables/usePlayer'
 import { formatPlayCount } from '@/utils/format'
 import type { Song } from '@/stores/player'
 
-const playerStore = usePlayerStore()
 const { playSongList } = usePlayer()
 
 const loading = ref(false)
@@ -95,17 +109,19 @@ const banners = ref<any[]>([])
 const playlists = ref<any[]>([])
 const newSongs = ref<Song[]>([])
 const mvs = ref<any[]>([])
+const djPrograms = ref<any[]>([])
 const currentBanner = ref(0)
 let bannerTimer: ReturnType<typeof setInterval> | null = null
 
 onMounted(async () => {
   loading.value = true
   try {
-    const [bannerRes, playlistRes, songRes, mvRes] = await Promise.allSettled([
+    const [bannerRes, playlistRes, songRes, mvRes, djRes] = await Promise.allSettled([
       getBanner(),
       getPersonalized(12),
       getPersonalizedNewSong(12),
-      getPersonalizedMv()
+      getPersonalizedMv(),
+      getPersonalizedDjprogram()
     ])
 
     if (bannerRes.status === 'fulfilled') {
@@ -127,6 +143,9 @@ onMounted(async () => {
     }
     if (mvRes.status === 'fulfilled') {
       mvs.value = (mvRes.value as any)?.result || []
+    }
+    if (djRes.status === 'fulfilled') {
+      djPrograms.value = (djRes.value as any)?.result || []
     }
   } finally {
     loading.value = false

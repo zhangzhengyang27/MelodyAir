@@ -7,15 +7,10 @@
         <span class="text-xs text-neutral-400">共 {{ total }} 条评论</span>
       </div>
       <div class="flex gap-2">
-        <button
-          v-for="t in tabs"
-          :key="t.value"
-          class="rounded-full px-3 py-1 text-xs transition-colors"
+        <button v-for="t in tabs" :key="t.value" class="rounded-full px-3 py-1 text-xs transition-colors"
           :class="activeTab === t.value
             ? 'bg-[#FF5A5F] text-white'
-            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-[#1F1F2E] dark:text-[#A1A1B5] dark:hover:bg-[rgba(255,255,255,0.08)]'"
-          @click="activeTab = t.value; fetchComments()"
-        >
+            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-[#1F1F2E] dark:text-[#A1A1B5] dark:hover:bg-[rgba(255,255,255,0.08)]'" @click="activeTab = t.value; fetchComments()">
           {{ t.label }}
         </button>
       </div>
@@ -23,30 +18,23 @@
 
     <!-- Input -->
     <div v-if="userStore.isAccountLoggedIn" class="flex gap-3">
-      <img
-        :src="userStore.profile?.avatarUrl + '?param=50y50'"
-        class="h-9 w-9 shrink-0 rounded-full object-cover"
-        alt="avatar"
-      />
+      <img :src="userStore.profile?.avatarUrl + '?param=50y50'" class="h-9 w-9 shrink-0 rounded-full object-cover"
+        alt="avatar" />
       <div class="flex-1">
-        <textarea
-          v-model="commentText"
-          :placeholder="replyTo ? `回复 @${replyTo.nickname}...` : '写下你的评论...'"
+        <textarea v-model="commentText" :placeholder="replyTo ? `回复 @${replyTo.nickname}...` : '写下你的评论...'"
           class="w-full resize-none rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm outline-none transition-colors focus:border-[#FFB0A0] dark:border-white/10 dark:bg-[#13131C] dark:focus:border-[#FF7F66] dark:text-[#F0F0F5]"
-          rows="2"
-        />
+          rows="2" />
         <div class="mt-2 flex justify-end">
           <button
             class="rounded-full bg-[#FF5A5F] px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#E0484D] disabled:opacity-50"
-            :disabled="!commentText.trim()"
-            @click="submitComment"
-          >
+            :disabled="!commentText.trim()" @click="submitComment">
             发送
           </button>
         </div>
       </div>
     </div>
-    <div v-else class="rounded-xl bg-neutral-50 p-4 text-center text-sm text-neutral-400 dark:bg-[#13131C] dark:text-[#6B6B80]">
+    <div v-else
+      class="rounded-xl bg-neutral-50 p-4 text-center text-sm text-neutral-400 dark:bg-[#13131C] dark:text-[#6B6B80]">
       <RouterLink to="/login" class="text-[#FF5A5F] hover:underline">登录</RouterLink> 后即可评论
     </div>
 
@@ -58,16 +46,9 @@
       暂无评论，快来抢沙发~
     </div>
     <div v-else class="space-y-4">
-      <div
-        v-for="comment in comments"
-        :key="comment.commentId"
-        class="flex gap-3"
-      >
-        <img
-          :src="comment.user.avatarUrl + '?param=50y50'"
-          :alt="comment.user.nickname"
-          class="h-9 w-9 shrink-0 rounded-full object-cover"
-        />
+      <div v-for="comment in comments" :key="comment.commentId" class="flex gap-3">
+        <img :src="comment.user.avatarUrl + '?param=50y50'" :alt="comment.user.nickname"
+          class="h-9 w-9 shrink-0 rounded-full object-cover" />
         <div class="flex-1">
           <p class="text-sm">
             <span class="font-medium text-[#FF5A5F]">{{ comment.user.nickname }}</span>
@@ -86,10 +67,7 @@
 
     <!-- Load more -->
     <div v-if="hasMore" class="flex justify-center py-2">
-      <button
-        class="text-xs text-[#FF5A5F] hover:underline"
-        @click="loadMore"
-      >
+      <button class="text-xs text-[#FF5A5F] hover:underline" @click="loadMore">
         加载更多
       </button>
     </div>

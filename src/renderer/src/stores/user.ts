@@ -12,7 +12,10 @@ import {
   logout as apiLogout
 } from '@/api/auth'
 import { getUserPlaylist, getUserAccount, getLikeList, likeSong, likeSongV2 } from '@/api/user'
-import { getPlaylistDetail } from '@/api/playlist'
+import { getPlaylistDetail, subscribePlaylist, createPlaylist, deletePlaylist, playlistTracks, updatePlaylist, getPlaylistDetailDynamic } from '@/api/playlist'
+import { subAlbum, getAlbumSublist, getAlbumDetailDynamic } from '@/api/album'
+import { subArtist, getArtistSublist, getArtistDetailDynamic } from '@/api/artist'
+import { subMv, getMvSublist } from '@/api/mv'
 import { userDefaults, migrateWithDefaults } from './defaults'
 
 export interface UserProfile {
@@ -416,6 +419,127 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  // ==================== 收藏系统 ====================
+
+  /** 收藏/取消收藏专辑 */
+  async function toggleSubAlbum(id: number): Promise<boolean> {
+    try {
+      const res: any = await getAlbumDetailDynamic(id)
+      const isSubbed = res?.isSub ?? false
+      const subRes: any = await subAlbum(id, isSubbed ? 0 : 1)
+      return subRes?.code === 200
+    } catch { return false }
+  }
+
+  /** 收藏/取消收藏歌手 */
+  async function toggleSubArtist(id: number): Promise<boolean> {
+    try {
+      const res: any = await getArtistDetailDynamic(id)
+      const isSubbed = res?.isSub ?? false
+      const subRes: any = await subArtist(id, isSubbed ? 2 : 1)
+      return subRes?.code === 200
+    } catch { return false }
+  }
+
+  /** 收藏/取消收藏 MV */
+  async function toggleSubMv(id: number): Promise<boolean> {
+    try {
+      // MV 没有动态接口，先查询收藏列表判断
+      const listRes: any = await getMvSublist()
+      const isSubbed = (listRes?.data || []).some((item: any) => item.vid === id || item.id === id)
+      const subRes: any = await subMv(id, isSubbed ? 2 : 1)
+      return subRes?.code === 200
+    } catch { return false }
+  }
+
+  /** 收藏/取消收藏歌单 */
+  async function toggleSubscribePlaylist(id: number): Promise<boolean> {
+    try {
+      const res: any = await getPlaylistDetailDynamic(id)
+      const isSubbed = res?.subscribed ?? false
+      const subRes: any = await subscribePlaylist(id, isSubbed ? 2 : 1)
+      return subRes?.code === 200
+    } catch { return false }
+  }
+
+  /** 获取已收藏专辑列表 */
+  async function fetchAlbumSublist(limit = 25, offset = 0) {
+    try {
+      const res: any = await getAlbumSublist(limit, offset)
+      return res?.data || []
+    } catch { return [] }
+  }
+
+  /** 获取已收藏歌手列表 */
+  async function fetchArtistSublist(limit = 25, offset = 0) {
+    try {
+      const res: any = await getArtistSublist(limit, offset)
+      return res?.data || []
+    } catch { return [] }
+  }
+
+  /** 获取已收藏 MV 列表 */
+  async function fetchMvSublist() {
+    try {
+      const res: any = await getMvSublist()
+      return res?.data || []
+    } catch { return [] }
+  }
+
+  // ==================== 歌单管理 ====================
+
+  /** 新建歌单 */
+  async function createNewPlaylist(name: string, privacy?: string): Promise<number | null> {
+    try {
+      const res: any = await createPlaylist(name, privacy)
+      if (res?.code === 200 || res?.id) {
+        await fetchUserPlaylists()
+        return res.id || res.playlist?.id || null
+      }
+      return null
+    } catch { return null }
+  }
+
+  /** 删除歌单 */
+  async function deletePlaylistById(id: string): Promise<boolean> {
+    try {
+      const res: any = await deletePlaylist(id)
+      if (res?.code === 200) {
+        await fetchUserPlaylists()
+        return true
+      }
+      return false
+    } catch { return false }
+  }
+
+  /** 添加歌曲到歌单 */
+  async function addTrackToPlaylist(pid: number, trackIds: number[]): Promise<boolean> {
+    try {
+      const res: any = await playlistTracks('add', pid, trackIds.join(','))
+      return res?.code === 200
+    } catch { return false }
+  }
+
+  /** 从歌单移除歌曲 */
+  async function removeTrackFromPlaylist(pid: number, trackIds: number[]): Promise<boolean> {
+    try {
+      const res: any = await playlistTracks('del', pid, trackIds.join(','))
+      return res?.code === 200
+    } catch { return false }
+  }
+
+  /** 更新歌单信息 */
+  async function updatePlaylistInfo(params: { id: number; name: string; desc: string; tags: string }): Promise<boolean> {
+    try {
+      const res: any = await updatePlaylist(params)
+      if (res?.code === 200) {
+        await fetchUserPlaylists()
+        return true
+      }
+      return false
+    } catch { return false }
+  }
+
   /**
    * 退出登录
    */
@@ -469,7 +593,21 @@ export const useUserStore = defineStore('user', () => {
     fetchUserPlaylists,
     fetchLikedSongIds,
     likeSongById,
-    logout
+    logout,
+    // 收藏系统
+    toggleSubAlbum,
+    toggleSubArtist,
+    toggleSubMv,
+    toggleSubscribePlaylist,
+    fetchAlbumSublist,
+    fetchArtistSublist,
+    fetchMvSublist,
+    // 歌单管理
+    createNewPlaylist,
+    deletePlaylistById,
+    addTrackToPlaylist,
+    removeTrackFromPlaylist,
+    updatePlaylistInfo,
   }
 }, {
   persist: {

@@ -13,6 +13,16 @@
           <p class="mt-2 text-sm text-neutral-500 dark:text-[#A1A1B5]">{{ mv.artistName }}</p>
           <p class="mt-1 text-xs text-neutral-400">{{ formatPlayCount(mv.playCount) }}次播放</p>
           <p v-if="mv.desc" class="mt-2 line-clamp-3 text-xs text-neutral-400">{{ mv.desc }}</p>
+          <div class="mt-4 flex gap-3">
+            <button
+              class="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition-colors"
+              :class="isSubbed ? 'bg-neutral-100 text-neutral-600 dark:bg-[#1F1F2E] dark:text-[#A1A1B5]' : 'border border-[#FF5A5F] text-[#FF5A5F] hover:bg-[#FFF5F3] dark:border-[#FF7F66] dark:text-[#FF7F66] dark:hover:bg-[rgba(255,90,95,0.10)]'"
+              :disabled="subLoading"
+              @click="handleSubMv"
+            >
+              {{ isSubbed ? '已收藏' : '收藏' }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -44,6 +54,9 @@
           </div>
         </div>
       </section>
+
+      <!-- Comments -->
+      <CommentSection v-if="mvId" :type="1" :id="mvId" title="评论" />
     </template>
   </div>
 </template>
@@ -53,18 +66,27 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { getMvDetail, getMvUrl, getSimiMv } from '@/api/mv'
 import SectionHeader from '@/components/common/SectionHeader.vue'
+import CommentSection from '@/components/common/CommentSection.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { useUserStore } from '@/stores/user'
+import { showToast } from '@/composables/useToast'
 import { formatPlayCount } from '@/utils/format'
 
 const route = useRoute()
+const userStore = useUserStore()
 
 const loading = ref(false)
+const subLoading = ref(false)
+const isSubbed = ref(false)
+const mvId = ref(0)
 const mv = ref<any>(null)
 const mvUrl = ref('')
 const simiMvs = ref<any[]>([])
 
 async function fetchData(id: number) {
   loading.value = true
+  mvId.value = id
+  isSubbed.value = false
   try {
     const [detailRes, urlRes, simiRes] = await Promise.allSettled([
       getMvDetail(id),
@@ -94,4 +116,23 @@ onMounted(() => {
 watch(() => route.params.id, (newId) => {
   if (newId) fetchData(Number(newId))
 })
+
+async function handleSubMv() {
+  if (!userStore.isAccountLoggedIn) {
+    showToast('请先登录', { type: 'warning' })
+    return
+  }
+  subLoading.value = true
+  try {
+    const ok = await userStore.toggleSubMv(mvId.value)
+    if (ok) {
+      isSubbed.value = !isSubbed.value
+      showToast(isSubbed.value ? '已收藏' : '已取消收藏')
+    } else {
+      showToast('操作失败', { type: 'error' })
+    }
+  } finally {
+    subLoading.value = false
+  }
+}
 </script>

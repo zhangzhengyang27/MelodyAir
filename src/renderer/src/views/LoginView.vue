@@ -93,7 +93,7 @@
       </div>
 
       <!-- QR Code login（参照 YPM loginAccount.vue） -->
-      <div v-else class="flex flex-col items-center gap-4">
+      <div v-else-if="loginMode === 'qr'" class="flex flex-col items-center gap-4">
         <div
           class="qr-code-container"
           @click="getQrCodeKey"
@@ -108,11 +108,62 @@
         </p>
       </div>
 
+      <!-- Register -->
+      <div v-else-if="loginMode === 'register'" class="space-y-3">
+        <input
+          v-model="regPhone"
+          type="tel"
+          placeholder="手机号"
+          maxlength="11"
+          class="input-field"
+        />
+        <div class="flex gap-2">
+          <input
+            v-model="regCaptcha"
+            type="text"
+            placeholder="验证码"
+            maxlength="6"
+            class="input-field flex-1"
+          />
+          <button
+            class="shrink-0 rounded-xl px-4 text-sm font-medium transition-colors"
+            :class="regCountdown > 0 ? 'bg-neutral-100 text-neutral-400 dark:bg-[#1F1F2E] dark:text-[#6B6B80]' : 'bg-[#FFF5F3] text-[#E0484D] hover:bg-[#FFE8E3] dark:bg-[rgba(255,90,95,0.15)] dark:text-[#FF7F66]'"
+            :disabled="regCountdown > 0"
+            @click="sendRegCaptcha"
+          >
+            {{ regCountdown > 0 ? `${regCountdown}s` : '获取验证码' }}
+          </button>
+        </div>
+        <input
+          v-model="regPassword"
+          type="password"
+          placeholder="设置密码"
+          class="input-field"
+        />
+        <input
+          v-model="regNickname"
+          type="text"
+          placeholder="昵称"
+          maxlength="20"
+          class="input-field"
+        />
+        <button
+          class="w-full rounded-xl bg-[#FF5A5F] py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#E0484D] disabled:opacity-50"
+          :disabled="!regPhone || !regCaptcha || !regPassword || !regNickname || processing"
+          @click="handleRegister"
+        >
+          {{ processing ? '注册中...' : '注册' }}
+        </button>
+      </div>
+
       <!-- Other login methods -->
       <div class="other-login">
         <a v-show="loginMode === 'qr'" @click="loginMode = 'phone'">手机号登录</a>
         <span v-show="loginMode === 'phone'">|</span>
         <a v-show="loginMode === 'phone'" @click="switchToQrMode">二维码登录</a>
+        <span v-show="loginMode !== 'register'">|</span>
+        <a v-show="loginMode !== 'register'" @click="loginMode = 'register'">注册</a>
+        <a v-show="loginMode === 'register'" @click="loginMode = 'phone'">返回登录</a>
       </div>
 
       <!-- Error message -->
@@ -124,21 +175,28 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { sendCaptcha as sendCaptchaApi } from '@/api/auth'
+import { sendCaptcha as sendCaptchaApi, registerCellphone } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
 const userStore = useUserStore()
 
-const loginMode = ref<'phone' | 'qr' | 'email'>('phone')
+const loginMode = ref<'phone' | 'qr' | 'email' | 'register'>('phone')
 const phone = ref('')
 const captcha = ref('')
-const password = ref('')
 const email = ref('')
 const emailPassword = ref('')
 const countdown = ref(0)
 const errorMsg = ref('')
 const processing = ref(false)
+
+// 注册表单
+const regPhone = ref('')
+const regCaptcha = ref('')
+const regPassword = ref('')
+const regNickname = ref('')
+const regCountdown = ref(0)
+let regCaptchaTimer: ReturnType<typeof setInterval> | null = null
 
 // QR code state（参照 YPM loginAccount.vue）
 const qrCodeKey = ref('')
@@ -315,6 +373,49 @@ function checkQrCodeLogin() {
   }, 1000)
 }
 
+// ==================== 注册 =====================
+
+async function sendRegCaptcha() {
+  if (!regPhone.value || regCountdown.value > 0) return
+  errorMsg.value = ''
+  try {
+    await sendCaptchaApi(regPhone.value)
+    regCountdown.value = 60
+    regCaptchaTimer = setInterval(() => {
+      regCountdown.value--
+      if (regCountdown.value <= 0) {
+        clearInterval(regCaptchaTimer!)
+        regCaptchaTimer = null
+      }
+    }, 1000)
+  } catch (e: any) {
+    errorMsg.value = e?.response?.data?.message || '发送验证码失败'
+  }
+}
+
+async function handleRegister() {
+  if (!regPhone.value || !regCaptcha.value || !regPassword.value || !regNickname.value) return
+  errorMsg.value = ''
+  processing.value = true
+  try {
+    const res: any = await registerCellphone(regCaptcha.value, regPhone.value, regPassword.value, regNickname.value)
+    if (res?.code === 200) {
+      if (res.cookie) {
+        userStore.handleLoginSuccess(res.cookie)
+      }
+      await userStore.fetchUserProfile()
+      await userStore.fetchLikedPlaylist()
+      router.push('/library')
+    } else {
+      errorMsg.value = res?.message || '注册失败'
+    }
+  } catch (e: any) {
+    errorMsg.value = e?.response?.data?.message || e?.message || '注册失败'
+  } finally {
+    processing.value = false
+  }
+}
+
 // ==================== 生命周期 =====================
 
 // 监听登录模式切换：离开扫码 tab 时停止轮询
@@ -336,6 +437,10 @@ onUnmounted(() => {
   if (captchaTimer) {
     clearInterval(captchaTimer)
     captchaTimer = null
+  }
+  if (regCaptchaTimer) {
+    clearInterval(regCaptchaTimer)
+    regCaptchaTimer = null
   }
 })
 </script>

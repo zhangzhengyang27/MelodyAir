@@ -103,6 +103,42 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '登录' }
       },
       {
+        path: 'daily',
+        name: 'daily',
+        component: () => import('@/views/DailyRecommendView.vue'),
+        meta: { title: '每日推荐' }
+      },
+      {
+        path: 'playlists',
+        name: 'playlists',
+        component: () => import('@/views/PlaylistsView.vue'),
+        meta: { title: '歌单广场' }
+      },
+      {
+        path: 'artists',
+        name: 'artists',
+        component: () => import('@/views/ArtistsView.vue'),
+        meta: { title: '歌手' }
+      },
+      {
+        path: 'mv-browse',
+        name: 'mv-browse',
+        component: () => import('@/views/MvBrowseView.vue'),
+        meta: { title: 'MV' }
+      },
+      {
+        path: 'albums',
+        name: 'albums',
+        component: () => import('@/views/AlbumsView.vue'),
+        meta: { title: '新碟上架' }
+      },
+      {
+        path: 'user/:uid',
+        name: 'user',
+        component: () => import('@/views/UserView.vue'),
+        meta: { title: '用户' }
+      },
+      {
         path: 'settings',
         name: 'settings',
         component: () => import('@/views/SettingsView.vue'),

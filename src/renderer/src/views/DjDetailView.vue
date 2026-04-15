@@ -88,17 +88,17 @@ import { useRoute } from 'vue-router'
 import { getDjDetail, getDjProgram, subDj } from '@/api/dj'
 import SectionHeader from '@/components/common/SectionHeader.vue'
 import CoralButton from '@/components/common/CoralButton.vue'
+import CommentSection from '@/components/common/CommentSection.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
-import { usePlayerStore } from '@/stores/player'
 import { usePlayer } from '@/composables/usePlayer'
 import { formatPlayCount, formatDuration, formatDate } from '@/utils/format'
 import type { Song } from '@/stores/player'
 
 const route = useRoute()
-const playerStore = usePlayerStore()
 const { playSongList } = usePlayer()
 
 const loading = ref(false)
+const radioId = ref(0)
 const radio = ref<any>(null)
 const isSubscribed = ref(false)
 const subLoading = ref(false)
@@ -112,6 +112,7 @@ const PAGE_SIZE = 30
 
 async function fetchRadio(rid: number) {
   loading.value = true
+  radioId.value = rid
   programs.value = []
   programsOffset.value = 0
   hasMorePrograms.value = true

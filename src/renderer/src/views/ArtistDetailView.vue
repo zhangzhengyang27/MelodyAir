@@ -12,6 +12,16 @@
           <h1 class="text-display">{{ artist.name }}</h1>
           <p v-if="artist.identifyTag" class="mt-1 text-sm text-[#FF5A5F]">{{ artist.identifyTag }}</p>
           <p class="mt-2 line-clamp-3 text-sm text-neutral-500 dark:text-[#A1A1B5]">{{ artist.briefDesc }}</p>
+          <div class="mt-4 flex gap-3">
+            <button
+              class="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition-colors"
+              :class="isSubbed ? 'bg-neutral-100 text-neutral-600 dark:bg-[#1F1F2E] dark:text-[#A1A1B5]' : 'border border-[#FF5A5F] text-[#FF5A5F] hover:bg-[#FFF5F3] dark:border-[#FF7F66] dark:text-[#FF7F66] dark:hover:bg-[rgba(255,90,95,0.10)]'"
+              :disabled="subLoading"
+              @click="handleSubArtist"
+            >
+              {{ isSubbed ? '已关注' : '关注' }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -65,6 +75,27 @@
         <p v-if="desc" class="text-sm leading-relaxed text-neutral-700 dark:text-[#A1A1B5]">{{ desc }}</p>
         <p v-else class="text-sm text-neutral-400">暂无简介</p>
       </div>
+
+      <!-- Similar artists -->
+      <section v-if="simiArtists.length > 0">
+        <SectionHeader title="相似歌手" />
+        <div class="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
+          <div
+            v-for="item in simiArtists"
+            :key="item.id"
+            class="cursor-pointer text-center"
+            @click="$router.push(`/artist/${item.id}`)"
+          >
+            <div class="mx-auto h-24 w-24 overflow-hidden rounded-full shadow-md">
+              <img :src="item.picUrl || item.img1v1Url" :alt="item.name" class="h-full w-full object-cover" />
+            </div>
+            <p class="mt-2 line-clamp-1 text-sm">{{ item.name }}</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Comments -->
+      <CommentSection v-if="artistId" :type="7" :id="artistId" title="评论" />
     </template>
   </div>
 </template>
@@ -73,11 +104,15 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { getArtistDetail, getArtistDetailDynamic, getArtistSongs, getArtistAlbum, getArtistMv, getArtistDesc } from '@/api/artist'
+import { getSimiArtist } from '@/api/simi'
 import SongTable from '@/components/common/SongTable.vue'
 import CoverImage from '@/components/common/CoverImage.vue'
+import SectionHeader from '@/components/common/SectionHeader.vue'
+import CommentSection from '@/components/common/CommentSection.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import { useUserStore } from '@/stores/user'
+import { showToast } from '@/composables/useToast'
 import { formatDate } from '@/utils/format'
 import type { Song } from '@/stores/player'
 
@@ -87,12 +122,16 @@ const userStore = useUserStore()
 
 const loading = ref(false)
 const songsLoading = ref(false)
+const subLoading = ref(false)
+const isSubbed = ref(false)
+const artistId = ref(0)
 const artist = ref<any>(null)
 const artistDynamic = ref<any>(null)
 const hotSongs = ref<Song[]>([])
 const albums = ref<any[]>([])
 const mvs = ref<any[]>([])
 const desc = ref('')
+const simiArtists = ref<any[]>([])
 const activeTab = ref('songs')
 
 const tabs = [
@@ -104,11 +143,14 @@ const tabs = [
 
 async function fetchData(id: number) {
   loading.value = true
+  artistId.value = id
+  isSubbed.value = false
   try {
-    const [detailRes, dynamicRes, descRes] = await Promise.allSettled([
+    const [detailRes, dynamicRes, descRes, simiRes] = await Promise.allSettled([
       getArtistDetail(id),
-      getArtistDetailDynamic(id),
-      getArtistDesc(id)
+      userStore.isAccountLoggedIn ? getArtistDetailDynamic(id) : Promise.reject(),
+      getArtistDesc(id),
+      getSimiArtist(id)
     ])
     if (detailRes.status === 'fulfilled') {
       const data = (detailRes.value as any)?.data?.artist || (detailRes.value as any)?.artist
@@ -123,10 +165,14 @@ async function fetchData(id: number) {
     }
     if (dynamicRes.status === 'fulfilled') {
       artistDynamic.value = (dynamicRes.value as any)?.data || {}
+      isSubbed.value = (dynamicRes.value as any)?.data?.isSub ?? (dynamicRes.value as any)?.isSub ?? false
     }
     if (descRes.status === 'fulfilled') {
       const descData = (descRes.value as any)
       desc.value = descData?.briefDesc || ''
+    }
+    if (simiRes.status === 'fulfilled') {
+      simiArtists.value = (simiRes.value as any)?.artists || []
     }
   } finally {
     loading.value = false
@@ -167,5 +213,24 @@ watch(() => route.params.id, (newId) => {
 
 function handlePlaySong(song: Song) {
   playSongList(hotSongs.value, hotSongs.value.findIndex(s => s.id === song.id))
+}
+
+async function handleSubArtist() {
+  if (!userStore.isAccountLoggedIn) {
+    showToast('请先登录', { type: 'warning' })
+    return
+  }
+  subLoading.value = true
+  try {
+    const ok = await userStore.toggleSubArtist(artistId.value)
+    if (ok) {
+      isSubbed.value = !isSubbed.value
+      showToast(isSubbed.value ? '已关注' : '已取消关注')
+    } else {
+      showToast('操作失败', { type: 'error' })
+    }
+  } finally {
+    subLoading.value = false
+  }
 }
 </script>

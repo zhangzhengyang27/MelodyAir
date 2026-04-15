@@ -111,6 +111,42 @@
 
     <!-- Right area -->
     <div class="flex w-72 items-center justify-end gap-2">
+      <!-- Quality switch -->
+      <div class="relative" ref="qualityPopupRef">
+        <button
+          class="player-btn whitespace-nowrap text-[11px] font-medium leading-tight"
+          :class="{ 'text-[#FF5A5F]': settingsStore.musicQuality !== 'exhigh' }"
+          :title="'当前音质：' + settingsStore.currentQualityLabel"
+          @click.stop="showQualityPopup = !showQualityPopup"
+        >
+          {{ qualityShortLabel }}
+        </button>
+        <Teleport to="body">
+          <Transition name="fade-scale">
+            <div
+              v-if="showQualityPopup"
+              class="fixed right-4 bottom-[5.75rem] z-50 w-44 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg dark:border-white/10 dark:bg-[#171722] dark:shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
+            >
+              <div class="border-b border-neutral-100 px-3 py-2 dark:border-white/6">
+                <span class="text-xs font-semibold tracking-wide text-neutral-500">音质</span>
+              </div>
+              <div class="py-0.5">
+                <button
+                  v-for="(label, key) in settingsStore.qualityLabels"
+                  :key="key"
+                  class="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left transition-colors hover:bg-neutral-50 dark:hover:bg-white/5"
+                  :class="{ 'text-[#FF5A5F]': key === settingsStore.musicQuality }"
+                  @click="selectQuality(key as any)"
+                >
+                  <span class="text-[13px]">{{ label }}</span>
+                  <svg v-if="key === settingsStore.musicQuality" class="h-3.5 w-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </Teleport>
+      </div>
+
       <button
         class="player-btn"
         title="播放列表"
@@ -164,12 +200,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { usePlayerStore } from '@/stores/player'
+import { useSettingsStore } from '@/stores/settings'
 import { useAudio } from '@/composables/useAudio'
 import { formatTime, formatDuration } from '@/utils/format'
 
 const playerStore = usePlayerStore()
+const settingsStore = useSettingsStore()
 const { seekByProgress } = useAudio()
 
 const showPlaylist = ref(false)
@@ -177,6 +215,38 @@ const showFullPlayer = defineModel<boolean>('showFullPlayer', { default: false }
 const hoverTime = ref<number | null>(null)
 const hoverProgress = ref(0)
 const prevVolume = ref(0.8)
+
+// 音质选择
+const showQualityPopup = ref(false)
+const qualityPopupRef = ref<HTMLElement>()
+
+const qualityShortLabel = computed(() => {
+  const map: Record<string, string> = {
+    standard: '标准', higher: '较高', exhigh: '高品质',
+    lossless: '无损', hires: 'HiRes', jyeffect: '环绕',
+    sky: '沉浸', dolby: '杜比', jymaster: '母带'
+  }
+  return map[settingsStore.musicQuality] || '品质'
+})
+
+/** 点击外部关闭音质弹窗 */
+function handleClickOutside(e: MouseEvent) {
+  if (qualityPopupRef.value && !qualityPopupRef.value.contains(e.target as Node)) {
+    showQualityPopup.value = false
+  }
+}
+
+function selectQuality(quality: any) {
+  settingsStore.setMusicQuality(quality)
+  showQualityPopup.value = false
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 
 const playModeIcon = computed(() => {
   const icons: Record<string, string> = { sequence: '🔀', loop: '🔁', random: '🎲' }
@@ -274,5 +344,16 @@ function handlePlayFromQueue(idx: number, song: any) {
 .slide-up-leave-to {
   opacity: 0;
   transform: translateY(8px);
+}
+
+.fade-scale-enter-active,
+.fade-scale-leave-active {
+  transition: all 0.2s ease;
+}
+
+.fade-scale-enter-from,
+.fade-scale-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
 }
 </style>

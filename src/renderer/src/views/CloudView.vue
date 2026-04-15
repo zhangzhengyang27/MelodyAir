@@ -1,6 +1,23 @@
 <template>
   <div class="space-y-6">
-    <h1 class="text-title">云盘</h1>
+    <div class="flex items-center justify-between">
+      <h1 class="text-title">云盘</h1>
+      <button
+        class="rounded-xl bg-[#FF5A5F] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#E0484D]"
+        @click="triggerUpload"
+      >
+        上传歌曲
+      </button>
+      <input ref="fileInput" type="file" accept="audio/*" class="hidden" @change="handleFileSelect" />
+    </div>
+
+    <div v-if="uploadProgress" class="rounded-xl bg-[#FFF5F3] p-3 dark:bg-[rgba(255,90,95,0.10)]">
+      <p class="text-sm">{{ uploadFileName }}</p>
+      <div class="mt-2 h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-white/10">
+        <div class="h-full rounded-full bg-[#FF5A5F] transition-all" :style="{ width: uploadProgress + '%' }" />
+      </div>
+      <p class="mt-1 text-xs text-neutral-500">{{ uploadProgress }}%</p>
+    </div>
 
     <div v-if="loading" class="py-8"><LoadingSpinner /></div>
 
@@ -21,14 +38,22 @@ import { getCloudList } from '@/api/cloud'
 import SongTable from '@/components/common/SongTable.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { usePlayer } from '@/composables/usePlayer'
+import { showToast } from '@/composables/useToast'
 import type { Song } from '@/stores/player'
 
 const { playSongList } = usePlayer()
 
 const loading = ref(false)
 const songs = ref<Song[]>([])
+const fileInput = ref<HTMLInputElement | null>(null)
+const uploadProgress = ref(0)
+const uploadFileName = ref('')
 
 onMounted(async () => {
+  await fetchCloudList()
+})
+
+async function fetchCloudList() {
   loading.value = true
   try {
     const res: any = await getCloudList()
@@ -46,9 +71,33 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
 
 function handlePlay(song: Song) {
   playSongList(songs.value, songs.value.findIndex(s => s.id === song.id))
 }
+
+function triggerUpload() {
+  fileInput.value?.click()
+}
+
+async function handleFileSelect(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  uploadFileName.value = file.name
+  uploadProgress.value = 1
+  try {
+    // 模拟上传进度（真实上传需配合后端 API）
+    uploadProgress.value = 50
+    showToast('上传功能需要后端支持', { type: 'warning' })
+    uploadProgress.value = 0
+  } catch {
+    showToast('上传失败', { type: 'error' })
+    uploadProgress.value = 0
+  }
+  // 清空 input 以允许再次选择同一文件
+  if (fileInput.value) fileInput.value.value = ''
+}
+
+
 </script>

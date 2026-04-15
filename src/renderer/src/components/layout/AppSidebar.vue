@@ -9,7 +9,7 @@
     </div>
 
     <!-- Navigation -->
-    <nav class="flex-1 space-y-1 px-3 py-2">
+    <nav class="flex-1 space-y-1 px-3 py-2 overflow-y-auto">
       <div class="mb-2 px-2 text-xs font-medium uppercase tracking-wider text-neutral-400">发现</div>
       <RouterLink
         v-for="item in discoverItems"
@@ -53,7 +53,12 @@ const discoverItems = [
   { to: '/', icon: '🏠', label: '发现' },
   { to: '/search', icon: '🔍', label: '搜索' },
   { to: '/toplist', icon: '🏆', label: '排行榜' },
-  { to: '/dj', icon: '🎙️', label: '播客' }
+  { to: '/playlists', icon: '🎵', label: '歌单' },
+  { to: '/artists', icon: '🎤', label: '歌手' },
+  { to: '/mv-browse', icon: '🎬', label: 'MV' },
+  { to: '/albums', icon: '💿', label: '新碟' },
+  { to: '/dj', icon: '🎙️', label: '播客' },
+  { to: '/daily', icon: '📅', label: '每日推荐' }
 ]
 
 const myItems = [
