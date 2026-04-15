@@ -23,7 +23,7 @@ export const settingsDefaults = {
   minimizeToTray: true,
   globalShortcut: true,
   autoLaunch: false,
-  _apiBase: 'http://localhost:3000',
+  apiBase: 'http://localhost:3000',
 }
 
 export const playerDefaults = {

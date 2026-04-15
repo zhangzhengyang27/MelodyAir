@@ -476,7 +476,7 @@ export const usePlayerStore = defineStore('player', () => {
     volume, muted, shuffledList, playNextList, isPersonalFM,
     personalFMTrack, personalFMNextTrack, status, currentSongCache,
     currentSong, progress,
-    setPlaylist, addToPlaylist, removeFromPlaylist, clearPlaylist,
+    setPlaylist, addToPlaylist, playSong, removeFromPlaylist, clearPlaylist,
     addToPlayNext, playNext, playPrev, togglePlaying, togglePlayMode,
     setVolume, toggleMute, seek, setCurrentTime, setDuration,
     enablePersonalFM, disablePersonalFM, restorePlayback, destroy,

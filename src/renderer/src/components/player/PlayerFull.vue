@@ -72,10 +72,16 @@
         <div class="song-info max-w-sm text-center">
           <h1 class="song-title">{{ playerStore.currentSong?.name || '未在播放' }}</h1>
           <p class="song-artist">
-            {{ playerStore.currentSong?.artists?.map(a => a.name).join(' / ') || '--' }}
+            <template v-if="playerStore.currentSong?.artists?.length">
+              <template v-for="(artist, idx) in playerStore.currentSong.artists" :key="artist.id">
+                <router-link :to="`/artist/${artist.id}`" class="artist-link">{{ artist.name }}</router-link>
+                <span v-if="idx < playerStore.currentSong.artists.length - 1" class="mx-1"> / </span>
+              </template>
+            </template>
+            <span v-else>--</span>
           </p>
           <p v-if="playerStore.currentSong?.album?.name" class="song-album">
-            {{ playerStore.currentSong.album.name }}
+            <router-link :to="`/album/${playerStore.currentSong.album.id}`" class="album-link">{{ playerStore.currentSong.album.name }}</router-link>
           </p>
         </div>
 
@@ -662,6 +668,7 @@ function updateVolume(vol: number) {
 /* ===== Song Info ===== */
 .song-info {
   padding-top: 8px;
+  pointer-events: auto;
 }
 
 .song-title {
@@ -683,10 +690,30 @@ function updateVolume(vol: number) {
   line-height: 1.4;
 }
 
+.artist-link {
+  color: rgba(255, 255, 255, 0.55);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.artist-link:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
 .song-album {
   margin-top: 2px;
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.28);
+}
+
+.album-link {
+  color: rgba(255, 255, 255, 0.35);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.album-link:hover {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 /* ===== Progress Section ===== */

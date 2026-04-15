@@ -12,11 +12,56 @@ export const getCloudDetail = (id: number | string) =>
 export const deleteCloudSong = (id: number | string) =>
   request.get('/user/cloud/del', { params: { id } })
 
-// 云盘上传（获取上传凭证）
+/**
+ * 上传歌曲到云盘（完整上传流程）
+ * 后端自动处理：元数据解析 → MD5 → 检查上传 → NOS Token → 直传 → 发布
+ * @param file 音频文件
+ * @param onProgress 上传进度回调（可选）
+ */
+export const uploadToCloud = async (
+  file: File,
+  onProgress?: (progress: number) => void
+): Promise<any> => {
+  const formData = new FormData()
+  formData.append('songFile', file)
+  formData.append('cookie', getCookieString())
+
+  const response = await request.post('/cloud', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    },
+    onUploadProgress: (progressEvent) => {
+      if (onProgress && progressEvent.total) {
+        const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+        onProgress(percent)
+      }
+    }
+  })
+  return response
+}
+
+/**
+ * 从 localStorage 读取并拼接完整的 cookie 字符串
+ */
+function getCookieString(): string {
+  const parts: string[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key?.startsWith('cookie-')) {
+      const value = localStorage.getItem(key)
+      if (value) {
+        parts.push(`${encodeURIComponent(key.replace('cookie-', ''))}=${encodeURIComponent(value)}`)
+      }
+    }
+  }
+  return parts.join('; ')
+}
+
+// 云盘上传（获取上传凭证）- 旧版保留兼容
 export const getCloudUploadToken = (params: { md5: string; fileSize: number; filename: string }) =>
   request.post('/cloud/upload/token', { ...params })
 
-// 完成云盘上传导入
+// 完成云盘上传导入 - 旧版保留兼容
 export const completeCloudUpload = (params: { songId: string; resourceId: string; md5: string; filename: string; song?: string; artist?: string; album?: string }) =>
   request.post('/cloud/upload/complete', { ...params })
 

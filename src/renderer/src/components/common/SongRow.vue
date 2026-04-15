@@ -32,13 +32,28 @@
         >VIP</span>
       </div>
       <p class="truncate text-xs text-neutral-500">
-        {{ song.artists?.map(a => a.name).join(' / ') }}
+        <template v-if="song.artists?.length">
+          <template v-for="(artist, idx) in song.artists" :key="artist.id">
+            <router-link
+              :to="`/artist/${artist.id}`"
+              class="hover:text-[#FF5A5F] dark:hover:text-[#FF7F66] transition-colors"
+              @click.stop
+            >{{ artist.name }}</router-link>
+            <span v-if="idx < song.artists.length - 1"> / </span>
+          </template>
+        </template>
       </p>
     </div>
 
     <!-- Album -->
     <div class="hidden min-w-0 w-40 shrink-0 lg:block">
-      <p class="truncate text-xs text-neutral-500">{{ song.album?.name ?? '' }}</p>
+      <router-link
+        v-if="song.album?.id"
+        :to="`/album/${song.album.id}`"
+        class="truncate text-xs text-neutral-500 hover:text-[#FF5A5F] dark:hover:text-[#FF7F66] transition-colors block"
+        @click.stop
+      >{{ song.album.name }}</router-link>
+      <p v-else class="truncate text-xs text-neutral-500">{{ song.album?.name ?? '' }}</p>
     </div>
 
     <!-- Duration -->

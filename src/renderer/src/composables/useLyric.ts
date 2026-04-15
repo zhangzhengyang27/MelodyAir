@@ -1,9 +1,10 @@
 import { ref, watch, onUnmounted } from 'vue'
 import { usePlayerStore } from '@/stores/player'
-import { getLyric } from '@/api/song'
+import { getLyric, getLyricV1 } from '@/api/song'
 import { getLocalLyrics } from '@/api/local'
 import { parseLyric, findCurrentLyricIndex, mergeLyricsWithTranslation, type LyricLine } from '@/utils/lyric'
 import { cacheManager } from '@/utils/db'
+import { useSettingsStore } from '@/stores/settings'
 
 export function useLyric() {
   const playerStore = usePlayerStore()
@@ -80,7 +81,30 @@ export function useLyric() {
         }
         if (!lrc) lrc = data?.plain || ''
       } else {
-        // 网易云歌曲：走原有 /lyric 接口
+        // 网易云歌曲：优先使用逐字歌词 API
+        const settingsStore = useSettingsStore()
+        const useEnhancedLyric = settingsStore.enableEnhancedLyric ?? true
+
+        if (useEnhancedLyric) {
+          console.log(`[lyric] 请求逐字歌词: songId=${songId}`)
+          try {
+            const resV1: any = await getLyricV1(songId, { cp: true, tv: 1, lv: 1 })
+            lrc = resV1?.lrc?.lyric || resV1?.klyric?.lyric || resV1?.yrc?.lyric || ''
+            const tlyric = resV1?.tlyric?.lyric || undefined
+            if (lrc) {
+              lyrics.value = mergeLyricsWithTranslation(parseLyric(lrc), tlyric)
+              lastFetchedSongId = songId
+              // 缓存
+              cacheManager.cacheLyric(songId, lrc, tlyric).catch(() => {})
+              console.log(`[lyric] 逐字歌词解析成功, 共 ${lyrics.value.length} 行`)
+              return
+            }
+          } catch (e) {
+            console.warn('[lyric] 逐字歌词请求失败，回退到普通歌词:', e)
+          }
+        }
+
+        // 回退到普通歌词
         console.log(`[lyric] 请求网易云歌词: songId=${songId}`)
         const res: any = await getLyric(songId)
         lrc = res?.lrc?.lyric || ''

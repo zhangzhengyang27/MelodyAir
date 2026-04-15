@@ -76,7 +76,7 @@ const totalDuration = computed(() =>
               </button>
             </div>
 
-            <TransitionGroup name="list" tag="div" class="queue-list">
+            <div class="queue-list">
               <div
                 v-for="(song, index) in playNextList"
                 :key="'next-' + song.id"
@@ -105,7 +105,7 @@ const totalDuration = computed(() =>
                   ✕
                 </button>
               </div>
-            </TransitionGroup>
+            </div>
           </div>
 
           <!-- 当前播放列表 -->
@@ -115,7 +115,7 @@ const totalDuration = computed(() =>
               <span v-if="currentSong" class="now-playing-badge">正在播放</span>
             </div>
 
-            <TransitionGroup name="list" tag="div" class="queue-list scrollable">
+            <div class="queue-list scrollable">
               <div
                 v-for="(song, index) in playlist"
                 :key="song.id"
@@ -156,7 +156,7 @@ const totalDuration = computed(() =>
                   ✕
                 </button>
               </div>
-            </TransitionGroup>
+            </div>
           </div>
 
           <!-- 底部统计 -->
@@ -252,6 +252,15 @@ const totalDuration = computed(() =>
 .section {
   padding: 16px 24px;
   flex-shrink: 0;
+}
+
+/* 播放列表区域：需要弹性伸缩以支持内部滚动 */
+.playlist-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .section-header {
@@ -478,16 +487,5 @@ const totalDuration = computed(() =>
 .slide-up-enter-from .queue-panel,
 .slide-up-leave-to .queue-panel {
   transform: translateX(100%);
-}
-
-.list-enter-active,
-.list-leave-active {
-  transition: all 0.3s ease;
-}
-
-.list-enter-from,
-.list-leave-to {
-  opacity: 0;
-  transform: translateX(-10px);
 }
 </style>

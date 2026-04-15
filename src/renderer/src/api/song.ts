@@ -28,9 +28,34 @@ export const getSongUrlMatch = (id: number, source?: string) =>
 export const getLyric = (id: number) =>
   request.get('/lyric', { params: { id } })
 
-// 获取逐字歌词
+// 获取逐字歌词（新版）
 export const getLyricNew = (id: number) =>
   request.get('/lyric/new', { params: { id } })
+
+/**
+ * 获取歌词 V1（支持逐字歌词等 8 种变体）
+ * @param id 歌曲 ID
+ * @param options 歌词选项
+ */
+export const getLyricV1 = (id: number | string, options?: {
+  /** 是否返回逐字歌词（卡拉OK模式） */
+  cp?: boolean
+  /** 翻译歌词版本 */
+  tv?: number
+  /** 罗马音歌词版本 */
+  lv?: number
+  /** 罗马音歌词备选版本 */
+  rv?: number
+  /** 卡拉OK歌词版本 */
+  kv?: number
+  /** 音译歌词版本 */
+  yv?: number
+  /** 音译逐字歌词版本 */
+  ytv?: number
+  /** 音译罗马音歌词版本 */
+  yrv?: number
+}) =>
+  request.get('/lyric/v1', { params: { id, ...options } })
 
 // 检查歌曲是否可用
 export const checkMusic = (id: number, br = 999000) =>

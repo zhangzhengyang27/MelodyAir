@@ -141,7 +141,10 @@ const tabs = [
   { label: '简介', value: 'desc' }
 ]
 
+let fetchVersion = 0
+
 async function fetchData(id: number) {
+  const currentVersion = ++fetchVersion
   loading.value = true
   artistId.value = id
   isSubbed.value = false
@@ -152,12 +155,14 @@ async function fetchData(id: number) {
       getArtistDesc(id),
       getSimiArtist(id)
     ])
+    // 竞态守卫：如果已有更新的请求发起，丢弃本次过期响应
+    if (currentVersion !== fetchVersion) return
     if (detailRes.status === 'fulfilled') {
       const data = (detailRes.value as any)?.data?.artist || (detailRes.value as any)?.artist
       if (data) {
         artist.value = {
           name: data.name,
-          avatar: data.picUrl || data.cover,
+          avatar: data.picUrl || data.img1v1Url || '',
           briefDesc: data.briefDesc || '',
           identifyTag: data.identify?.imageDesc || ''
         }
@@ -180,13 +185,26 @@ async function fetchData(id: number) {
 
   songsLoading.value = true
   try {
+    // 竞态守卫
+    if (currentVersion !== fetchVersion) return
     const [songsRes, albumRes, mvRes] = await Promise.allSettled([
       getArtistSongs(id),
       getArtistAlbum(id),
       getArtistMv(id)
     ])
     if (songsRes.status === 'fulfilled') {
-      hotSongs.value = ((songsRes.value as any)?.songs || []).map((s: any) => ({
+      const resData = songsRes.value as any
+      // 从 /artists 响应中提取歌手信息（与 hotSongs 数据一致，覆盖 detail 接口可能的错误）
+      const songArtist = resData?.artist
+      if (songArtist) {
+        artist.value = {
+          name: songArtist.name,
+          avatar: songArtist.picUrl || songArtist.img1v1Url || '',
+          briefDesc: songArtist.briefDesc || artist.value?.briefDesc || '',
+          identifyTag: artist.value?.identifyTag || ''
+        }
+      }
+      hotSongs.value = ((resData)?.hotSongs || []).map((s: any) => ({
         id: s.id,
         name: s.name,
         artists: s.ar?.map((a: any) => ({ id: a.id, name: a.name })) || [],

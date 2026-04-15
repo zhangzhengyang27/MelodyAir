@@ -41,6 +41,7 @@ export interface SettingsState {
   lyricFontSize: number
   lyricFontFamily: string
   lyricAlignment: 'left' | 'center' | 'right'
+  enableEnhancedLyric: boolean // 逐字歌词
 
   // Electron 设置
   minimizeToTray: boolean
@@ -74,17 +75,15 @@ export const useSettingsStore = defineStore('settings', () => {
   const lyricFontSize = ref(16)
   const lyricFontFamily = ref('system-ui')
   const lyricAlignment = ref<'left' | 'center' | 'right'>('center')
+  const enableEnhancedLyric = ref(true) // 逐字歌词（默认开启）
 
   // Electron 设置
   const minimizeToTray = ref(true)
   const globalShortcut = ref(true)
   const autoLaunch = ref(false)
 
-  // 网络设置（开发环境强制走 Vite 代理）
-  const _apiBase = ref('http://localhost:3000')
-  const apiBase = import.meta.env.DEV
-    ? computed(() => '/api')
-    : _apiBase
+  // 网络设置（统一直连后端，不再走 Vite proxy）
+  const apiBase = ref('http://localhost:3000')
 
   // ★ 初始化时同步缓存大小到 CacheManager
   cacheManager.setMaxCacheSize(cacheLimitMB.value)
@@ -123,7 +122,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function setApiBase(url: string): void {
-    _apiBase.value = url
+    apiBase.value = url
   }
 
   function toggleMinimizeToTray(): void {
@@ -153,6 +152,7 @@ export const useSettingsStore = defineStore('settings', () => {
     lyricFontSize,
     lyricFontFamily,
     lyricAlignment,
+    enableEnhancedLyric,
     minimizeToTray,
     globalShortcut,
     autoLaunch,
@@ -178,7 +178,8 @@ export const useSettingsStore = defineStore('settings', () => {
       'theme', 'lyricsBackground', 'musicQuality', 'autoPlay', 'fadeDuration',
       'enableCache', 'cacheLimitMB', 'autoCacheNextTrack', 'enableUnblock',
       'showLyricTranslation', 'lyricFontSize', 'lyricFontFamily', 'lyricAlignment',
-      'minimizeToTray', 'globalShortcut', 'autoLaunch', '_apiBase'
+      'enableEnhancedLyric',
+      'minimizeToTray', 'globalShortcut', 'autoLaunch', 'apiBase'
     ],
     afterHydrate: (ctx) => {
       try {

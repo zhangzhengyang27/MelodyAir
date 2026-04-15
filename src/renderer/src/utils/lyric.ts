@@ -5,14 +5,18 @@ export interface LyricLine {
   time: number
   text: string
   translatedText?: string
+  /** 逐字歌词时间戳（可选） */
+  words?: { time: number; text: string }[]
 }
 
-/** Parse LRC format lyrics (支持翻译) */
+/** Parse LRC format lyrics (支持翻译和逐字歌词) */
 export function parseLyric(lrc: string): LyricLine[] {
   const lines = lrc.split('\n')
   const result: LyricLine[] = []
 
   const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/g
+  // 逐字歌词格式：歌(00:00.50)词(00:01.00)
+  const wordRegex = /([^\[\(]+)\((\d{2}):(\d{2})\.(\d{2,3})\)/g
 
   for (const line of lines) {
     const times: number[] = []
@@ -39,9 +43,33 @@ export function parseLyric(lrc: string): LyricLine[] {
       }
     }
 
+    // 检测逐字歌词格式
+    const words: { time: number; text: string }[] = []
+    let wordMatch: RegExpExecArray | null
+    let cleanText = ''
+    const wordTimeRegex = /([^\(\)]+)\((\d{2}):(\d{2})\.(\d{2,3})\)/g
+
+    while ((wordMatch = wordTimeRegex.exec(mainText)) !== null) {
+      const wordText = wordMatch[1]
+      const wordMin = parseInt(wordMatch[2])
+      const wordSec = parseInt(wordMatch[3])
+      const wordMs = parseInt(wordMatch[4].padEnd(3, '0'))
+      const wordTime = wordMin * 60 + wordSec + wordMs / 1000
+      words.push({ time: wordTime, text: wordText })
+      cleanText += wordText
+    }
+
+    // 如果有逐字时间戳，使用解析后的纯文本
+    const finalText = words.length > 0 ? cleanText : mainText
+
     for (const time of times) {
-      if (mainText) {
-        result.push({ time, text: mainText, translatedText })
+      if (finalText) {
+        result.push({
+          time,
+          text: finalText,
+          translatedText,
+          words: words.length > 0 ? words : undefined
+        })
       }
     }
   }

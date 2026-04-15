@@ -51,7 +51,6 @@ import { RouterLink } from 'vue-router'
 
 const discoverItems = [
   { to: '/', icon: '🏠', label: '发现' },
-  { to: '/search', icon: '🔍', label: '搜索' },
   { to: '/toplist', icon: '🏆', label: '排行榜' },
   { to: '/playlists', icon: '🎵', label: '歌单' },
   { to: '/artists', icon: '🎤', label: '歌手' },

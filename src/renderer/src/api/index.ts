@@ -85,20 +85,15 @@ request.interceptors.request.use(
       return config
     }
 
-    // ★ 通过 URL params 注入 cookie（浏览器会拦截 headers.Cookie 设置）
-    // 后端 server.js 会从 req.query.cookie 合并到模块参数中
+    // ★ 仅对需要登录的接口通过 URL params 注入 cookie
+    // 公开接口不注入 cookie，避免 URL 超长导致 502 Invalid URL
     const cookieStr = getCookieString()
-    if (cookieStr) {
+    if (cookieStr && isAccountRequired(config.url)) {
       config.params = config.params || {}
       ;(config.params as any).cookie = cookieStr
     }
 
-    // 无 cookie 时警告（部分接口需要登录）
-    if (!cookieStr && !isLoginRelatedUrl) {
-      console.warn(`[api] ${config.method?.toUpperCase()} ${config.baseURL}${config.url} 无 Cookie，接口可能需要登录`)
-    }
-
-    // ★ 登录态前置校验：需要登录的接口在无 cookie 时直接拦截
+    // ★ 需要登录的接口在无 cookie 时直接拦截
     if (!cookieStr && isAccountRequired(config.url)) {
       console.warn(`[api] ${config.url} 需要登录，但当前无 Cookie，请求已拦截`)
       return Promise.reject(new axios.Cancel('ACCOUNT_REQUIRED'))

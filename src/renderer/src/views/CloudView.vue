@@ -34,7 +34,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { getCloudList } from '@/api/cloud'
+import { getCloudList, uploadToCloud } from '@/api/cloud'
 import SongTable from '@/components/common/SongTable.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { usePlayer } from '@/composables/usePlayer'
@@ -87,12 +87,20 @@ async function handleFileSelect(e: Event) {
   uploadFileName.value = file.name
   uploadProgress.value = 1
   try {
-    // 模拟上传进度（真实上传需配合后端 API）
-    uploadProgress.value = 50
-    showToast('上传功能需要后端支持', { type: 'warning' })
-    uploadProgress.value = 0
-  } catch {
-    showToast('上传失败', { type: 'error' })
+    const result: any = await uploadToCloud(file, (progress) => {
+      uploadProgress.value = progress
+    })
+    if (result?.body?.code === 200 || result?.code === 200) {
+      showToast(`上传成功：${file.name}`, { type: 'success' })
+      // 刷新列表
+      await fetchCloudList()
+    } else {
+      showToast(result?.body?.msg || result?.msg || '上传失败', { type: 'error' })
+    }
+  } catch (err: any) {
+    console.error('[cloud] Upload failed:', err)
+    showToast(err?.response?.data?.message || '上传失败', { type: 'error' })
+  } finally {
     uploadProgress.value = 0
   }
   // 清空 input 以允许再次选择同一文件
