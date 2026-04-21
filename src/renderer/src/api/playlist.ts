@@ -1,25 +1,26 @@
 import request from './index'
+import type { ApiResponse, Playlist } from '@/types/api'
 
 // 获取歌单详情
-export const getPlaylistDetail = (id: number, s = 8) =>
+export const getPlaylistDetail = (id: number, s = 8): Promise<ApiResponse<{ playlist: Playlist }>> =>
   request.get('/playlist/detail', { params: { id, s } })
 
 // 获取歌单所有歌曲
-export const getPlaylistTrackAll = (id: number, limit?: number, offset?: number) =>
+export const getPlaylistTrackAll = (id: number, limit?: number, offset?: number): Promise<ApiResponse> =>
   request.get('/playlist/track/all', { params: { id, limit, offset } })
 
 // 热门歌单分类
-export const getPlaylistHot = () => request.get('/playlist/hot')
+export const getPlaylistHot = (): Promise<ApiResponse> => request.get('/playlist/hot')
 
 // 歌单分类列表
-export const getPlaylistCatlist = () => request.get('/playlist/catlist')
+export const getPlaylistCatlist = (): Promise<ApiResponse> => request.get('/playlist/catlist')
 
 // 收藏/取消收藏歌单
-export const subscribePlaylist = (id: number, t: 1 | 2) =>
+export const subscribePlaylist = (id: number, t: 1 | 2): Promise<ApiResponse> =>
   request.get('/playlist/subscribe', { params: { t, id, timestamp: Date.now() } })
 
 // 歌单详情动态
-export const getPlaylistDetailDynamic = (id: number) =>
+export const getPlaylistDetailDynamic = (id: number): Promise<ApiResponse<{ subscribed?: boolean }>> =>
   request.get('/playlist/detail/dynamic', { params: { id } })
 
 // 歌单(网友精选碟)

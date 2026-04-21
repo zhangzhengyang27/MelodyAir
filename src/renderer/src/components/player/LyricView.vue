@@ -82,6 +82,7 @@ onMounted(() => {
 onUnmounted(() => {
   containerRef.value?.removeEventListener('wheel', onUserScroll)
   containerRef.value?.removeEventListener('touchstart', onUserScroll)
+  if (userScrollTimer) clearTimeout(userScrollTimer)
 })
 </script>
 

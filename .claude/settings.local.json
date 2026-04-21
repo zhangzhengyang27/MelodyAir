@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm lint *)",
+      "Bash(pnpm dev *)",
+      "Bash(grep -A 20 \"}, {\" /Users/zhangzhengyang/Desktop/Claude/music/MelodyAir/src/renderer/src/stores/user.ts)",
+      "Bash(grep -E \"\\\\.\\(ts|vue\\)$\")",
+      "Bash(git add *)"
+    ]
+  }
+}

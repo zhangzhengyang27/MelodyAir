@@ -93,11 +93,13 @@ function handleLyricClick(line: LyricLine): void {
 function handleMouseDown(): void {
   isDragging = true
 
-  // 鼠标释放后恢复自动滚动
   const handleMouseUp = () => {
     isDragging = false
     document.removeEventListener('mouseup', handleMouseUp)
+    // 清除引用，避免 onUnmounted 重复清理
+    if (mouseUpHandler === handleMouseUp) mouseUpHandler = null
   }
+  mouseUpHandler = handleMouseUp
   document.addEventListener('mouseup', handleMouseUp)
 }
 
@@ -145,12 +147,18 @@ function extractDominantColor(_url: string): string {
   return '66, 133, 244' // 默认蓝色调
 }
 
-// 清理定时器
+// 清理定时器和事件监听器
 let animationFrameId: number | null = null
+let mouseUpHandler: (() => void) | null = null
 
 onUnmounted(() => {
   if (animationFrameId) {
     cancelAnimationFrame(animationFrameId)
+  }
+  // 兜底清理可能残留的 mouseup 监听器（组件卸载时 handleMouseUp 可能未被调用）
+  if (mouseUpHandler) {
+    document.removeEventListener('mouseup', mouseUpHandler)
+    mouseUpHandler = null
   }
 })
 </script>

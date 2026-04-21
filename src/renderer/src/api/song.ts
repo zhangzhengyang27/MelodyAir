@@ -1,15 +1,17 @@
 import request from './index'
+import type { SongUrlV1Response, LyricResponse } from '@/types/api'
+import type { ApiResponse } from '@/types/api'
 
 // 获取歌曲详情
-export const getSongDetail = (ids: number | string) =>
+export const getSongDetail = (ids: number | string): Promise<ApiResponse> =>
   request.get('/song/detail', { params: { ids } })
 
 // 获取音乐 URL（旧版）
-export const getSongUrl = (id: number, br = 999000) =>
+export const getSongUrl = (id: number, br = 999000): Promise<ApiResponse> =>
   request.get('/song/url', { params: { id, br } })
 
 // 获取音乐 URL - 新版（支持音质等级）
-export const getSongUrlV1 = (id: number | string, level = 'exhigh', unblock = false) =>
+export const getSongUrlV1 = (id: number | string, level = 'exhigh', unblock = false): Promise<SongUrlV1Response> =>
   request.get('/song/url/v1', { params: { id, level, unblock } })
 
 // 获取客户端歌曲下载 URL
@@ -25,11 +27,11 @@ export const getSongUrlMatch = (id: number, source?: string) =>
   request.get('/song/url/match', { params: { id, source } })
 
 // 获取歌词
-export const getLyric = (id: number) =>
+export const getLyric = (id: number): Promise<LyricResponse> =>
   request.get('/lyric', { params: { id } })
 
 // 获取逐字歌词（新版）
-export const getLyricNew = (id: number) =>
+export const getLyricNew = (id: number): Promise<LyricResponse> =>
   request.get('/lyric/new', { params: { id } })
 
 /**

@@ -1,0 +1,54 @@
+---
+description: Tailwind CSS v4 usage guidelines for this project
+alwaysApply: true
+---
+
+# Tailwind CSS v4 使用规范
+
+## 核心原则
+
+- 本项目使用 Tailwind CSS v4，不要按 v3 的思路写配置。
+- 需要自定义颜色、阴影或圆角时，优先使用任意值语法或标准内置类。
+- 在 Vue `<style scoped>` 中，优先写原生 CSS，少用 `@apply`。
+
+## 常见约束
+
+- 不要依赖 `tailwind.config.js` 去生成旧式语义类。
+- 不要在 `.vue` / `.ts` 文件里继续使用旧设计 token 类名。
+- 尽量复用项目已有的颜色值和圆角语义，不要发明新的 token。
+
+## 允许与替代
+
+- 颜色：用 `bg-[#FF5A5F]`、`text-[#FF5A5F]` 这类任意值。
+- 圆角：用 `rounded-xl`、`rounded-2xl`、`rounded-lg`。
+- 阴影：用 `shadow-[0_2px_16px_rgba(0,0,0,0.08)]` 这类任意值。
+- scoped 样式：优先原生 CSS，避免复杂 `@apply`。
+
+## 禁止使用的旧类名
+
+- `bg-coral-*`
+- `text-coral-*`
+- `border-coral-*`
+- `ring-coral-*`
+- `focus:border-coral-*`
+- `hover:text-coral-*`
+- `hover:bg-coral-*`
+- `peer-checked:bg-coral-*`
+- `rounded-airbnb`
+- `rounded-card`
+- `rounded-cover`
+- `shadow-card`
+- `shadow-card-hover`
+- `dark:bg-coral-900/20`
+- `ring-coral-200`
+- `dark:ring-coral-800`
+
+## 颜色参考
+
+- `#FF5A5F` 主品牌色
+- `#E0484D` 悬停态
+- `#FFF5F3` 浅背景
+- `#FFB0A0` 边框
+- `#FFE8E3` 浅色 ring
+- `#9E2F33` 暗色 ring
+- `#FF7F66` 悬停文字

@@ -1,20 +1,21 @@
 import request from './index'
+import type { ApiResponse } from '@/types/api'
 
 // ==================== 音乐库管理 ====================
 
-export const getLibraries = () => request.get('/library')
+export const getLibraries = (): Promise<ApiResponse> => request.get('/library')
 
-export const getLibrary = (id: number) => request.get(`/library/${id}`)
+export const getLibrary = (id: number): Promise<ApiResponse> => request.get(`/library/${id}`)
 
-export const createLibrary = (data: { name: string; path: string }) =>
+export const createLibrary = (data: { name: string; path: string }): Promise<ApiResponse> =>
   request.post('/library', data)
 
-export const updateLibrary = (id: number, data: { name?: string; path?: string }) =>
+export const updateLibrary = (id: number, data: { name?: string; path?: string }): Promise<ApiResponse> =>
   request.put(`/library/${id}`, data)
 
-export const deleteLibrary = (id: number) => request.delete(`/library/${id}`)
+export const deleteLibrary = (id: number): Promise<ApiResponse> => request.delete(`/library/${id}`)
 
-export const scanLibrary = (id: number) => request.post(`/library/${id}/scan`)
+export const scanLibrary = (id: number): Promise<ApiResponse> => request.post(`/library/${id}/scan`)
 
 // ==================== 本地文件 ====================
 

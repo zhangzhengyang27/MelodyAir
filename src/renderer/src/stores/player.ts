@@ -2,11 +2,13 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { AudioEngine, type PlayMode, type PlayerStatus } from '../utils/player'
 import { showToast } from '../composables/useToast'
+import { logger } from '../utils/logger'
 import { playerDefaults, migrateWithDefaults } from './defaults'
 import { usePlayerCache } from '../composables/usePlayerCache'
 import { useScrobble } from '../composables/useScrobble'
 import { useMediaSession } from '../composables/useMediaSession'
 import { usePlaybackProgress } from '../composables/usePlaybackProgress'
+import { getStorage, setStorage } from '../utils/storage'
 
 export interface Song {
   id: number
@@ -56,6 +58,10 @@ export const usePlayerStore = defineStore('player', () => {
   const personalFMNextTrack = ref<Song | null>(null)
   const status = ref<PlayerStatus>('paused')
   const currentSongCache = ref<Song | null>(null)
+  const sleepTimerDeadline = ref<number | null>(null)
+  const sleepTimerTimeoutId = ref<number | null>(null)
+  const sleepTimerTickId = ref<number | null>(null)
+  const playHistory = ref<Array<{ song: Song; playedAt: number; playCount: number }>>([])
 
   // 音频引擎实例
   let audioEngine: AudioEngine | null = null
@@ -126,7 +132,7 @@ export const usePlayerStore = defineStore('player', () => {
           mediaSessionHelper.updateMediaSessionPlaybackState()
         },
         onError: (error: Error) => {
-          console.error('Player error:', error)
+          logger.error('player', 'Player error:', error)
           status.value = 'error'
           playing.value = false
         }
@@ -145,10 +151,12 @@ export const usePlayerStore = defineStore('player', () => {
 
     try {
       status.value = 'loading'
+      markPlayHistory(song)
+      markPlayHistory(song)
 
       const url = await playerCache.getAudioSource(song.id, true, song._localTrackId)
       if (!url) {
-        console.warn(`[player] No playable source for "${song.name}" (id=${song.id})`)
+        logger.warn('player', `No playable source for "${song.name}" (id=${song.id})`)
         status.value = 'error'
         playing.value = false
         showToast(`无法播放「${song.name}」`, { type: 'warning', dedupeKey: 'player-unplayable' })
@@ -156,7 +164,7 @@ export const usePlayerStore = defineStore('player', () => {
         return
       }
 
-      console.log(`[player] 开始播放: "${song.name}", url=${url.slice(0, 100)}...`)
+      logger.info('player', `开始播放: "${song.name}", url=${url.slice(0, 100)}...`)
       await audioEngine!.play(url)
       activeBlobUrl.value = url.startsWith('blob:') ? url : null
       updateCurrentSongCache(song)
@@ -186,7 +194,7 @@ export const usePlayerStore = defineStore('player', () => {
         playNextList, isPersonalFM, personalFMNextTrack, playlist, currentIndex,
       })
     } catch (error) {
-      console.error(`[player] Failed to play "${song.name}":`, error)
+      logger.error('player', `Failed to play "${song.name}":`, error)
       status.value = 'error'
       playing.value = false
       showToast(`播放失败「${song.name}」`, { type: 'error', dedupeKey: 'player-error' })
@@ -199,6 +207,72 @@ export const usePlayerStore = defineStore('player', () => {
     if (document.title !== `MelodyAir - ${song.name}`) {
       document.title = `MelodyAir - ${song.name}`
     }
+  }
+
+  function markPlayHistory(song: Song): void {
+    if (!song || typeof song.id !== 'number') return
+    const index = playHistory.value.findIndex((item) => item.song.id === song.id)
+    const playedAt = Date.now()
+
+    if (index >= 0) {
+      const old = playHistory.value[index]
+      playHistory.value.splice(index, 1)
+      playHistory.value.unshift({
+        song,
+        playedAt,
+        playCount: old.playCount + 1,
+      })
+    } else {
+      playHistory.value.unshift({
+        song,
+        playedAt,
+        playCount: 1,
+      })
+    }
+
+    if (playHistory.value.length > 300) {
+      playHistory.value = playHistory.value.slice(0, 300)
+    }
+    setStorage('play-history', playHistory.value)
+  }
+
+  function loadPersistentState(): void {
+    sleepTimerDeadline.value = getStorage<number | null>('sleep-timer-deadline', null)
+    playHistory.value = getStorage<Array<{ song: Song; playedAt: number; playCount: number }>>('play-history', [])
+    if (sleepTimerDeadline.value && sleepTimerDeadline.value > Date.now()) {
+      const remaining = sleepTimerDeadline.value - Date.now()
+      clearSleepTimerHandles()
+      sleepTimerTimeoutId.value = window.setTimeout(() => {
+        if (sleepTimerDeadline.value) finishSleepTimer()
+      }, remaining)
+      sleepTimerTickId.value = window.setInterval(syncSleepTimerState, 1000)
+    }
+  }
+
+  function clearSleepTimerHandles(): void {
+    if (sleepTimerTimeoutId.value !== null) {
+      window.clearTimeout(sleepTimerTimeoutId.value)
+      sleepTimerTimeoutId.value = null
+    }
+    if (sleepTimerTickId.value !== null) {
+      window.clearInterval(sleepTimerTickId.value)
+      sleepTimerTickId.value = null
+    }
+  }
+
+  function clearPlayHistory(): void {
+    playHistory.value = []
+    setStorage('play-history', playHistory.value)
+  }
+
+  function removeHistoryBySongId(songId: number): void {
+    playHistory.value = playHistory.value.filter(item => item.song.id !== songId)
+    setStorage('play-history', playHistory.value)
+  }
+
+  function setSleepTimerDeadline(deadline: number | null): void {
+    sleepTimerDeadline.value = deadline
+    setStorage('sleep-timer-deadline', deadline)
   }
 
   // ==================== 播放列表管理 ====================
@@ -256,9 +330,62 @@ export const usePlayerStore = defineStore('player', () => {
     stopPlayback()
   }
 
+  function getPlayHistory() {
+    return playHistory.value
+  }
+
   function addToPlayNext(song: Song): void {
     if (!playNextList.value.find((s) => s.id === song.id)) {
       playNextList.value.push(song)
+    }
+  }
+
+  function insertNext(song: Song): void {
+    const existingIndex = playlist.value.findIndex((s) => s.id === song.id)
+    if (existingIndex >= 0 && existingIndex !== currentIndex.value + 1) {
+      playlist.value.splice(existingIndex, 1)
+      if (existingIndex < currentIndex.value) {
+        currentIndex.value--
+      }
+    }
+
+    if (existingIndex !== currentIndex.value + 1) {
+      playlist.value.splice(currentIndex.value + 1, 0, song)
+    }
+
+    if (playMode.value === 'random') {
+      const shuffledIndex = shuffledList.value.findIndex((s) => s.id === song.id)
+      if (shuffledIndex >= 0) {
+        shuffledList.value.splice(shuffledIndex, 1)
+      }
+      shuffledList.value.splice(0, 0, song)
+    }
+  }
+
+  function removeQueueItem(index: number): void {
+    if (index < 0 || index >= playlist.value.length) return
+
+    const removedSong = playlist.value[index]
+    playlist.value.splice(index, 1)
+
+    if (playMode.value === 'random') {
+      const shuffledIndex = shuffledList.value.findIndex((s) => s.id === removedSong.id)
+      if (shuffledIndex >= 0) {
+        shuffledList.value.splice(shuffledIndex, 1)
+      }
+    }
+
+    if (index < currentIndex.value) {
+      currentIndex.value--
+    } else if (index === currentIndex.value) {
+      if (playlist.value.length === 0) {
+        stopPlayback()
+      } else {
+        currentIndex.value = Math.min(currentIndex.value, playlist.value.length - 1)
+        if (currentSong.value) {
+          playSong(currentSong.value)
+        }
+      }
     }
   }
 
@@ -367,11 +494,66 @@ export const usePlayerStore = defineStore('player', () => {
     if (audioEngine) muted.value = audioEngine.toggleMute()
   }
 
+  function clearSleepTimerHandles(): void {
+    if (sleepTimerTimeoutId.value !== null) {
+      window.clearTimeout(sleepTimerTimeoutId.value)
+      sleepTimerTimeoutId.value = null
+    }
+    if (sleepTimerTickId.value !== null) {
+      window.clearInterval(sleepTimerTickId.value)
+      sleepTimerTickId.value = null
+    }
+  }
+
+  function syncSleepTimerState(): void {
+    if (!sleepTimerDeadline.value) return
+    if (Date.now() >= sleepTimerDeadline.value) {
+      finishSleepTimer()
+    }
+  }
+
+  function finishSleepTimer(): void {
+    clearSleepTimerHandles()
+    sleepTimerDeadline.value = null
+    setStorage('sleep-timer-deadline', null)
+    stopPlayback()
+    playing.value = false
+    status.value = 'paused'
+    showToast('睡眠定时结束，已暂停播放', { type: 'success', dedupeKey: 'sleep-timer-end' })
+  }
+
+  function setSleepTimer(minutes: number): void {
+    const safeMinutes = Math.max(1, Math.floor(minutes))
+    clearSleepTimerHandles()
+    sleepTimerDeadline.value = Date.now() + safeMinutes * 60 * 1000
+    setStorage('sleep-timer-deadline', sleepTimerDeadline.value)
+    showToast(`睡眠定时已开启：${safeMinutes} 分钟`, { type: 'info', dedupeKey: 'sleep-timer-start' })
+
+    sleepTimerTimeoutId.value = window.setTimeout(() => {
+      if (sleepTimerDeadline.value) finishSleepTimer()
+    }, safeMinutes * 60 * 1000)
+
+    sleepTimerTickId.value = window.setInterval(syncSleepTimerState, 1000)
+  }
+
+  function clearSleepTimer(): void {
+    clearSleepTimerHandles()
+    sleepTimerDeadline.value = null
+    setStorage('sleep-timer-deadline', null)
+    showToast('睡眠定时已取消', { type: 'info', dedupeKey: 'sleep-timer-cancel' })
+  }
+
   function seek(time: number): void {
     if (audioEngine) audioEngine.seek(time)
   }
 
   async function handlePlayEnd(): Promise<void> {
+    if (sleepTimerDeadline.value && Date.now() >= sleepTimerDeadline.value) {
+      setSleepTimerDeadline(null)
+      showToast('播放已因睡眠定时暂停', { type: 'info', dedupeKey: 'sleep-timer' })
+      stopPlayback()
+      return
+    }
     await playNext()
   }
 
@@ -396,7 +578,7 @@ export const usePlayerStore = defineStore('player', () => {
       status.value = 'loading'
       const url = await playerCache.getAudioSource(song.id, true, song._localTrackId)
       if (!url) {
-        console.warn('[player] Failed to restore playback: no source')
+        logger.warn('player', 'Failed to restore playback: no source')
         return
       }
 
@@ -424,7 +606,7 @@ export const usePlayerStore = defineStore('player', () => {
         })
       }
     } catch (e) {
-      console.error('[player] Failed to restore playback:', e)
+      logger.error('player', 'Failed to restore playback:', e)
     }
   }
 
@@ -464,6 +646,7 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function destroy(): void {
+    clearSleepTimerHandles()
     playerCache.releaseAllBlobUrls()
     if (audioEngine) {
       audioEngine.destroy()
@@ -475,10 +658,11 @@ export const usePlayerStore = defineStore('player', () => {
     playlist, currentIndex, playing, playMode, currentTime, duration,
     volume, muted, shuffledList, playNextList, isPersonalFM,
     personalFMTrack, personalFMNextTrack, status, currentSongCache,
-    currentSong, progress,
+    sleepTimerDeadline, playHistory, currentSong, progress,
     setPlaylist, addToPlaylist, playSong, removeFromPlaylist, clearPlaylist,
-    addToPlayNext, playNext, playPrev, togglePlaying, togglePlayMode,
+    addToPlayNext, insertNext, removeQueueItem, playNext, playPrev, togglePlaying, togglePlayMode,
     setVolume, toggleMute, seek, setCurrentTime, setDuration,
+    setSleepTimer, clearSleepTimer, clearPlayHistory, removeHistoryBySongId, loadPersistentState,
     enablePersonalFM, disablePersonalFM, restorePlayback, destroy,
   }
 }, {
@@ -502,7 +686,7 @@ export const usePlayerStore = defineStore('player', () => {
             s && typeof s.id === 'number' && s.name && s.artists && s.album
           )
           if (validPlaylist.length !== playlist.length) {
-            console.warn(`[player] Migration: filtered ${playlist.length - validPlaylist.length} invalid songs`)
+            logger.warn('player', `Migration: filtered ${playlist.length - validPlaylist.length} invalid songs`)
             ctx.store.$state.playlist = validPlaylist
           }
         }

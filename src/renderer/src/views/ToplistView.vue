@@ -144,10 +144,10 @@ const newSongType = ref(0)
 onMounted(async () => {
   loading.value = true
   try {
-    const res: any = await getToplist()
-    toplists.value = res?.list || []
-  } catch (err) {
-    console.error('加载排行榜失败:', err)
+    const res = await getToplist()
+    toplists.value = (res as { list?: unknown[] })?.list || []
+  } catch (err: unknown) {
+    if (import.meta.env.DEV) console.error('加载排行榜失败:', err)
   } finally {
     loading.value = false
   }
@@ -161,8 +161,8 @@ watch(activeTopTab, async (tab) => {
 async function fetchArtistList() {
   artistLoading.value = true
   try {
-    const res: any = await getToplistArtist()
-    artistList.value = res?.list?.artists || res?.artists || []
+    const res = await getToplistArtist()
+    artistList.value = (res as { list?: { artists?: unknown[] }; artists?: unknown[] })?.list?.artists || (res as { artists?: unknown[] })?.artists || []
   } finally {
     artistLoading.value = false
   }
@@ -171,11 +171,11 @@ async function fetchArtistList() {
 async function fetchNewSongs() {
   newSongLoading.value = true
   try {
-    const res: any = await getTopSong(newSongType.value)
-    newSongs.value = (res?.data || []).map((s: any) => ({
+    const res = await getTopSong(newSongType.value)
+    newSongs.value = ((res as { data?: Song[] })?.data || []).map((s: Song) => ({
       id: s.id,
       name: s.name,
-      artists: s.ar?.map((a: any) => ({ id: a.id, name: a.name })) || [],
+      artists: s.ar?.map((a: { id: number; name: string }) => ({ id: a.id, name: a.name })) || [],
       album: { id: s.al?.id || 0, name: s.al?.name || '', picUrl: s.al?.picUrl || '' },
       duration: s.dt || 0,
       fee: s.fee || 0
@@ -197,12 +197,12 @@ async function viewDetail(id: number, name: string) {
   detailLoading.value = true
 
   try {
-    const res: any = await getPlaylistDetail(id)
+    const res = await getPlaylistDetail(id)
     const rawSongs = res?.playlist?.tracks || []
-    detailSongs.value = (rawSongs).map((s: any) => ({
+    detailSongs.value = (rawSongs as Song[]).map((s: Song) => ({
       id: s.id,
       name: s.name || '',
-      artists: s.ar?.map((a: any) => ({ id: a.id || 0, name: a.name || '' })) || [],
+      artists: s.ar?.map((a: { id?: number; name?: string }) => ({ id: a.id || 0, name: a.name || '' })) || [],
       album: (() => {
         const al = s.al || {}
         return { id: al.id || 0, name: al.name || '', picUrl: al.picUrl || '' }
@@ -210,9 +210,10 @@ async function viewDetail(id: number, name: string) {
       duration: s.dt || 0,
       fee: s.fee || 0
     }))
-  } catch (err: any) {
-    console.error('加载榜单详情失败:', err)
-    detailError.value = err?.message || '接口请求异常'
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : '接口请求异常'
+    if (import.meta.env.DEV) console.error('加载榜单详情失败:', err)
+    detailError.value = msg
     detailSongs.value = []
   } finally {
     detailLoading.value = false

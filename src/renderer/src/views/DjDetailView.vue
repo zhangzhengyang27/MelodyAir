@@ -127,7 +127,7 @@ async function fetchRadio(rid: number) {
       radio.value = (detailRes.value as any)?.djRadio || null
     }
     if (progRes.status === 'fulfilled') {
-      const data = progRes.value as any
+      const data = progRes.value as { programs?: unknown[]; more?: boolean }
       programs.value = data?.programs || []
       programsOffset.value = programs.value.length
       hasMorePrograms.value = programs.value.length >= PAGE_SIZE && !data?.more
@@ -135,7 +135,7 @@ async function fetchRadio(rid: number) {
         : (data?.more !== false)
     }
   } catch (err) {
-    console.error('加载电台详情失败:', err)
+    if (import.meta.env.DEV) console.error('加载电台详情失败:', err)
   } finally {
     loading.value = false
   }
@@ -145,7 +145,7 @@ async function loadMorePrograms() {
   if (!radio.value || programsLoading.value) return
   programsLoading.value = true
   try {
-    const res: any = await getDjProgram({
+    const res = await getDjProgram({
       rid: radio.value.id,
       limit: PAGE_SIZE,
       offset: programsOffset.value
@@ -155,7 +155,7 @@ async function loadMorePrograms() {
     programsOffset.value = programs.value.length
     hasMorePrograms.value = newPrograms.length >= PAGE_SIZE && res?.more !== false
   } catch (err) {
-    console.error('加载更多节目失败:', err)
+    if (import.meta.env.DEV) console.error('加载更多节目失败:', err)
   } finally {
     programsLoading.value = false
   }
@@ -169,17 +169,17 @@ async function subscribeRadio() {
     await subDj(radio.value.id, t as 1 | 0)
     isSubscribed.value = !isSubscribed.value
   } catch (err) {
-    console.error('订阅操作失败:', err)
+    if (import.meta.env.DEV) console.error('订阅操作失败:', err)
   } finally {
     subLoading.value = false
   }
 }
 
-function playProgram(prog: any) {
+function playProgram(prog: { mainSong?: { id?: number; artists?: { id: number; name: string }[] }; id?: number; name: string; radio?: { name?: string; picUrl?: string }; coverUrl?: string; duration?: number }) {
   const song: Song = {
     id: prog.mainSong?.id || prog.id,
     name: prog.name,
-    artists: prog.mainSong?.artists?.map((a: any) => ({ id: a.id, name: a.name })) || [{ id: 0, name: prog.radio?.name || '' }],
+    artists: prog.mainSong?.artists?.map((a) => ({ id: a.id, name: a.name })) || [{ id: 0, name: prog.radio?.name || '' }],
     album: {
       id: 0,
       name: prog.radio?.name || '',

@@ -11,28 +11,23 @@ import {
   refreshCookie,
   logout as apiLogout
 } from '@/api/auth'
-import { getUserPlaylist, getUserAccount, getLikeList, likeSong, likeSongV2 } from '@/api/user'
+import { getUserPlaylist, getUserAccount, getLikeList, likeSong } from '@/api/user'
 import { getPlaylistDetail, subscribePlaylist, createPlaylist, deletePlaylist, playlistTracks, updatePlaylist, getPlaylistDetailDynamic } from '@/api/playlist'
 import { subAlbum, getAlbumSublist, getAlbumDetailDynamic } from '@/api/album'
 import { subArtist, getArtistSublist, getArtistDetailDynamic } from '@/api/artist'
 import { subMv, getMvSublist } from '@/api/mv'
 import { userDefaults, migrateWithDefaults } from './defaults'
-
-export interface UserProfile {
-  userId: number
-  nickname: string
-  avatarUrl: string
-  backgroundUrl?: string
-  vipType?: number
-}
-
-export interface Playlist {
-  id: number
-  name: string
-  coverImgUrl: string
-  trackCount: number
-  playCount: number
-}
+import { mapPlaylist, mapUserProfile } from '@/utils/mappers'
+import { parseAndStoreCookies } from '@/api/cookie'
+import { logger } from '@/utils/logger'
+import type { UserProfile, Playlist } from '@/types/api'
+import type {
+  LoginResponse,
+  QrCodeKeyResponse,
+  QrCodeCreateResponse,
+  QrCodeCheckResponse,
+  LoginStatusResponse,
+} from '@/types/api'
 
 export type LoginMode = 'account' | null
 
@@ -72,90 +67,47 @@ export const useUserStore = defineStore('user', () => {
 
   function setCookies(cookieStr: string): void {
     if (!cookieStr) return
-    const cookies = cookieStr.split(/;;|;(?![a-zA-Z])/)
-    for (const c of cookies) {
-      const trimmed = c.trim()
-      if (!trimmed) continue
-      try {
-        document.cookie = trimmed
-        const cookieKeyValue = trimmed.split(';')[0]!.split('=')
-        if (cookieKeyValue[0] && cookieKeyValue[1] !== undefined) {
-          localStorage.setItem(`cookie-${cookieKeyValue[0].trim()}`, cookieKeyValue[1])
-        }
-      } catch {
-        // Ignore
-      }
-    }
+    parseAndStoreCookies(cookieStr)
   }
 
-  function getCookie(key: string): string | null {
-    const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${key}=([^;]*)`))
-    if (match?.[1]) return match[1]
-    return localStorage.getItem(`cookie-${key}`)
-  }
-
-  function removeCookie(key: string): void {
-    document.cookie = `${key}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
-    localStorage.removeItem(`cookie-${key}`)
-  }
-
-  function isLoggedIn(): boolean {
-    return getCookie('MUSIC_U') !== null
-  }
-
-  // ==================== 登录流程 =====================
+  // ==================== 登录流程 ====================
 
   async function checkLoginStatus() {
     try {
-      const res: any = await getLoginStatus()
-      if (res?.data?.profile) {
-        profile.value = {
-          userId: res.data.profile.userId,
-          nickname: res.data.profile.nickname,
-          avatarUrl: res.data.profile.avatarUrl,
-          backgroundUrl: res.data.profile.backgroundUrl,
-          vipType: res.data.profile.vipType
-        }
+      const res: LoginStatusResponse = await getLoginStatus()
+      if (res?.profile) {
+        profile.value = mapUserProfile(res.profile as unknown as Record<string, unknown>)
+        fetchUserPlaylists()
+        fetchLikedSongIds()
+      } else if (res?.data?.profile) {
+        profile.value = mapUserProfile(res.data.profile as unknown as Record<string, unknown>)
         fetchUserPlaylists()
         fetchLikedSongIds()
       }
     } catch {
-      // Not logged in
+      // 未登录
     }
   }
 
   async function fetchUserProfile(): Promise<void> {
     try {
-      const res: any = await getLoginStatus()
+      const res: LoginStatusResponse = await getLoginStatus()
       if (res?.code === 200 && res?.profile) {
-        profile.value = {
-          userId: res.profile.userId,
-          nickname: res.profile.nickname,
-          avatarUrl: res.profile.avatarUrl,
-          backgroundUrl: res.profile.backgroundUrl,
-          vipType: res.profile.vipType
-        }
+        profile.value = mapUserProfile(res.profile as unknown as Record<string, unknown>)
       } else if (res?.data?.profile) {
-        profile.value = {
-          userId: res.data.profile.userId,
-          nickname: res.data.profile.nickname,
-          avatarUrl: res.data.profile.avatarUrl,
-          backgroundUrl: res.data.profile.backgroundUrl,
-          vipType: res.data.profile.vipType
-        }
+        profile.value = mapUserProfile(res.data.profile as unknown as Record<string, unknown>)
       }
     } catch {
-      // Ignore
+      // 忽略
     }
   }
 
   /**
    * 获取用户账号信息（/user/account）
    */
-  async function fetchUserAccount(): Promise<any> {
+  async function fetchUserAccount() {
     try {
-      const res: any = await getUserAccount()
-      return res
+      return await getUserAccount()
     } catch {
       return null
     }
@@ -164,21 +116,15 @@ export const useUserStore = defineStore('user', () => {
   async function fetchLikedPlaylist(): Promise<void> {
     if (!profile.value) return
     try {
-      const res: any = await getUserPlaylist(profile.value.userId)
+      const res = await getUserPlaylist(profile.value.userId)
       if (res?.playlist) {
-        playlists.value = res.playlist.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          coverImgUrl: p.coverImgUrl,
-          trackCount: p.trackCount,
-          playCount: p.playCount
-        }))
+        playlists.value = res.playlist.map(p => mapPlaylist(p as unknown as Record<string, unknown>))
         if (res.playlist[0]) {
           likedSongPlaylistId.value = res.playlist[0].id
         }
       }
     } catch {
-      // Silent
+      // 静默失败
     }
   }
 
@@ -187,18 +133,17 @@ export const useUserStore = defineStore('user', () => {
    */
   async function loginByPhone(phone: string, captcha: string) {
     try {
-      const res: any = await loginCellphone({ phone, captcha })
+      const res: LoginResponse = await loginCellphone({ phone, captcha })
       if (res?.cookie || res?.code === 200) {
-        if (res.cookie) {
-          handleLoginSuccess(res.cookie)
-        }
+        if (res.cookie) handleLoginSuccess(res.cookie)
         await fetchUserProfile()
         await fetchLikedPlaylist()
         return { success: true }
       }
       return { success: false, message: res?.message || '登录失败' }
-    } catch (e: any) {
-      return { success: false, message: e?.response?.data?.message || e?.message || '登录失败' }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { success: false, message: msg || '登录失败' }
     }
   }
 
@@ -207,18 +152,17 @@ export const useUserStore = defineStore('user', () => {
    */
   async function loginByPassword(phone: string, password: string, countrycode?: string) {
     try {
-      const res: any = await loginCellphone({ phone, password, countrycode })
+      const res: LoginResponse = await loginCellphone({ phone, password, countrycode })
       if (res?.cookie || res?.code === 200) {
-        if (res.cookie) {
-          handleLoginSuccess(res.cookie)
-        }
+        if (res.cookie) handleLoginSuccess(res.cookie)
         await fetchUserProfile()
         await fetchLikedPlaylist()
         return { success: true }
       }
       return { success: false, message: res?.message || '登录失败' }
-    } catch (e: any) {
-      return { success: false, message: e?.response?.data?.message || e?.message || '登录失败' }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { success: false, message: msg || '登录失败' }
     }
   }
 
@@ -227,18 +171,17 @@ export const useUserStore = defineStore('user', () => {
    */
   async function loginByEmail(email: string, password: string) {
     try {
-      const res: any = await loginEmail(email, password)
+      const res: LoginResponse = await loginEmail(email, password)
       if (res?.cookie || res?.code === 200) {
-        if (res.cookie) {
-          handleLoginSuccess(res.cookie)
-        }
+        if (res.cookie) handleLoginSuccess(res.cookie)
         await fetchUserProfile()
         await fetchLikedPlaylist()
         return { success: true }
       }
       return { success: false, message: res?.message || '登录失败' }
-    } catch (e: any) {
-      return { success: false, message: e?.response?.data?.message || e?.message || '登录失败' }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { success: false, message: msg || '登录失败' }
     }
   }
 
@@ -247,16 +190,15 @@ export const useUserStore = defineStore('user', () => {
    */
   async function loginAsAnonimous() {
     try {
-      const res: any = await loginAnonimous()
+      const res: LoginResponse = await loginAnonimous()
       if (res?.cookie || res?.code === 200) {
-        if (res.cookie) {
-          handleLoginSuccess(res.cookie)
-        }
+        if (res.cookie) handleLoginSuccess(res.cookie)
         return { success: true }
       }
       return { success: false, message: res?.message || '游客登录失败' }
-    } catch (e: any) {
-      return { success: false, message: e?.message || '游客登录失败' }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { success: false, message: msg || '游客登录失败' }
     }
   }
 
@@ -265,7 +207,7 @@ export const useUserStore = defineStore('user', () => {
    */
   async function getQrCodeKey(): Promise<string | null> {
     try {
-      const res: any = await loginQrCodeKey()
+      const res: QrCodeKeyResponse = await loginQrCodeKey()
       if (res?.code === 200) {
         return res.data?.unikey || null
       }
@@ -280,7 +222,7 @@ export const useUserStore = defineStore('user', () => {
    */
   async function getQrCodeImage(key: string): Promise<string | null> {
     try {
-      const res: any = await loginQrCodeCreate(key, true)
+      const res: QrCodeCreateResponse = await loginQrCodeCreate(key, true)
       if (res?.code === 200) {
         return res.data?.qrimg || null
       }
@@ -295,11 +237,11 @@ export const useUserStore = defineStore('user', () => {
    */
   async function checkQrCodeStatus(key: string): Promise<{ code: number; cookie?: string; message?: string }> {
     try {
-      const res: any = await loginQrCodeCheck(key)
+      const res: QrCodeCheckResponse = await loginQrCodeCheck(key)
       return {
         code: res?.code ?? -1,
         cookie: res?.cookie,
-        message: res?.message || res?.msg
+        message: res?.message || res?.msg,
       }
     } catch {
       return { code: -1 }
@@ -318,32 +260,20 @@ export const useUserStore = defineStore('user', () => {
 
   /**
    * 直接导入 MUSIC_U Cookie（从浏览器复制）
-   * 导入后自动获取用户信息（获取失败不影响登录状态）
    */
   async function importMusicUCookie(musicUValue: string): Promise<{ success: boolean; message?: string }> {
     try {
-      // 写入 localStorage（api/index.ts 拦截器从这里读取）
       localStorage.setItem('cookie-MUSIC_U', musicUValue)
-      // ★ 文档要求：cookie 需要传入 os=pc 保证返回正常码率的 url
       localStorage.setItem('cookie-os', 'pc')
-      // 同步到 cookie 状态
       cookie.value = `MUSIC_U=${musicUValue}`
       loginMode.value = 'account'
 
-      // 尝试多种方式获取用户信息
       await fetchUserProfile()
       if (!profile.value) {
-        // 备用：尝试 /user/account 接口
-        const accountRes: any = await fetchUserAccount()
-        if (accountRes?.account) {
-          const acc = accountRes.account
-          profile.value = {
-            userId: acc.id,
-            nickname: acc.userName || acc.nickname || '',
-            avatarUrl: accountRes.profile?.avatarUrl || '',
-            backgroundUrl: '',
-            vipType: accountRes.profile?.vipType || 0
-          }
+        const accountRes = await fetchUserAccount()
+        if (accountRes && 'account' in (accountRes as object)) {
+          const acc = (accountRes as { account: Record<string, unknown> }).account
+          profile.value = mapUserProfile(acc)
         }
       }
       if (profile.value) {
@@ -351,8 +281,8 @@ export const useUserStore = defineStore('user', () => {
         return { success: true, message: `登录成功：${profile.value.nickname}` }
       }
       return { success: true, message: 'Cookie 已导入（用户信息将在下次请求时刷新）' }
-    } catch (e: any) {
-      console.warn('[User] importMusicUCookie 异常:', e.message)
+    } catch (e: unknown) {
+      logger.warn('User', `importMusicUCookie 异常: ${e instanceof Error ? e.message : e}`)
       return { success: true, message: 'Cookie 已导入' }
     }
   }
@@ -369,37 +299,32 @@ export const useUserStore = defineStore('user', () => {
       await refreshCookie()
       lastRefreshCookieDate.value = today
     } catch {
-      // Ignore
+      // 忽略
     }
   }
 
   async function fetchUserPlaylists() {
     if (!profile.value) return
     try {
-      const res: any = await getUserPlaylist(profile.value.userId)
-      playlists.value = (res?.playlist || []).map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        coverImgUrl: p.coverImgUrl,
-        trackCount: p.trackCount,
-        playCount: p.playCount
-      }))
+      const res = await getUserPlaylist(profile.value.userId)
+      playlists.value = (res?.playlist || []).map(p =>
+        mapPlaylist(p as unknown as Record<string, unknown>)
+      )
       if (res?.playlist?.[0]) {
         likedSongPlaylistId.value = res.playlist[0].id
       }
     } catch {
-      // Silent fail
+      // 静默失败
     }
   }
 
   async function fetchLikedSongIds() {
     if (!profile.value) return
     try {
-      const res: any = await getLikeList(profile.value.userId)
-      const ids = res?.ids || []
-      likedSongIds.value = ids
+      const res = await getLikeList(profile.value.userId)
+      likedSongIds.value = res?.ids || []
     } catch {
-      // Silent fail
+      // 静默失败
     }
   }
 
@@ -408,7 +333,7 @@ export const useUserStore = defineStore('user', () => {
    */
   async function likeSongById(songId: number, like = true): Promise<boolean> {
     try {
-      const res: any = await likeSong(songId, like)
+      const res = await likeSong(songId, like)
       if (res?.code === 200) {
         toggleLike(songId)
         return true
@@ -424,9 +349,9 @@ export const useUserStore = defineStore('user', () => {
   /** 收藏/取消收藏专辑 */
   async function toggleSubAlbum(id: number): Promise<boolean> {
     try {
-      const res: any = await getAlbumDetailDynamic(id)
+      const res = await getAlbumDetailDynamic(id)
       const isSubbed = res?.isSub ?? false
-      const subRes: any = await subAlbum(id, isSubbed ? 0 : 1)
+      const subRes = await subAlbum(id, isSubbed ? 0 : 1)
       return subRes?.code === 200
     } catch { return false }
   }
@@ -434,9 +359,9 @@ export const useUserStore = defineStore('user', () => {
   /** 收藏/取消收藏歌手 */
   async function toggleSubArtist(id: number): Promise<boolean> {
     try {
-      const res: any = await getArtistDetailDynamic(id)
+      const res = await getArtistDetailDynamic(id)
       const isSubbed = res?.isSub ?? false
-      const subRes: any = await subArtist(id, isSubbed ? 2 : 1)
+      const subRes = await subArtist(id, isSubbed ? 2 : 1)
       return subRes?.code === 200
     } catch { return false }
   }
@@ -444,10 +369,14 @@ export const useUserStore = defineStore('user', () => {
   /** 收藏/取消收藏 MV */
   async function toggleSubMv(id: number): Promise<boolean> {
     try {
-      // MV 没有动态接口，先查询收藏列表判断
-      const listRes: any = await getMvSublist()
-      const isSubbed = (listRes?.data || []).some((item: any) => item.vid === id || item.id === id)
-      const subRes: any = await subMv(id, isSubbed ? 2 : 1)
+      const listRes = await getMvSublist()
+      const dataList = listRes?.data ?? []
+      const isSubbed = Array.isArray(dataList) && dataList.some(
+        (item: unknown) => item && typeof item === 'object' &&
+        ('vid' in item ? (item as { vid: number }).vid === id :
+         'id' in item ? (item as { id: number }).id === id : false)
+      )
+      const subRes = await subMv(id, isSubbed ? 2 : 1)
       return subRes?.code === 200
     } catch { return false }
   }
@@ -455,9 +384,9 @@ export const useUserStore = defineStore('user', () => {
   /** 收藏/取消收藏歌单 */
   async function toggleSubscribePlaylist(id: number): Promise<boolean> {
     try {
-      const res: any = await getPlaylistDetailDynamic(id)
+      const res = await getPlaylistDetailDynamic(id)
       const isSubbed = res?.subscribed ?? false
-      const subRes: any = await subscribePlaylist(id, isSubbed ? 2 : 1)
+      const subRes = await subscribePlaylist(id, isSubbed ? 2 : 1)
       return subRes?.code === 200
     } catch { return false }
   }
@@ -465,7 +394,7 @@ export const useUserStore = defineStore('user', () => {
   /** 获取已收藏专辑列表 */
   async function fetchAlbumSublist(limit = 25, offset = 0) {
     try {
-      const res: any = await getAlbumSublist(limit, offset)
+      const res = await getAlbumSublist(limit, offset)
       return res?.data || []
     } catch { return [] }
   }
@@ -473,7 +402,7 @@ export const useUserStore = defineStore('user', () => {
   /** 获取已收藏歌手列表 */
   async function fetchArtistSublist(limit = 25, offset = 0) {
     try {
-      const res: any = await getArtistSublist(limit, offset)
+      const res = await getArtistSublist(limit, offset)
       return res?.data || []
     } catch { return [] }
   }
@@ -481,7 +410,7 @@ export const useUserStore = defineStore('user', () => {
   /** 获取已收藏 MV 列表 */
   async function fetchMvSublist() {
     try {
-      const res: any = await getMvSublist()
+      const res = await getMvSublist()
       return res?.data || []
     } catch { return [] }
   }
@@ -491,10 +420,10 @@ export const useUserStore = defineStore('user', () => {
   /** 新建歌单 */
   async function createNewPlaylist(name: string, privacy?: string): Promise<number | null> {
     try {
-      const res: any = await createPlaylist(name, privacy)
+      const res = await createPlaylist(name, privacy)
       if (res?.code === 200 || res?.id) {
         await fetchUserPlaylists()
-        return res.id || res.playlist?.id || null
+        return res.id || (res.playlist?.id) || null
       }
       return null
     } catch { return null }
@@ -503,7 +432,7 @@ export const useUserStore = defineStore('user', () => {
   /** 删除歌单 */
   async function deletePlaylistById(id: string): Promise<boolean> {
     try {
-      const res: any = await deletePlaylist(id)
+      const res = await deletePlaylist(id)
       if (res?.code === 200) {
         await fetchUserPlaylists()
         return true
@@ -515,7 +444,7 @@ export const useUserStore = defineStore('user', () => {
   /** 添加歌曲到歌单 */
   async function addTrackToPlaylist(pid: number, trackIds: number[]): Promise<boolean> {
     try {
-      const res: any = await playlistTracks('add', pid, trackIds.join(','))
+      const res = await playlistTracks('add', pid, trackIds.join(','))
       return res?.code === 200
     } catch { return false }
   }
@@ -523,7 +452,7 @@ export const useUserStore = defineStore('user', () => {
   /** 从歌单移除歌曲 */
   async function removeTrackFromPlaylist(pid: number, trackIds: number[]): Promise<boolean> {
     try {
-      const res: any = await playlistTracks('del', pid, trackIds.join(','))
+      const res = await playlistTracks('del', pid, trackIds.join(','))
       return res?.code === 200
     } catch { return false }
   }
@@ -531,7 +460,7 @@ export const useUserStore = defineStore('user', () => {
   /** 更新歌单信息 */
   async function updatePlaylistInfo(params: { id: number; name: string; desc: string; tags: string }): Promise<boolean> {
     try {
-      const res: any = await updatePlaylist(params)
+      const res = await updatePlaylist(params)
       if (res?.code === 200) {
         await fetchUserPlaylists()
         return true
@@ -547,10 +476,10 @@ export const useUserStore = defineStore('user', () => {
     try {
       await apiLogout()
     } catch {
-      // Silent
+      // 静默
     }
-    removeCookie('MUSIC_U')
-    removeCookie('__csrf')
+    localStorage.removeItem('cookie-MUSIC_U')
+    localStorage.removeItem('cookie-__csrf')
     profile.value = null
     playlists.value = []
     likedSongIds.value = []
@@ -573,9 +502,6 @@ export const useUserStore = defineStore('user', () => {
     toggleLike,
     setProfile,
     setCookies,
-    getCookie,
-    removeCookie,
-    isLoggedIn,
     checkLoginStatus,
     fetchUserProfile,
     fetchUserAccount,

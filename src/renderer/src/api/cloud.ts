@@ -1,4 +1,5 @@
 import request from './index'
+import { getCookieString } from './cookie'
 
 // 云盘歌曲列表
 export const getCloudList = (limit = 30, offset = 0) =>
@@ -21,7 +22,7 @@ export const deleteCloudSong = (id: number | string) =>
 export const uploadToCloud = async (
   file: File,
   onProgress?: (progress: number) => void
-): Promise<any> => {
+): Promise<unknown> => {
   const formData = new FormData()
   formData.append('songFile', file)
   formData.append('cookie', getCookieString())
@@ -42,19 +43,10 @@ export const uploadToCloud = async (
 
 /**
  * 从 localStorage 读取并拼接完整的 cookie 字符串
+ * @deprecated 使用 api/cookie.ts 中的 getCookieString() 替代
  */
-function getCookieString(): string {
-  const parts: string[] = []
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key?.startsWith('cookie-')) {
-      const value = localStorage.getItem(key)
-      if (value) {
-        parts.push(`${encodeURIComponent(key.replace('cookie-', ''))}=${encodeURIComponent(value)}`)
-      }
-    }
-  }
-  return parts.join('; ')
+function _getCookieString(): string {
+  return getCookieString()
 }
 
 // 云盘上传（获取上传凭证）- 旧版保留兼容

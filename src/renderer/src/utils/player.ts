@@ -96,14 +96,14 @@ export class AudioEngine {
           this.stopProgressTracking()
         },
         onloaderror: (_id, errCode) => {
-          console.warn(`[AudioEngine] loaderror code=${errCode} for`, src)
+          logger.warn('player', `[AudioEngine] loaderror code=${errCode} for`, src)
           const err = new Error(`加载音频失败 (code=${errCode})`)
           this.onErrorCallback?.(err)
           this.emitStateChange('error')
           reject(err)
         },
         onplayerror: (_id, errCode) => {
-          console.warn(`[AudioEngine] playerror code=${errCode}`)
+          logger.warn('player', `[AudioEngine] playerror code=${errCode}`)
           const err = new Error(`播放错误 (code=${errCode})`)
           this.onErrorCallback?.(err)
           this.emitStateChange('error')

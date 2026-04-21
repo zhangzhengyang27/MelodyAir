@@ -1,5 +1,7 @@
 import axios from 'axios'
 import { useSettingsStore } from '@/stores/settings'
+import { getCookieString } from './cookie'
+import { logger } from '@/utils/logger'
 
 const request = axios.create({
   timeout: 15000,
@@ -42,25 +44,9 @@ function isAccountRequired(url?: string): boolean {
 }
 
 /**
- * 从 localStorage 读取并拼接完整的 cookie 字符串
- * 用于通过 URL params 传递给后端（绕过浏览器 Cookie 头限制）
- */
-function getCookieString(): string {
-  const parts: string[] = []
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key?.startsWith('cookie-')) {
-      const value = localStorage.getItem(key)
-      if (value) parts.push(`${encodeURIComponent(key.replace('cookie-', ''))}=${encodeURIComponent(value)}`)
-    }
-  }
-  return parts.join('; ')
-}
-
-/**
- * 请求拦截器：参照 YPM utils/request.js
+ * 请求拦截器
  * 1. 动态设置 baseURL
- * 2. 注入 MUSIC_U cookie（通过 URL params 传递，避免浏览器拦截 Cookie 头）
+ * 2. 注入 MUSIC_U cookie（通过 HTTP Header 传递）
  * 3. 登录相关接口不注入 cookie
  */
 request.interceptors.request.use(
@@ -85,17 +71,16 @@ request.interceptors.request.use(
       return config
     }
 
-    // ★ 仅对需要登录的接口通过 URL params 注入 cookie
-    // 公开接口不注入 cookie，避免 URL 超长导致 502 Invalid URL
+    // ★ 仅对需要登录的接口通过 HTTP Header 注入 cookie
     const cookieStr = getCookieString()
     if (cookieStr && isAccountRequired(config.url)) {
-      config.params = config.params || {}
-      ;(config.params as any).cookie = cookieStr
+      config.headers = config.headers || {}
+      config.headers['Cookie'] = cookieStr
     }
 
     // ★ 需要登录的接口在无 cookie 时直接拦截
     if (!cookieStr && isAccountRequired(config.url)) {
-      console.warn(`[api] ${config.url} 需要登录，但当前无 Cookie，请求已拦截`)
+      logger.warn('api', `${config.url} 需要登录，但当前无 Cookie，请求已拦截`)
       return Promise.reject(new axios.Cancel('ACCOUNT_REQUIRED'))
     }
 
@@ -112,10 +97,9 @@ request.interceptors.request.use(
  */
 request.interceptors.response.use(
   (response) => {
-    // 记录非 200 code 的业务错误
     const data = response.data
     if (data?.code !== undefined && data.code !== 200) {
-      console.warn(`[api] ${response.config.method?.toUpperCase()} ${response.config.url} 业务异常: code=${data.code}, message=${data.message || data.msg}`)
+      logger.warn('api', `${response.config.method?.toUpperCase()} ${response.config.url} 业务异常: code=${data.code}, message=${data.message || data.msg}`)
     }
     return response.data
   },
@@ -123,14 +107,14 @@ request.interceptors.response.use(
     if (error?.response) {
       const status = error.response.status
       const url = error.config?.url
-      console.error(`[api] HTTP 错误: ${status} ${url}`, error.response.data)
+      logger.error('api', `HTTP 错误: ${status} ${url}`, error.response.data)
     } else if (error?.request) {
-      console.error('[api] 网络错误（无响应）:', error.message, error.config?.url)
+      logger.error('api', `网络错误（无响应）: ${error.message}`, error.config?.url)
     } else {
-      console.error('[api] 请求配置错误:', error.message)
+      logger.error('api', `请求配置错误: ${error.message}`)
     }
     if (error?.response?.data?.code === 301) {
-      console.warn('[API] Token expired, logout required')
+      logger.warn('api', 'Token expired, logout required')
       const { useUserStore } = await import('@/stores/user')
       const userStore = useUserStore()
       await userStore.logout()

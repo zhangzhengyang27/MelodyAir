@@ -57,3 +57,12 @@ import('@/stores/player').then(({ usePlayerStore }) => {
     playerStore.restorePlayback()
   }, 1000)
 })
+
+// 恢复用户登录状态
+import('@/stores/user').then(({ useUserStore }) => {
+  const userStore = useUserStore()
+  // 如果有持久化的 profile 和 cookie，检查登录状态
+  if (userStore.profile && userStore.cookie) {
+    userStore.checkLoginStatus()
+  }
+})

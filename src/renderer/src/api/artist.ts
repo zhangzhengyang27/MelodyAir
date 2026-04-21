@@ -1,23 +1,24 @@
 import request from './index'
+import type { ArtistDetail, Artist, ApiResponse } from '@/types/api'
 
 // 获取歌手单曲（热门歌曲）
-export const getArtistSongs = (id: number) =>
+export const getArtistSongs = (id: number): Promise<ApiResponse> =>
   request.get('/artists', { params: { id } })
 
 // 歌手热门 50 首歌曲
-export const getArtistTopSong = (id: number) =>
+export const getArtistTopSong = (id: number): Promise<ApiResponse> =>
   request.get('/artist/top/song', { params: { id } })
 
 // 歌手全部歌曲
-export const getArtistAllSongs = (id: number, params?: { order?: string; limit?: number; offset?: number }) =>
+export const getArtistAllSongs = (id: number, params?: { order?: string; limit?: number; offset?: number }): Promise<ApiResponse> =>
   request.get('/artist/songs', { params: { id, ...params } })
 
 // 歌手详情
-export const getArtistDetail = (id: number) =>
+export const getArtistDetail = (id: number): Promise<ArtistDetail> =>
   request.get('/artist/detail', { params: { id } })
 
 // 歌手详情动态（是否关注等）
-export const getArtistDetailDynamic = (id: number) =>
+export const getArtistDetailDynamic = (id: number): Promise<ApiResponse<{ isSub?: boolean }>> =>
   request.get('/artist/detail/dynamic', { params: { id } })
 
 // 歌手描述

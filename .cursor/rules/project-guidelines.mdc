@@ -1,0 +1,47 @@
+---
+description: MelodyAir project-specific guidance
+alwaysApply: true
+---
+
+# MelodyAir 项目专用规则
+
+## 代码结构优先级
+
+- 这是一个 Electron + Vue + TypeScript 项目。
+- 优先复用现有分层，不新增抽象层，除非任务明确需要。
+- 按现有目录职责放代码：
+  - `src/main/`：主进程、窗口、系统能力、进程间通信
+  - `src/renderer/src/api/`：接口封装与请求方法
+  - `src/renderer/src/stores/`：全局状态
+  - `src/renderer/src/composables/`：可复用逻辑
+  - `src/renderer/src/components/`：通用/业务组件
+  - `src/renderer/src/views/`：页面级组件
+  - `src/renderer/src/utils/`：工具函数与通用辅助
+  - `src/renderer/src/types/`：共享类型定义
+
+## 修改原则
+
+- 只改当前任务必需的文件。
+- 尽量沿用现有命名、文件组织和实现方式。
+- 不删除与任务无关的代码、注释或配置。
+- 如果改动会影响多个模块，先说明影响范围。
+
+## 业务约定
+
+- 接口相关改动优先放进对应 `api` 文件，再由页面 / composable / store 调用。
+- 状态优先放到 `stores`，组件内局部状态只保留临时 UI 逻辑。
+- 共享逻辑优先抽到 `composables` 或 `utils`，不要在多个组件里复制。
+- 页面级逻辑放在 `views`，通用展示能力放在 `components`。
+
+## 校验要求
+
+- 代码改动后优先检查相关 lint / 类型问题。
+- 如果改动涉及 UI，确保符合 `.cursor/rules/tailwind-v4-style-guide.mdc`。
+- 如果改动涉及主进程能力，注意与 renderer 的通信边界。
+- 如果改动涉及播放、歌词、用户态等核心流程，尽量保持现有行为不变。
+
+## 协作方式
+
+- 需求有歧义时先澄清，不要猜。
+- 如果存在更简单的实现路径，先指出再做。
+- 多步骤任务先给简短计划，再逐步执行。

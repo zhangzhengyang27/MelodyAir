@@ -1,4 +1,5 @@
 import request from './index'
+import type { ApiResponse, EapiDecryptResult } from '@/types/api'
 
 /**
  * eapi 解密结果
@@ -9,8 +10,8 @@ export interface EapiDecryptResult {
     /** 解密后的 URL（仅请求解密） */
     url?: string
     /** 解密后的数据对象 */
-    data?: any
-  } | any
+    data?: Record<string, unknown>
+  } | Record<string, unknown>
 }
 
 /**
@@ -18,11 +19,8 @@ export interface EapiDecryptResult {
  * @param hexString 十六进制字符串
  * @param isReq true=请求解密，false=响应解密（默认 true）
  */
-export const decryptEapi = (hexString: string, isReq = true) =>
-  request.post<EapiDecryptResult>('/eapi/decrypt', {
-    hexString,
-    isReq
-  })
+export const decryptEapi = (hexString: string, isReq = true): Promise<ApiResponse> =>
+  request.post('/eapi/decrypt', { hexString, isReq })
 
 /**
  * 解密 eapi 响应（hex → JSON）

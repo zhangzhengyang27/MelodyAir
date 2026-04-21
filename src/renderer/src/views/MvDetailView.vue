@@ -36,25 +36,6 @@
         />
       </div>
 
-      <!-- Similar MVs -->
-      <section v-if="simiMvs.length > 0">
-        <SectionHeader title="相似MV" />
-        <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-          <div
-            v-for="item in simiMvs"
-            :key="item.id"
-            class="cursor-pointer"
-            @click="$router.push(`/mv/${item.id}`)"
-          >
-            <div class="overflow-hidden rounded-lg">
-              <img :src="item.cover" alt="" class="h-32 w-full object-cover" />
-            </div>
-            <p class="mt-2 line-clamp-1 text-sm dark:text-[#A1A1B5]">{{ item.name }}</p>
-            <p class="text-xs text-neutral-400">{{ item.artistName }}</p>
-          </div>
-        </div>
-      </section>
-
       <!-- Comments -->
       <CommentSection v-if="mvId" :type="1" :id="mvId" title="评论" />
     </template>
@@ -64,8 +45,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { getMvDetail, getMvUrl, getSimiMv } from '@/api/mv'
-import SectionHeader from '@/components/common/SectionHeader.vue'
+import { getMvDetail, getMvUrl } from '@/api/mv'
 import CommentSection from '@/components/common/CommentSection.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { useUserStore } from '@/stores/user'
@@ -81,17 +61,15 @@ const isSubbed = ref(false)
 const mvId = ref(0)
 const mv = ref<any>(null)
 const mvUrl = ref('')
-const simiMvs = ref<any[]>([])
 
 async function fetchData(id: number) {
   loading.value = true
   mvId.value = id
   isSubbed.value = false
   try {
-    const [detailRes, urlRes, simiRes] = await Promise.allSettled([
+    const [detailRes, urlRes] = await Promise.allSettled([
       getMvDetail(id),
-      getMvUrl(id),
-      getSimiMv(id)
+      getMvUrl(id)
     ])
 
     if (detailRes.status === 'fulfilled') {
@@ -99,9 +77,6 @@ async function fetchData(id: number) {
     }
     if (urlRes.status === 'fulfilled') {
       mvUrl.value = (urlRes.value as any)?.data?.url || ''
-    }
-    if (simiRes.status === 'fulfilled') {
-      simiMvs.value = (simiRes.value as any)?.mvs || []
     }
   } finally {
     loading.value = false

@@ -230,7 +230,7 @@ onMounted(async () => {
       }, 5000)
     }
   } catch (err) {
-    console.error('加载播客数据失败:', err)
+    if (import.meta.env.DEV) console.error('加载播客数据失败:', err)
   } finally {
     loading.value = false
   }
@@ -249,10 +249,10 @@ async function selectCategory(id: number) {
 
   categoryRadios.value = []
   try {
-    const res: any = await getDjRadioHot({ cateId: id, limit: 30 })
+    const res = await getDjRadioHot({ cateId: id, limit: 30 })
     categoryRadios.value = res?.djRadios || res?.radios || []
   } catch (err) {
-    console.error('加载分类电台失败:', err)
+    if (import.meta.env.DEV) console.error('加载分类电台失败:', err)
   }
 }
 </script>

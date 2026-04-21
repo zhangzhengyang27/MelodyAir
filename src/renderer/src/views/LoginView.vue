@@ -47,7 +47,7 @@
           <input
             v-model="captcha"
             type="text"
-            placeholder="验证码 / 密码"
+            placeholder="验证码"
             maxlength="20"
             class="input-field flex-1"
           />
@@ -364,7 +364,7 @@ function checkQrCodeLogin() {
         await userStore.fetchUserProfile()
         await userStore.fetchLikedPlaylist()
       } catch (e) {
-        console.error('[QR Login] Failed to fetch user data:', e)
+        if (import.meta.env.DEV) console.error('[QR Login] Failed to fetch user data:', e)
       }
 
       router.push('/library')

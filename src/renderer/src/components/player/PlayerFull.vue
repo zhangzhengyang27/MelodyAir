@@ -259,7 +259,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { useUserStore } from '@/stores/user'
 import { useAudio } from '@/composables/useAudio'
@@ -450,6 +450,20 @@ function onVolumeDragEnd(_?: Event) {
 function updateVolume(vol: number) {
   playerStore.setVolume(vol)
 }
+
+// 组件卸载时清理所有残留的拖拽事件监听器
+onUnmounted(() => {
+  if (isDragging) isDragging = false
+  if (isVolumeDragging) isVolumeDragging = false
+  document.removeEventListener('mousemove', onProgressDragMove)
+  document.removeEventListener('mouseup', onProgressDragEnd)
+  document.removeEventListener('touchmove', onProgressDragMove)
+  document.removeEventListener('touchend', onProgressDragEnd)
+  document.removeEventListener('mousemove', onVolumeDragMove)
+  document.removeEventListener('mouseup', onVolumeDragEnd)
+  document.removeEventListener('touchmove', onVolumeDragMove)
+  document.removeEventListener('touchend', onVolumeDragEnd)
+})
 </script>
 
 <style scoped>

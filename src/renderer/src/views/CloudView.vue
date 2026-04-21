@@ -40,6 +40,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import { showToast } from '@/composables/useToast'
 import type { Song } from '@/stores/player'
+import { logger } from '@/utils/logger'
 
 const { playSongList } = usePlayer()
 
@@ -97,9 +98,9 @@ async function handleFileSelect(e: Event) {
     } else {
       showToast(result?.body?.msg || result?.msg || '上传失败', { type: 'error' })
     }
-  } catch (err: any) {
-    console.error('[cloud] Upload failed:', err)
-    showToast(err?.response?.data?.message || '上传失败', { type: 'error' })
+  } catch (err: unknown) {
+    logger.error('cloud', 'Upload failed:', err)
+    showToast(err instanceof Error ? err.message : '上传失败', { type: 'error' })
   } finally {
     uploadProgress.value = 0
   }

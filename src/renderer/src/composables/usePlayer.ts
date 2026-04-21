@@ -3,6 +3,8 @@ import { usePlayerStore } from '@/stores/player'
 import { useAudio } from './useAudio'
 import { getSongDetail } from '@/api/song'
 import type { Song } from '@/stores/player'
+import type { Song as ApiSong } from '@/types/api'
+import { logger } from '@/utils/logger'
 
 export function usePlayer() {
   const playerStore = usePlayerStore()
@@ -31,13 +33,13 @@ export function usePlayer() {
 
   async function playSongById(id: number) {
     try {
-      const res: any = await getSongDetail(id)
-      const songData = res?.songs?.[0]
+      const res = await getSongDetail(id)
+      const songData = (res as { songs?: ApiSong[] })?.songs?.[0]
       if (songData) {
         const song: Song = {
           id: songData.id,
           name: songData.name,
-          artists: songData.ar?.map((a: any) => ({ id: a.id, name: a.name })) || [],
+          artists: songData.ar?.map((a: { id: number; name: string }) => ({ id: a.id, name: a.name })) || [],
           album: {
             id: songData.al?.id || 0,
             name: songData.al?.name || '',
@@ -48,7 +50,7 @@ export function usePlayer() {
         playSong(song)
       }
     } catch (e) {
-      console.error('Failed to play song by id:', e)
+      logger.error('player', 'Failed to play song by id:', e)
     }
   }
 

@@ -254,7 +254,8 @@ export class CacheManager {
     const currentSize = await this.getCacheSize()
 
     if (currentSize > this.maxCacheSize) {
-      console.log(`[Cache] Cache limit exceeded (${currentSize} > ${this.maxCacheSize}), cleaning up...`)
+      // 使用 debug 级别避免生产环境输出
+      if (import.meta.env.DEV) console.log(`[Cache] Cache limit exceeded (${currentSize} > ${this.maxCacheSize}), cleaning up...`)
 
       // 按 createTime 升序排列（最旧的在前）
       let allSources = await db.trackSources.orderBy('createTime').toArray()
@@ -266,7 +267,7 @@ export class CacheManager {
         if (oldest) {
           await db.trackSources.delete(oldest.id)
           totalSize -= oldest.size
-          console.log(`[Cache] Removed track ${oldest.id}, freed ${this.formatBytes(oldest.size)}`)
+          if (import.meta.env.DEV) console.log(`[Cache] Removed track ${oldest.id}, freed ${this.formatBytes(oldest.size)}`)
         }
       }
     }

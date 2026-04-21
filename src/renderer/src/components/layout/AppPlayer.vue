@@ -29,17 +29,14 @@
     <!-- Controls -->
     <div class="flex flex-1 flex-col items-center gap-1">
       <div class="flex items-center gap-4">
-        <!-- Play mode -->
         <button class="player-btn" @click="playerStore.togglePlayMode" :title="playModeLabel">
           <span class="text-base">{{ playModeIcon }}</span>
         </button>
-        <!-- Previous -->
         <button class="player-btn" @click="playerStore.playPrev">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
             <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
           </svg>
         </button>
-        <!-- Play/Pause -->
         <button
           class="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF5A5F] text-white transition-colors hover:bg-[#E0484D]"
           @click="playerStore.togglePlaying"
@@ -51,13 +48,14 @@
             <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
           </svg>
         </button>
-        <!-- Next -->
         <button class="player-btn" @click="playerStore.playNext">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
             <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
           </svg>
         </button>
-        <!-- Volume -->
+
+        <SleepTimerButton />
+
         <div class="flex items-center gap-2">
           <button class="player-btn" @click="toggleMute" :title="playerStore.volume === 0 ? '取消静音' : '静音'">
             <svg v-if="playerStore.volume === 0" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -80,7 +78,6 @@
         </div>
       </div>
 
-      <!-- Progress bar -->
       <div class="flex w-full max-w-xl items-center gap-2 text-xs text-neutral-400">
         <span class="w-10 text-right">{{ formatTime(playerStore.currentTime) }}</span>
         <div
@@ -111,7 +108,6 @@
 
     <!-- Right area -->
     <div class="flex w-72 items-center justify-end gap-2">
-      <!-- Quality switch -->
       <div class="relative" ref="qualityPopupRef">
         <button
           class="player-btn whitespace-nowrap text-[11px] font-medium leading-tight"
@@ -125,7 +121,8 @@
           <Transition name="fade-scale">
             <div
               v-if="showQualityPopup"
-              class="fixed right-4 bottom-[5.75rem] z-50 w-44 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg dark:border-white/10 dark:bg-[#171722] dark:shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
+              class="fixed bottom-[5.75rem] z-50 w-44 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg dark:border-white/10 dark:bg-[#171722] dark:shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
+              :style="qualityPopupStyle"
             >
               <div class="border-b border-neutral-100 px-3 py-2 dark:border-white/6">
                 <span class="text-xs font-semibold tracking-wide text-neutral-500">音质</span>
@@ -147,20 +144,12 @@
         </Teleport>
       </div>
 
-      <button
-        class="player-btn"
-        title="播放列表"
-        @click="showPlaylist = !showPlaylist"
-      >
+      <button class="player-btn" title="播放列表" @click="showPlaylist = !showPlaylist">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h10m-10 4h6" />
         </svg>
       </button>
-      <button
-        class="player-btn"
-        title="全屏播放"
-        @click="showFullPlayer = true"
-      >
+      <button class="player-btn" title="全屏播放" @click="showFullPlayer = true">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
         </svg>
@@ -168,7 +157,6 @@
     </div>
   </footer>
 
-  <!-- Playlist popup -->
   <Teleport to="body">
     <Transition name="slide-up">
       <div
@@ -200,10 +188,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { useSettingsStore } from '@/stores/settings'
 import { useAudio } from '@/composables/useAudio'
+import SleepTimerButton from '@/components/player/SleepTimerButton.vue'
 import { formatTime, formatDuration } from '@/utils/format'
 
 const playerStore = usePlayerStore()
@@ -215,10 +204,8 @@ const showFullPlayer = defineModel<boolean>('showFullPlayer', { default: false }
 const hoverTime = ref<number | null>(null)
 const hoverProgress = ref(0)
 const prevVolume = ref(0.8)
-
-// 音质选择
 const showQualityPopup = ref(false)
-const qualityPopupRef = ref<HTMLElement>()
+const qualityPopupRef = ref<HTMLElement | null>(null)
 
 const qualityShortLabel = computed(() => {
   const map: Record<string, string> = {
@@ -229,34 +216,31 @@ const qualityShortLabel = computed(() => {
   return map[settingsStore.musicQuality] || '品质'
 })
 
-/** 点击外部关闭音质弹窗 */
+const playModeIcon = computed(() => {
+  const icons: Record<string, string> = { sequence: '🔀', loop: '🔁', random: '🎲', loopOne: '🔂' }
+  return icons[playerStore.playMode] || '🔀'
+})
+
+const playModeLabel = computed(() => {
+  const labels: Record<string, string> = { sequence: '顺序播放', loop: '循环播放', random: '随机播放', loopOne: '单曲循环' }
+  return labels[playerStore.playMode] || '顺序播放'
+})
+
+const qualityPopupStyle = computed(() => {
+  const rect = qualityPopupRef.value?.getBoundingClientRect()
+  if (!rect) return { right: '1rem', bottom: '5.75rem' }
+  return { left: `${Math.max(16, rect.left - 110)}px`, bottom: '5.75rem' }
+})
+
 function handleClickOutside(e: MouseEvent) {
-  if (qualityPopupRef.value && !qualityPopupRef.value.contains(e.target as Node)) {
-    showQualityPopup.value = false
-  }
+  const target = e.target as Node
+  if (qualityPopupRef.value && !qualityPopupRef.value.contains(target)) showQualityPopup.value = false
 }
 
 function selectQuality(quality: any) {
   settingsStore.setMusicQuality(quality)
   showQualityPopup.value = false
 }
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
-
-const playModeIcon = computed(() => {
-  const icons: Record<string, string> = { sequence: '🔀', loop: '🔁', random: '🎲' }
-  return icons[playerStore.playMode]
-})
-
-const playModeLabel = computed(() => {
-  const labels: Record<string, string> = { sequence: '顺序播放', loop: '单曲循环', random: '随机播放' }
-  return labels[playerStore.playMode]
-})
 
 function toggleMute() {
   if (playerStore.volume > 0) {
@@ -285,6 +269,14 @@ function handlePlayFromQueue(idx: number, song: any) {
   playerStore.currentIndex = idx
   playerStore.playSong(song)
 }
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>
 
 <style scoped>
@@ -313,10 +305,36 @@ function handlePlayFromQueue(idx: number, song: any) {
   color: #F0F0F5;
 }
 
+.sleep-timer-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-neutral-200);
+  font-size: 0.75rem;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.sleep-timer-btn:hover {
+  border-color: #FF5A5F;
+  color: #FF5A5F;
+}
+
+.dark .sleep-timer-btn {
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #E9E9F2;
+}
+
+.dark .sleep-timer-btn:hover {
+  border-color: #FF5A5F;
+  color: #FF5A5F;
+}
+
 .volume-slider {
   height: 0.25rem;
   width: 5rem;
-  cursor:pointer;
+  cursor: pointer;
   appearance: none;
   border-radius: 9999px;
   background-color: var(--color-neutral-200);
@@ -336,24 +354,17 @@ function handlePlayFromQueue(idx: number, song: any) {
 }
 
 .slide-up-enter-active,
-.slide-up-leave-active {
-  transition: all 0.2s ease;
-}
-
-.slide-up-enter-from,
-.slide-up-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
+.slide-up-leave-active,
 .fade-scale-enter-active,
 .fade-scale-leave-active {
   transition: all 0.2s ease;
 }
 
+.slide-up-enter-from,
+.slide-up-leave-to,
 .fade-scale-enter-from,
 .fade-scale-leave-to {
   opacity: 0;
-  transform: scale(0.95);
+  transform: translateY(8px) scale(0.95);
 }
 </style>

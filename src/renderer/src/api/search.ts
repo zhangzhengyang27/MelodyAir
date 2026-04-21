@@ -1,21 +1,22 @@
 import request from './index'
+import type { CloudSearchResult, ApiResponse, SearchHotDetailItem } from '@/types/api'
 
 // 搜索（更全）
-export const cloudSearch = (keywords: string, type = 1, limit = 30, offset = 0) =>
+export const cloudSearch = (keywords: string, type = 1, limit = 30, offset = 0): Promise<CloudSearchResult> =>
   request.get('/cloudsearch', { params: { keywords, type, limit, offset } })
 
 // 搜索（旧版）
-export const search = (keywords: string, type = 1, limit = 30, offset = 0) =>
+export const search = (keywords: string, type = 1, limit = 30, offset = 0): Promise<ApiResponse> =>
   request.get('/search', { params: { keywords, type, limit, offset } })
 
 // 默认搜索关键词
-export const getSearchDefault = () => request.get('/search/default')
+export const getSearchDefault = (): Promise<ApiResponse> => request.get('/search/default')
 
 // 热搜列表(简略)
-export const getSearchHot = () => request.get('/search/hot')
+export const getSearchHot = (): Promise<ApiResponse> => request.get('/search/hot')
 
 // 热搜列表(详细)
-export const getSearchHotDetail = () => request.get('/search/hot/detail')
+export const getSearchHotDetail = (): Promise<ApiResponse<{ data: SearchHotDetailItem[] }>> => request.get('/search/hot/detail')
 
 // 搜索建议
 export const getSearchSuggest = (keywords: string) =>

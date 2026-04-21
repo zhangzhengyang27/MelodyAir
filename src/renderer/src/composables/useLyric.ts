@@ -5,6 +5,7 @@ import { getLocalLyrics } from '@/api/local'
 import { parseLyric, findCurrentLyricIndex, mergeLyricsWithTranslation, type LyricLine } from '@/utils/lyric'
 import { cacheManager } from '@/utils/db'
 import { useSettingsStore } from '@/stores/settings'
+import { logger } from '@/utils/logger'
 
 export function useLyric() {
   const playerStore = usePlayerStore()
@@ -40,7 +41,7 @@ export function useLyric() {
             const tlyric = cached.tlyric || undefined
             lyrics.value = mergeLyricsWithTranslation(parseLyric(lrc), tlyric)
             lastFetchedSongId = songId
-            console.log(`[lyric] 命中 IDB 缓存: songId=${songId}`)
+            logger.debug('lyric', `命中 IDB 缓存: songId=${songId}`)
             // 后台静默更新缓存（fire-and-forget）
             getLyric(songId).then((res: any) => {
               const newLrc = res?.lrc?.lyric || ''
@@ -52,13 +53,13 @@ export function useLyric() {
             return
           }
         } catch (e) {
-          console.warn('[lyric] IDB 缓存读取失败:', e)
+          logger.warn('lyric', 'IDB 缓存读取失败:', e)
         }
       }
 
       // 本地歌曲：走 /lyrics/:songId 接口
       if (currentSong?._localTrackId) {
-        console.log(`[lyric] 请求本地歌词: songId=${songId}, trackId=${currentSong._localTrackId}`)
+        logger.info('lyric', `请求本地歌词: songId=${songId}, trackId=${currentSong._localTrackId}`)
         const res: any = await getLocalLyrics(songId)
         const data = res?.body ?? res
         lrc = data?.lrc?.lyric || ''
@@ -76,7 +77,7 @@ export function useLyric() {
               if (parts.length > 0) lrc = parts.join('\n')
             }
           } catch (e) {
-            console.warn('[lyric] synced JSON 解析失败:', e)
+            logger.warn('lyric', 'synced JSON 解析失败:', e)
           }
         }
         if (!lrc) lrc = data?.plain || ''
@@ -86,7 +87,7 @@ export function useLyric() {
         const useEnhancedLyric = settingsStore.enableEnhancedLyric ?? true
 
         if (useEnhancedLyric) {
-          console.log(`[lyric] 请求逐字歌词: songId=${songId}`)
+          logger.info('lyric', `请求逐字歌词: songId=${songId}`)
           try {
             const resV1: any = await getLyricV1(songId, { cp: true, tv: 1, lv: 1 })
             lrc = resV1?.lrc?.lyric || resV1?.klyric?.lyric || resV1?.yrc?.lyric || ''
@@ -96,21 +97,21 @@ export function useLyric() {
               lastFetchedSongId = songId
               // 缓存
               cacheManager.cacheLyric(songId, lrc, tlyric).catch(() => {})
-              console.log(`[lyric] 逐字歌词解析成功, 共 ${lyrics.value.length} 行`)
+              logger.debug('lyric', `逐字歌词解析成功, 共 ${lyrics.value.length} 行`)
               return
             }
           } catch (e) {
-            console.warn('[lyric] 逐字歌词请求失败，回退到普通歌词:', e)
+            logger.warn('lyric', '逐字歌词请求失败，回退到普通歌词:', e)
           }
         }
 
         // 回退到普通歌词
-        console.log(`[lyric] 请求网易云歌词: songId=${songId}`)
+        logger.info('lyric', `请求网易云歌词: songId=${songId}`)
         const res: any = await getLyric(songId)
         lrc = res?.lrc?.lyric || ''
         const tlyric = res?.tlyric?.lyric || undefined
         if (!res?.lrc?.lyric) {
-          console.warn(`[lyric] songId=${songId} 无歌词数据, 原始响应 code=${res?.code}, keys=${Object.keys(res || {}).join(',')}`)
+          logger.warn('lyric', `songId=${songId} 无歌词数据, 原始响应 code=${res?.code}`)
         }
         // ★ 写入 IDB 缓存
         if (lrc) {
@@ -120,13 +121,13 @@ export function useLyric() {
 
       if (lrc) {
         lyrics.value = parseLyric(lrc)
-        console.log(`[lyric] 解析成功, 共 ${lyrics.value.length} 行`)
+        logger.debug('lyric', `解析成功, 共 ${lyrics.value.length} 行`)
         lastFetchedSongId = songId
       } else {
         lyrics.value = []
       }
     } catch (e) {
-      console.error('[lyric] Failed to fetch lyric:', e)
+      logger.error('lyric', 'Failed to fetch lyric:', e)
       lyrics.value = []
     } finally {
       loading.value = false
@@ -138,7 +139,7 @@ export function useLyric() {
   watch(
     () => playerStore.currentSong?.id,
     (newId, oldId) => {
-      console.log(`[lyric] watch 触发: oldId=${oldId} → newId=${newId}`)
+      logger.debug('lyric', `watch 触发: oldId=${oldId} → newId=${newId}`)
       if (newId) {
         fetchLyric(newId)
       } else {

@@ -14,7 +14,7 @@ export function setStorage<T>(key: string, value: T): void {
   try {
     localStorage.setItem(PREFIX + key, JSON.stringify(value))
   } catch (e) {
-    console.error('Storage write failed:', e)
+    if (import.meta.env.DEV) console.error('Storage write failed:', e)
   }
 }
 

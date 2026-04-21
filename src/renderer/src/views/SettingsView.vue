@@ -326,10 +326,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted,computed } from 'vue'
-import { useSettingsStore, type MusicQuality } from '@/stores/settings'
-import { useUserStore } from '@/stores/user'
+import { ref, onMounted, computed } from 'vue'
+import { useSettingsStore } from '@/stores/settings'
+import { logger } from '@/utils/logger'
 import { cacheManager } from '@/utils/db'
+import { useUserStore } from '@/stores/user'
 
 // 子组件：开关按钮
 const ToggleSwitch = {
@@ -385,8 +386,7 @@ function applyTheme(): void {
  * 处理音质变更
  */
 function handleQualityChange(): void {
-  // 可以在这里添加提示或重新加载当前歌曲的逻辑
-  console.log('Quality changed to:', settingsStore.currentQualityLabel)
+  logger.info('settings', 'Quality changed to:', settingsStore.currentQualityLabel)
 }
 
 /**
@@ -394,9 +394,8 @@ function handleQualityChange(): void {
  */
 async function handleCacheLimitChange(): Promise<void> {
   settingsStore.cacheLimitMB = cacheLimitMB.value
-  await cacheManager.setMaxCacheSize(cacheLimitMB.value)
-  // 触发一次清理检查
-  await cacheManager.cleanupIfNeeded?.()
+  // setMaxCacheSize 内部已调用 cleanupIfNeeded，不需要额外调用
+  cacheManager.setMaxCacheSize(cacheLimitMB.value)
 }
 
 /**
@@ -411,9 +410,9 @@ async function clearCache(): Promise<void> {
   try {
     await cacheManager.clearTrackSources()
     cacheSizeUsed.value = 0
-    console.log('[Settings] Cache cleared successfully')
+    logger.info('settings', 'Cache cleared successfully')
   } catch (error) {
-    console.error('[Settings] Failed to clear cache:', error)
+    logger.error('settings', 'Failed to clear cache:', error)
   } finally {
     isClearingCache.value = false
   }
@@ -424,7 +423,7 @@ async function clearCache(): Promise<void> {
  */
 function handleMinimizeToTrayChange(enabled: boolean): void {
   settingsStore.toggleMinimizeToTray()
-  window.electronAPI?.setMinimizeToTray?.(enabled)
+  window.electronAPI?.sendIpcEvent?.('app:setMinimizeToTray', enabled)
 }
 
 /**
@@ -432,7 +431,7 @@ function handleMinimizeToTrayChange(enabled: boolean): void {
  */
 function handleAutoLaunchChange(enabled: boolean): void {
   settingsStore.toggleAutoLaunch()
-  window.electronAPI?.setAutoLaunch?.(enabled)
+  window.electronAPI?.sendIpcEvent?.('app:setAutoLaunch', enabled)
 }
 
 /**
@@ -453,9 +452,10 @@ async function handleImportCookie(): Promise<void> {
       cookieInput.value = ''
       setTimeout(() => { cookieImportMsg.value = '' }, 3000)
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const errMsg = e instanceof Error ? e.message : String(e)
     cookieImportSuccess.value = false
-    cookieImportMsg.value = e?.message || '导入失败'
+    cookieImportMsg.value = errMsg || '导入失败'
   } finally {
     isImportingCookie.value = false
   }
@@ -484,7 +484,7 @@ onMounted(async () => {
   try {
     cacheSizeUsed.value = await cacheManager.getCacheSize()
   } catch (error) {
-    console.error('[Settings] Failed to get cache size:', error)
+    logger.error('settings', 'Failed to get cache size:', error)
   }
 })
 </script>

@@ -1,43 +1,39 @@
 import request from './index'
-
-/**
- * 模拟浏览器 UA，避免被网易云盾识别为机器人环境
- * 文档: 接口支持手动传入 ua 参数,修改 user-agent
- */
-const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+import { BROWSER_UA } from '@/constants'
+import type { LoginResponse, QrCodeKeyResponse, QrCodeCreateResponse, QrCodeCheckResponse, LoginStatusResponse, ApiResponse } from '@/types/api'
 
 // 手机号登录（支持密码/验证码）
-export const loginCellphone = (params: { phone: string; password?: string; captcha?: string; countrycode?: string; md5_password?: string }) =>
+export const loginCellphone = (params: { phone: string; password?: string; captcha?: string; countrycode?: string; md5_password?: string }): Promise<LoginResponse> =>
   request.post('/login/cellphone', null, { params: { ...params, timestamp: Date.now(), ua: BROWSER_UA } })
 
 // 邮箱登录
-export const loginEmail = (email: string, password: string, md5_password?: string) =>
+export const loginEmail = (email: string, password: string, md5_password?: string): Promise<LoginResponse> =>
   request.get('/login', { params: { email, password, md5_password, timestamp: Date.now(), ua: BROWSER_UA } })
 
 // 游客登录
-export const loginAnonimous = () =>
+export const loginAnonimous = (): Promise<LoginResponse> =>
   request.get('/register/anonimous', { params: { timestamp: Date.now(), ua: BROWSER_UA } })
 
 // 二维码 key 生成接口
-export const loginQrCodeKey = () =>
+export const loginQrCodeKey = (): Promise<QrCodeKeyResponse> =>
   request.get('/login/qr/key', { params: { timestamp: Date.now(), ua: BROWSER_UA } })
 
 // 二维码生成接口（创建二维码图片）
-export const loginQrCodeCreate = (key: string, qrimg = true) =>
+export const loginQrCodeCreate = (key: string, qrimg = true): Promise<QrCodeCreateResponse> =>
   request.get('/login/qr/create', { params: { key, qrimg, platform: 'web', timestamp: Date.now(), ua: BROWSER_UA } })
 
 // 二维码检测扫码状态接口
-export const loginQrCodeCheck = (key: string) =>
+export const loginQrCodeCheck = (key: string): Promise<QrCodeCheckResponse> =>
   request.get('/login/qr/check', { params: { key, timestamp: Date.now(), ua: BROWSER_UA } })
 
 // 登录状态
-export const getLoginStatus = () => request.get('/login/status')
+export const getLoginStatus = (): Promise<LoginStatusResponse> => request.get('/login/status')
 
 // 刷新登录
-export const refreshCookie = () => request.get('/login/refresh', { params: { timestamp: Date.now() } })
+export const refreshCookie = (): Promise<ApiResponse> => request.get('/login/refresh', { params: { timestamp: Date.now() } })
 
 // 退出登录
-export const logout = () => request.get('/logout')
+export const logout = (): Promise<ApiResponse> => request.get('/logout')
 
 // 发送验证码
 export const sendCaptcha = (phone: string, ctcode = 86) =>

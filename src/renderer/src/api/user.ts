@@ -1,32 +1,33 @@
 import request from './index'
+import type { ApiResponse, Playlist, UserProfile, UserAccount } from '@/types/api'
 
 // 用户详情
-export const getUserDetail = (uid: number) =>
+export const getUserDetail = (uid: number): Promise<ApiResponse> =>
   request.get('/user/detail', { params: { uid } })
 
 // 用户歌单
-export const getUserPlaylist = (uid: number, limit = 30, offset = 0) =>
+export const getUserPlaylist = (uid: number, limit = 30, offset = 0): Promise<ApiResponse<{ playlist: Playlist[] }>> =>
   request.get('/user/playlist', { params: { uid, limit, offset } })
 
 // 用户账号信息
-export const getUserAccount = () => request.get('/user/account')
+export const getUserAccount = (): Promise<ApiResponse<UserAccount>> => request.get('/user/account')
 
 // 用户信息，歌单，收藏，mv, dj 数量
-export const getUserSubcount = () => request.get('/user/subcount')
+export const getUserSubcount = (): Promise<ApiResponse> => request.get('/user/subcount')
 
 // 用户等级信息
-export const getUserLevel = () => request.get('/user/level')
+export const getUserLevel = (): Promise<ApiResponse> => request.get('/user/level')
 
 // 用户绑定信息
-export const getUserBinding = (uid: number) =>
+export const getUserBinding = (uid: number): Promise<ApiResponse> =>
   request.get('/user/binding', { params: { uid } })
 
 // 更新用户信息
-export const updateUser = (params: { gender: number; birthday: number; nickname: string; province: number; city: number; signature: string }) =>
+export const updateUser = (params: { gender: number; birthday: number; nickname: string; province: number; city: number; signature: string }): Promise<ApiResponse> =>
   request.get('/user/update', { params })
 
 // 喜欢的音乐列表
-export const getLikeList = (uid: number) =>
+export const getLikeList = (uid: number): Promise<ApiResponse<{ ids: number[] }>> =>
   request.get('/likelist', { params: { uid } })
 
 // 喜欢音乐
