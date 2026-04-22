@@ -2,7 +2,7 @@ import { ref, watch, onUnmounted } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { getLyric, getLyricV1 } from '@/api/song'
 import { getLocalLyrics } from '@/api/local'
-import { parseLyric, findCurrentLyricIndex, mergeLyricsWithTranslation, type LyricLine } from '@/utils/lyric'
+import { parseLyric, findCurrentLyricIndex, mergeLyricsWithTranslation, mergeLyricsWithRomanization, type LyricLine } from '@/utils/lyric'
 import { cacheManager } from '@/utils/db'
 import { useSettingsStore } from '@/stores/settings'
 import { logger } from '@/utils/logger'
@@ -89,11 +89,14 @@ export function useLyric() {
         if (useEnhancedLyric) {
           logger.info('lyric', `请求逐字歌词: songId=${songId}`)
           try {
-            const resV1: any = await getLyricV1(songId, { cp: true, tv: 1, lv: 1 })
+            const resV1: any = await getLyricV1(songId, { cp: true, tv: 1, lv: 1, rv: 1, yv: 1 })
             lrc = resV1?.lrc?.lyric || resV1?.klyric?.lyric || resV1?.yrc?.lyric || ''
             const tlyric = resV1?.tlyric?.lyric || undefined
+            const romalrc = resV1?.romalrc?.lyric || resV1?.yrc?.lyric || undefined
             if (lrc) {
-              lyrics.value = mergeLyricsWithTranslation(parseLyric(lrc), tlyric)
+              let mergedLyrics = mergeLyricsWithTranslation(parseLyric(lrc), tlyric)
+              mergedLyrics = mergeLyricsWithRomanization(mergedLyrics, romalrc)
+              lyrics.value = mergedLyrics
               lastFetchedSongId = songId
               // 缓存
               cacheManager.cacheLyric(songId, lrc, tlyric).catch(() => {})

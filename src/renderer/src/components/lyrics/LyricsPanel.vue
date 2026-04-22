@@ -9,6 +9,7 @@ import {
 } from 'vue'
 import type { LyricLine } from '../../utils/lyric'
 import { findCurrentLyricIndex, formatTime } from '../../utils/lyric'
+import { useSettingsStore } from '../../stores/settings'
 
 interface Props {
   /** 歌词数据 */
@@ -38,6 +39,8 @@ const emit = defineEmits<{
   (e: 'seek', time: number): void
 }>()
 
+const settingsStore = useSettingsStore()
+
 // DOM 引用
 const lyricsContainer = ref<HTMLElement>()
 const lyricsWrapper = ref<HTMLElement>()
@@ -49,6 +52,35 @@ const currentLineIndex = computed(() =>
 
 // 是否正在手动拖动
 let isDragging = false
+
+/**
+ * 判断某个词是否应该高亮
+ */
+function isWordActive(line: LyricLine, wordIndex: number): boolean {
+  if (!line.words || !settingsStore.enableEnhancedLyric) return false
+
+  const word = line.words[wordIndex]
+  const nextWord = line.words[wordIndex + 1]
+
+  if (!word) return false
+
+  const currentTime = props.currentTime
+  const nextTime = nextWord ? nextWord.time : line.time + 10 // 如果是最后一个词，给一个较大的时间范围
+
+  return currentTime >= word.time && currentTime < nextTime
+}
+
+/**
+ * 判断某个词是否已经播放过
+ */
+function isWordPast(line: LyricLine, wordIndex: number): boolean {
+  if (!line.words || !settingsStore.enableEnhancedLyric) return false
+
+  const word = line.words[wordIndex]
+  if (!word) return false
+
+  return props.currentTime > word.time
+}
 
 /**
  * 自动滚动到当前播放行
@@ -198,8 +230,28 @@ onUnmounted(() => {
             }"
             @click="handleLyricClick(line)"
           >
-            <!-- 原文 -->
-            <span class="lyric-text">{{ line.text || '......' }}</span>
+            <!-- 逐字歌词 -->
+            <div v-if="line.words && line.words.length > 0 && settingsStore.enableEnhancedLyric" class="lyric-text lyric-words">
+              <span
+                v-for="(word, wordIdx) in line.words"
+                :key="wordIdx"
+                class="lyric-word"
+                :class="{
+                  'word-active': index === currentLineIndex && isWordActive(line, wordIdx),
+                  'word-past': index === currentLineIndex && isWordPast(line, wordIdx)
+                }"
+              >
+                {{ word.text }}
+              </span>
+            </div>
+
+            <!-- 普通歌词（无逐字时间戳） -->
+            <span v-else class="lyric-text">{{ line.text || '......' }}</span>
+
+            <!-- 音译文本 -->
+            <span v-if="settingsStore.showLyricRomanization && line.romanizedText" class="lyric-romanization">
+              {{ line.romanizedText }}
+            </span>
 
             <!-- 翻译文本 -->
             <span v-if="showTranslation && line.translatedText" class="lyric-translation">
@@ -361,6 +413,48 @@ onUnmounted(() => {
 
 .lyric-line.active .lyric-translation {
   color: rgba(160, 196, 255, 0.7);
+}
+
+/* 音译文本 */
+.lyric-romanization {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75em;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 300;
+  font-style: italic;
+}
+
+.lyric-line.active .lyric-romanization {
+  color: rgba(160, 196, 255, 0.6);
+}
+
+/* 逐字歌词容器 */
+.lyric-words {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.15em;
+}
+
+/* 单个词 */
+.lyric-word {
+  display: inline-block;
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform, color;
+}
+
+/* 当前播放的词 */
+.lyric-word.word-active {
+  color: #ff5a5f;
+  font-weight: 700;
+  transform: scale(1.08);
+}
+
+/* 已播放的词 */
+.lyric-word.word-past {
+  opacity: 0.7;
 }
 
 /* 悬停效果 */

@@ -36,6 +36,11 @@ let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let minimizeToTray = true
 let globalShortcutsEnabled = true
+let customShortcuts = {
+  playPause: 'MediaPlayPause',
+  prev: 'MediaPreviousTrack',
+  next: 'MediaNextTrack',
+}
 /** 应用是否正在退出（用于区分关闭窗口和退出应用） */
 let isQuittingApp = false
 
@@ -216,25 +221,20 @@ function updateTrayMenu(): void {
 function registerGlobalShortcuts(): void {
   if (!globalShortcutsEnabled) return
 
-  // 清除已注册的快捷键（防止重复注册）
   globalShortcut.unregisterAll()
 
-  try {
-    globalShortcut.register("MediaPlayPause", () => sendPlayerAction("toggle"))
-  } catch {
-    // 媒体键注册失败，忽略
-  }
+  const mappings: Array<[string, string]> = [
+    [customShortcuts.playPause, 'toggle'],
+    [customShortcuts.next, 'next'],
+    [customShortcuts.prev, 'prev'],
+  ]
 
-  try {
-    globalShortcut.register("MediaNextTrack", () => sendPlayerAction("next"))
-  } catch (e) {
-    // 忽略
-  }
-
-  try {
-    globalShortcut.register("MediaPreviousTrack", () => sendPlayerAction("prev"))
-  } catch {
-    // 注册失败
+  for (const [accelerator, action] of mappings) {
+    try {
+      globalShortcut.register(accelerator, () => sendPlayerAction(action))
+    } catch {
+      // ignore invalid shortcut
+    }
   }
 }
 
@@ -313,6 +313,14 @@ function registerIpcHandlers(): void {
       registerGlobalShortcuts()
     } else {
       unregisterGlobalShortcuts()
+    }
+    return true
+  })
+
+  ipcMain.handle("app:setCustomShortcuts", (_event, shortcuts: typeof customShortcuts) => {
+    customShortcuts = { ...customShortcuts, ...shortcuts }
+    if (globalShortcutsEnabled) {
+      registerGlobalShortcuts()
     }
     return true
   })

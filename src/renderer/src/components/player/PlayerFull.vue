@@ -254,6 +254,8 @@
       @play="(s, i) => { playerStore.currentIndex = i; playerStore.playSong(s) }"
       @remove="(i) => playerStore.removeFromPlaylist(i)"
       @clear-all="playerStore.clearPlaylist()"
+      @reorder="(from, to) => playerStore.reorderPlaylist(from, to)"
+      @remove-duplicates="handleRemoveDuplicates"
     />
   </div>
 </template>
@@ -351,6 +353,13 @@ function toggleMute() {
 function handleLike() {
   if (playerStore.currentSong) {
     userStore.toggleLike(playerStore.currentSong.id)
+  }
+}
+
+function handleRemoveDuplicates() {
+  const removedCount = playerStore.removeDuplicates()
+  if (removedCount > 0) {
+    console.log(`Removed ${removedCount} duplicate songs`)
   }
 }
 

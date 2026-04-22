@@ -38,6 +38,7 @@ export interface SettingsState {
 
   // 歌词设置
   showLyricTranslation: boolean
+  showLyricRomanization: boolean
   lyricFontSize: number
   lyricFontFamily: string
   lyricAlignment: 'left' | 'center' | 'right'
@@ -61,6 +62,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const musicQuality = ref<MusicQuality>('exhigh')
   const autoPlay = ref(true)
   const fadeDuration = ref(200)
+  const playbackSpeed = ref(1)
 
   // 缓存设置
   const enableCache = ref(true)
@@ -72,6 +74,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   // 歌词设置
   const showLyricTranslation = ref(true)
+  const showLyricRomanization = ref(false)
   const lyricFontSize = ref(16)
   const lyricFontFamily = ref('system-ui')
   const lyricAlignment = ref<'left' | 'center' | 'right'>('center')
@@ -81,6 +84,11 @@ export const useSettingsStore = defineStore('settings', () => {
   const minimizeToTray = ref(true)
   const globalShortcut = ref(true)
   const autoLaunch = ref(false)
+  const enableDesktopNotification = ref(true)
+  const customShortcutsEnabled = ref(false)
+  const shortcutPlayPause = ref('MediaPlayPause')
+  const shortcutPrev = ref('MediaPreviousTrack')
+  const shortcutNext = ref('MediaNextTrack')
 
   // 网络设置（统一直连后端，不再走 Vite proxy）
   const apiBase = ref('http://localhost:3000')
@@ -144,11 +152,13 @@ export const useSettingsStore = defineStore('settings', () => {
     musicQuality,
     autoPlay,
     fadeDuration,
+    playbackSpeed,
     enableCache,
     cacheLimitMB,
     autoCacheNextTrack,
     enableUnblock,
     showLyricTranslation,
+    showLyricRomanization,
     lyricFontSize,
     lyricFontFamily,
     lyricAlignment,
@@ -156,6 +166,11 @@ export const useSettingsStore = defineStore('settings', () => {
     minimizeToTray,
     globalShortcut,
     autoLaunch,
+    enableDesktopNotification,
+    customShortcutsEnabled,
+    shortcutPlayPause,
+    shortcutPrev,
+    shortcutNext,
     apiBase,
 
     // Computed
@@ -175,11 +190,11 @@ export const useSettingsStore = defineStore('settings', () => {
 }, {
   persist: {
     pick: [
-      'theme', 'lyricsBackground', 'musicQuality', 'autoPlay', 'fadeDuration',
+      'theme', 'lyricsBackground', 'musicQuality', 'autoPlay', 'fadeDuration', 'playbackSpeed',
       'enableCache', 'cacheLimitMB', 'autoCacheNextTrack', 'enableUnblock',
-      'showLyricTranslation', 'lyricFontSize', 'lyricFontFamily', 'lyricAlignment',
+      'showLyricTranslation', 'showLyricRomanization', 'lyricFontSize', 'lyricFontFamily', 'lyricAlignment',
       'enableEnhancedLyric',
-      'minimizeToTray', 'globalShortcut', 'autoLaunch', 'apiBase'
+      'minimizeToTray', 'globalShortcut', 'autoLaunch', 'enableDesktopNotification', 'customShortcutsEnabled', 'shortcutPlayPause', 'shortcutPrev', 'shortcutNext', 'apiBase'
     ],
     afterHydrate: (ctx) => {
       try {

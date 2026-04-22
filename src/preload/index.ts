@@ -83,6 +83,10 @@ const api = {
   setGlobalShortcuts: (enabled: boolean): Promise<boolean> =>
     ipcRenderer.invoke('app:setGlobalShortcuts', enabled),
 
+  /** 设置自定义全局快捷键 */
+  setCustomShortcuts: (shortcuts: { playPause: string; prev: string; next: string }): Promise<boolean> =>
+    ipcRenderer.invoke('app:setCustomShortcuts', shortcuts),
+
   /** 获取当前操作系统平台 */
   getPlatform: (): Promise<string> =>
     ipcRenderer.invoke('app:getPlatform'),

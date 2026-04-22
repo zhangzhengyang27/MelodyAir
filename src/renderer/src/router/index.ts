@@ -143,6 +143,12 @@ const routes: RouteRecordRaw[] = [
         name: 'settings',
         component: () => import('@/views/SettingsView.vue'),
         meta: { title: '设置' }
+      },
+      {
+        path: 'local-metadata',
+        name: 'local-metadata',
+        component: () => import('@/views/LocalMusicMetadataView.vue'),
+        meta: { title: '本地音乐元数据' }
       }
     ]
   }

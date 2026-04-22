@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Song } from '../../stores/player'
 
 interface Props {
@@ -21,7 +21,13 @@ const emit = defineEmits<{
   (e: 'remove', index: number): void
   (e: 'removeFromNext', index: number): void
   (e: 'clearAll'): void
+  (e: 'reorder', fromIndex: number, toIndex: number): void
+  (e: 'removeDuplicates'): void
 }>()
+
+// 拖拽状态
+const draggedIndex = ref<number | null>(null)
+const dragOverIndex = ref<number | null>(null)
 
 /**
  * 格式化时长
@@ -45,6 +51,62 @@ const currentSong = computed(() =>
 const totalDuration = computed(() =>
   props.playlist.reduce((sum, song) => sum + song.duration, 0)
 )
+
+// 检测重复歌曲
+const duplicateCount = computed(() => {
+  const seen = new Set<number>()
+  let count = 0
+  props.playlist.forEach(song => {
+    if (seen.has(song.id)) {
+      count++
+    } else {
+      seen.add(song.id)
+    }
+  })
+  return count
+})
+
+// 拖拽事件处理
+function handleDragStart(event: DragEvent, index: number) {
+  draggedIndex.value = index
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(index))
+  }
+}
+
+function handleDragOver(event: DragEvent, index: number) {
+  event.preventDefault()
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+  dragOverIndex.value = index
+}
+
+function handleDragLeave() {
+  dragOverIndex.value = null
+}
+
+function handleDrop(event: DragEvent, toIndex: number) {
+  event.preventDefault()
+  if (draggedIndex.value !== null && draggedIndex.value !== toIndex) {
+    emit('reorder', draggedIndex.value, toIndex)
+  }
+  draggedIndex.value = null
+  dragOverIndex.value = null
+}
+
+function handleDragEnd() {
+  draggedIndex.value = null
+  dragOverIndex.value = null
+}
+
+function handleRemoveDuplicates() {
+  if (duplicateCount.value > 0) {
+    emit('removeDuplicates')
+  }
+}
+
 </script>
 
 <template>
@@ -112,7 +174,17 @@ const totalDuration = computed(() =>
           <div class="section playlist-section">
             <div class="section-header">
               <span class="section-label">播放列表</span>
-              <span v-if="currentSong" class="now-playing-badge">正在播放</span>
+              <div class="header-actions">
+                <button
+                  v-if="duplicateCount > 0"
+                  class="action-btn"
+                  @click="handleRemoveDuplicates"
+                  title="移除重复"
+                >
+                  去重 ({{ duplicateCount }})
+                </button>
+                <span v-if="currentSong" class="now-playing-badge">正在播放</span>
+              </div>
             </div>
 
             <div class="queue-list scrollable">
@@ -120,7 +192,17 @@ const totalDuration = computed(() =>
                 v-for="(song, index) in playlist"
                 :key="song.id"
                 class="queue-item"
-                :class="{ active: index === currentIndex }"
+                :class="{
+                  active: index === currentIndex,
+                  dragging: draggedIndex === index,
+                  'drag-over': dragOverIndex === index
+                }"
+                draggable="true"
+                @dragstart="handleDragStart($event, index)"
+                @dragover="handleDragOver($event, index)"
+                @dragleave="handleDragLeave"
+                @drop="handleDrop($event, index)"
+                @dragend="handleDragEnd"
               >
                 <div class="item-info" @click="$emit('play', song, index)">
                   <img
@@ -266,8 +348,32 @@ const totalDuration = computed(() =>
 .section-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.action-btn {
+  font-size: 11px;
+  padding: 4px 10px;
+  border: none;
+  background: rgba(255, 90, 95, 0.15);
+  color: #ff5a5f;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: all 0.15s ease;
+  font-weight: 500;
+}
+
+.action-btn:hover {
+  background: rgba(255, 90, 95, 0.25);
 }
 
 .section-label {
@@ -337,6 +443,7 @@ const totalDuration = computed(() =>
   border-radius: 8px;
   transition: all 0.15s ease;
   gap: 8px;
+  cursor: grab;
 }
 
 .queue-item:hover {
@@ -345,6 +452,17 @@ const totalDuration = computed(() =>
 
 .queue-item.active {
   background: rgba(59, 130, 246, 0.12);
+}
+
+/* 拖拽状态 */
+.queue-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.queue-item.drag-over {
+  border-top: 2px solid #ff5a5f;
+  margin-top: 2px;
 }
 
 .item-info {

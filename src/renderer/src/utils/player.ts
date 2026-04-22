@@ -6,6 +6,7 @@ export type PlayerStatus = 'playing' | 'paused' | 'loading' | 'error'
 export interface PlayerOptions {
   volume?: number
   fadeDuration?: number
+  playbackRate?: number
   onEnd?: () => void
   onPlayStateChange?: (status: PlayerStatus) => void
   onProgress?: (currentTime: number, duration: number) => void
@@ -25,6 +26,7 @@ export class AudioEngine {
   private _volumeBeforeMuted: number = 0.8
   private _muted: boolean = false
   private _fadeDuration: number = 200
+  private _playbackRate: number = 1
   private _isFadeIn: boolean = false
   private _isFadeOut: boolean = false
   /** 防止手动 stop() 时误触发 onend 回调 */
@@ -44,6 +46,7 @@ export class AudioEngine {
   constructor(options: PlayerOptions = {}) {
     this._volume = options.volume ?? 0.8
     this._fadeDuration = options.fadeDuration ?? 200
+    this._playbackRate = options.playbackRate ?? 1
     this.onEndCallback = options.onEnd
     this.onPlayStateChangeCallback = options.onPlayStateChange
     this.onProgressCallback = options.onProgress
@@ -79,6 +82,7 @@ export class AudioEngine {
           // 确保音量正确（HTML5 模式下 fade 不可靠）
           if (this._howl) {
             this._howl.volume(this._muted ? 0 : this._volume)
+            this._howl.rate(this._playbackRate)
           }
           this.emitStateChange('playing')
           this.startProgressTracking()
@@ -113,6 +117,17 @@ export class AudioEngine {
 
       this._howl.play()
     })
+  }
+
+  setPlaybackRate(rate: number): void {
+    this._playbackRate = Math.max(0.5, Math.min(2, rate))
+    if (this._howl) {
+      this._howl.rate(this._playbackRate)
+    }
+  }
+
+  getPlaybackRate(): number {
+    return this._playbackRate
   }
 
   /** 继续播放（暂停后恢复） */

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { AudioEngine, type PlayMode, type PlayerStatus } from '../utils/player'
 import { showToast } from '../composables/useToast'
 import { logger } from '../utils/logger'
@@ -8,7 +8,9 @@ import { usePlayerCache } from '../composables/usePlayerCache'
 import { useScrobble } from '../composables/useScrobble'
 import { useMediaSession } from '../composables/useMediaSession'
 import { usePlaybackProgress } from '../composables/usePlaybackProgress'
+import { useDesktopNotification } from '../composables/useDesktopNotification'
 import { getStorage, setStorage } from '../utils/storage'
+import { useSettingsStore } from './settings'
 
 export interface Song {
   id: number
@@ -42,6 +44,8 @@ interface PlayerState {
 }
 
 export const usePlayerStore = defineStore('player', () => {
+  const settingsStore = useSettingsStore()
+
   // ==================== 状态 ====================
   const playlist = ref<Song[]>([])
   const currentIndex = ref(-1)
@@ -110,6 +114,7 @@ export const usePlayerStore = defineStore('player', () => {
     currentTime,
     playlist,
   })
+  const desktopNotification = useDesktopNotification()
 
   // ==================== 音频引擎 ====================
   function initAudioEngine(): void {
@@ -117,6 +122,7 @@ export const usePlayerStore = defineStore('player', () => {
       audioEngine = new AudioEngine({
         volume: volume.value,
         fadeDuration: 200,
+        playbackRate: settingsStore.playbackSpeed,
         autoNext: true,
         onEnd: () => handlePlayEnd(),
         onPlayStateChange: (newStatus: PlayerStatus) => {
@@ -188,6 +194,13 @@ export const usePlayerStore = defineStore('player', () => {
           duration: song.duration
         })
       }
+
+      void desktopNotification.notify({
+        title: '正在播放',
+        body: `${song.name} - ${song.artists.map(a => a.name).join(', ')}`,
+        tag: `track-${song.id}`,
+        icon: song.album.picUrl,
+      })
 
       // 预缓存下一首
       playerCache.preloadNextTrack({
@@ -328,6 +341,52 @@ export const usePlayerStore = defineStore('player', () => {
     shuffledList.value = []
     playing.value = false
     stopPlayback()
+  }
+
+  function reorderPlaylist(fromIndex: number, toIndex: number): void {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return
+    if (fromIndex >= playlist.value.length || toIndex >= playlist.value.length) return
+
+    const [movedSong] = playlist.value.splice(fromIndex, 1)
+    playlist.value.splice(toIndex, 0, movedSong)
+
+    // 智能调整 currentIndex
+    const oldCurrentIndex = currentIndex.value
+    if (fromIndex === oldCurrentIndex) {
+      // 拖动的是当前播放歌曲
+      currentIndex.value = toIndex
+    } else if (fromIndex < oldCurrentIndex && toIndex >= oldCurrentIndex) {
+      // 从当前歌曲前面拖到后面
+      currentIndex.value = oldCurrentIndex - 1
+    } else if (fromIndex > oldCurrentIndex && toIndex <= oldCurrentIndex) {
+      // 从当前歌曲后面拖到前面
+      currentIndex.value = oldCurrentIndex + 1
+    }
+
+    generateShuffledList()
+  }
+
+  function removeDuplicates(): number {
+    const seen = new Set<number>()
+    const uniquePlaylist: Song[] = []
+    let removedCount = 0
+
+    playlist.value.forEach((song, index) => {
+      if (!seen.has(song.id)) {
+        seen.add(song.id)
+        uniquePlaylist.push(song)
+      } else {
+        removedCount++
+        // 如果删除的歌曲在当前播放歌曲之前，需要调整 currentIndex
+        if (index < currentIndex.value) {
+          currentIndex.value--
+        }
+      }
+    })
+
+    playlist.value = uniquePlaylist
+    generateShuffledList()
+    return removedCount
   }
 
   function getPlayHistory() {
@@ -489,6 +548,12 @@ export const usePlayerStore = defineStore('player', () => {
     if (audioEngine) audioEngine.setVolume(volume.value)
   }
 
+  function setPlaybackSpeed(rate: number): void {
+    const safeRate = Math.max(0.5, Math.min(2, rate))
+    settingsStore.playbackSpeed = safeRate
+    if (audioEngine) audioEngine.setPlaybackRate(safeRate)
+  }
+
   function toggleMute(): void {
     initAudioEngine()
     if (audioEngine) muted.value = audioEngine.toggleMute()
@@ -605,6 +670,12 @@ export const usePlayerStore = defineStore('player', () => {
           duration: song.duration
         })
       }
+      void desktopNotification.notify({
+        title: '恢复播放',
+        body: `${song.name} - ${song.artists.map(a => a.name).join(', ')}`,
+        tag: `restore-${song.id}`,
+        icon: song.album.picUrl,
+      })
     } catch (e) {
       logger.error('player', 'Failed to restore playback:', e)
     }
@@ -660,8 +731,9 @@ export const usePlayerStore = defineStore('player', () => {
     personalFMTrack, personalFMNextTrack, status, currentSongCache,
     sleepTimerDeadline, playHistory, currentSong, progress,
     setPlaylist, addToPlaylist, playSong, removeFromPlaylist, clearPlaylist,
+    reorderPlaylist, removeDuplicates,
     addToPlayNext, insertNext, removeQueueItem, playNext, playPrev, togglePlaying, togglePlayMode,
-    setVolume, toggleMute, seek, setCurrentTime, setDuration,
+    setVolume, setPlaybackSpeed, toggleMute, seek, setCurrentTime, setDuration,
     setSleepTimer, clearSleepTimer, clearPlayHistory, removeHistoryBySongId, loadPersistentState,
     enablePersonalFM, disablePersonalFM, restorePlayback, destroy,
   }

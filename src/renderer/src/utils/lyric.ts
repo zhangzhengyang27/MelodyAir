@@ -5,6 +5,7 @@ export interface LyricLine {
   time: number
   text: string
   translatedText?: string
+  romanizedText?: string
   /** 逐字歌词时间戳（可选） */
   words?: { time: number; text: string }[]
 }
@@ -93,6 +94,28 @@ export function mergeLyricsWithTranslation(
 
     if (translation && !line.translatedText) {
       return { ...line, translatedText: translation.text }
+    }
+
+    return line
+  })
+}
+
+/** 合并原始歌词和音译歌词（罗马音/拼音） */
+export function mergeLyricsWithRomanization(
+  originalLyrics: LyricLine[],
+  romanizationLRC?: string
+): LyricLine[] {
+  if (!romanizationLRC) return originalLyrics
+
+  const romanizations = parseLyric(romanizationLRC)
+
+  return originalLyrics.map((line) => {
+    const romanization = romanizations.find(
+      (r) => Math.abs(r.time - line.time) < 0.5 // 允许 0.5 秒的时间差
+    )
+
+    if (romanization && !line.romanizedText) {
+      return { ...line, romanizedText: romanization.text }
     }
 
     return line

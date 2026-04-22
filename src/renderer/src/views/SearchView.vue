@@ -14,6 +14,40 @@
       />
     </div>
 
+    <!-- Search history (when no query and has history) -->
+    <section v-if="!query && !hasSearched && searchHistory.length > 0">
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-subtitle font-semibold">搜索历史</h2>
+        <button
+          class="rounded-lg px-3 py-1 text-sm text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-red-500 dark:hover:bg-white/5"
+          @click="clearHistory"
+        >
+          清空
+        </button>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <div
+          v-for="item in searchHistory.slice(0, 15)"
+          :key="item.keyword"
+          class="group flex items-center gap-2 rounded-full bg-neutral-100 px-4 py-2 transition-colors hover:bg-neutral-200 dark:bg-[#1F1F2E] dark:hover:bg-[rgba(255,255,255,0.1)]"
+        >
+          <span
+            class="cursor-pointer text-sm"
+            @click="query = item.keyword; doSearch()"
+          >
+            {{ item.keyword }}
+          </span>
+          <button
+            class="text-neutral-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+            @click.stop="removeFromHistory(item.keyword)"
+            title="删除"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+    </section>
+
     <!-- Hot searches (when no query) -->
     <section v-if="!hasSearched">
       <h2 class="mb-4 text-subtitle font-semibold">热搜榜</h2>
@@ -39,10 +73,11 @@
         <div
           v-for="item in suggestions"
           :key="item.name"
-          class="cursor-pointer rounded-lg px-3 py-2 text-sm transition-colors hover:bg-neutral-100 dark:hover:bg-[rgba(255,255,255,0.05)]"
+          class="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors hover:bg-neutral-100 dark:hover:bg-[rgba(255,255,255,0.05)]"
           @click="query = item.name; doSearch()"
         >
-          {{ item.name }}
+          <span>{{ item.name }}</span>
+          <span v-if="item.source === 'history'" class="text-xs text-neutral-400">历史</span>
         </div>
       </div>
     </section>
@@ -111,18 +146,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { cloudSearch, getSearchHotDetail, getSearchSuggest } from '@/api/search'
 import CoverImage from '@/components/common/CoverImage.vue'
 import SongTable from '@/components/common/SongTable.vue'
 import { usePlayerStore } from '@/stores/player'
 import { usePlayer } from '@/composables/usePlayer'
+import { useSearchHistory } from '@/composables/useSearchHistory'
 import type { Song } from '@/stores/player'
 
 const route = useRoute()
 const playerStore = usePlayerStore()
 const { playSongList } = usePlayer()
+const { history: searchHistory, addToHistory, removeFromHistory, clearHistory } = useSearchHistory()
 
 const query = ref('')
 const hasSearched = ref(false)
@@ -170,7 +207,22 @@ watch(query, (val) => {
   suggestTimer = setTimeout(async () => {
     try {
       const res: any = await getSearchSuggest(val.trim())
-      suggestions.value = res?.result?.allMatch || []
+      const apiSuggestions = res?.result?.allMatch || []
+
+      // Merge with local history
+      const historySuggestions = searchHistory.value
+        .filter(item => item.keyword.toLowerCase().includes(val.trim().toLowerCase()))
+        .map(item => ({ name: item.keyword, source: 'history' }))
+
+      // Combine and deduplicate
+      const merged = [...historySuggestions]
+      for (const suggestion of apiSuggestions) {
+        if (!merged.some(s => s.name.toLowerCase() === suggestion.name.toLowerCase())) {
+          merged.push({ ...suggestion, source: 'api' })
+        }
+      }
+
+      suggestions.value = merged.slice(0, 10)
     } catch {
       suggestions.value = []
     }
@@ -211,6 +263,10 @@ async function doSearch() {
     if (artistsRes.status === 'fulfilled') results.value.artists = (artistsRes.value as any)?.result?.artists || []
     if (albumsRes.status === 'fulfilled') results.value.albums = (albumsRes.value as any)?.result?.albums || []
     if (playlistsRes.status === 'fulfilled') results.value.playlists = (playlistsRes.value as any)?.result?.playlists || []
+
+    // Add to search history with result count
+    const totalResults = results.value.songs.length + results.value.artists.length + results.value.albums.length + results.value.playlists.length
+    addToHistory(keyword, totalResults)
   } finally {
     searchLoading.value = false
   }
