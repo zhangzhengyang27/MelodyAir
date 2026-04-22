@@ -28,6 +28,15 @@ window.electronAPI?.onPlayerAction?.((action: string) => {
       case 'next':
         playerStore.playNext()
         break
+      case 'toggleLike':
+        // Import userStore for like functionality
+        import('@/stores/user').then(({ useUserStore }) => {
+          const userStore = useUserStore()
+          if (playerStore.currentSong) {
+            userStore.toggleLike(playerStore.currentSong.id)
+          }
+        })
+        break
     }
   })
 })

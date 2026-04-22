@@ -11,6 +11,8 @@ import { usePlaybackProgress } from '../composables/usePlaybackProgress'
 import { useDesktopNotification } from '../composables/useDesktopNotification'
 import { getStorage, setStorage } from '../utils/storage'
 import { useSettingsStore } from './settings'
+import { useLyricsStore } from './lyrics'
+import { useUserStore } from './user'
 
 export interface Song {
   id: number
@@ -116,6 +118,10 @@ export const usePlayerStore = defineStore('player', () => {
   })
   const desktopNotification = useDesktopNotification()
 
+  // 通知节流：避免快速切歌时刷屏
+  let lastNotificationTime = 0
+  const NOTIFICATION_THROTTLE_MS = 2000 // 2秒内最多一次通知
+
   // ==================== 音频引擎 ====================
   function initAudioEngine(): void {
     if (!audioEngine) {
@@ -136,6 +142,17 @@ export const usePlayerStore = defineStore('player', () => {
           scrobbleHelper.accumulatePlayedTime()
           scrobbleHelper.checkAndSubmitScrobble()
           mediaSessionHelper.updateMediaSessionPlaybackState()
+
+          // Send progress and lyrics to Touch Bar
+          if (window.electronAPI?.sendIpcEvent) {
+            window.electronAPI.sendIpcEvent('player:updateProgress', time)
+
+            const lyricsStore = useLyricsStore()
+            window.electronAPI.sendIpcEvent('player:updateLyrics', {
+              currentText: lyricsStore.currentLine?.text || '',
+              hasLyrics: lyricsStore.hasLyrics
+            })
+          }
         },
         onError: (error: Error) => {
           logger.error('player', 'Player error:', error)
@@ -193,14 +210,30 @@ export const usePlayerStore = defineStore('player', () => {
           cover: song.album.picUrl,
           duration: song.duration
         })
+
+        // Reset Touch Bar lyrics for new track
+        window.electronAPI.sendIpcEvent('player:updateLyrics', {
+          currentText: '',
+          hasLyrics: false
+        })
+
+        // Update Touch Bar like state for new track
+        const userStore = useUserStore()
+        const isLiked = userStore.likedSongIds.includes(song.id)
+        window.electronAPI.sendIpcEvent('player:updateLikeState', isLiked)
       }
 
-      void desktopNotification.notify({
-        title: '正在播放',
-        body: `${song.name} - ${song.artists.map(a => a.name).join(', ')}`,
-        tag: `track-${song.id}`,
-        icon: song.album.picUrl,
-      })
+      // 桌面通知（带节流）
+      const now = Date.now()
+      if (now - lastNotificationTime >= NOTIFICATION_THROTTLE_MS) {
+        lastNotificationTime = now
+        void desktopNotification.notify({
+          title: '正在播放',
+          body: `${song.name} - ${song.artists.map(a => a.name).join(', ')}`,
+          tag: `track-${song.id}`,
+          icon: song.album.picUrl,
+        })
+      }
 
       // 预缓存下一首
       playerCache.preloadNextTrack({
@@ -554,6 +587,21 @@ export const usePlayerStore = defineStore('player', () => {
     if (audioEngine) audioEngine.setPlaybackRate(safeRate)
   }
 
+  function setEqualizerBand(bandIndex: number, gain: number): void {
+    initAudioEngine()
+    if (audioEngine) audioEngine.setEqualizerBand(bandIndex, gain)
+  }
+
+  function setEqualizerBands(gains: number[]): void {
+    initAudioEngine()
+    if (audioEngine) audioEngine.setEqualizerBands(gains)
+  }
+
+  function setEqualizerEnabled(enabled: boolean): void {
+    initAudioEngine()
+    if (audioEngine) audioEngine.setEqualizerEnabled(enabled)
+  }
+
   function toggleMute(): void {
     initAudioEngine()
     if (audioEngine) muted.value = audioEngine.toggleMute()
@@ -725,6 +773,13 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
+  // Watch playing state and send to main process for Touch Bar
+  watch(playing, (isPlaying) => {
+    if (window.electronAPI?.sendIpcEvent) {
+      window.electronAPI.sendIpcEvent('player:updatePlayState', isPlaying)
+    }
+  })
+
   return {
     playlist, currentIndex, playing, playMode, currentTime, duration,
     volume, muted, shuffledList, playNextList, isPersonalFM,
@@ -734,6 +789,7 @@ export const usePlayerStore = defineStore('player', () => {
     reorderPlaylist, removeDuplicates,
     addToPlayNext, insertNext, removeQueueItem, playNext, playPrev, togglePlaying, togglePlayMode,
     setVolume, setPlaybackSpeed, toggleMute, seek, setCurrentTime, setDuration,
+    setEqualizerBand, setEqualizerBands, setEqualizerEnabled,
     setSleepTimer, clearSleepTimer, clearPlayHistory, removeHistoryBySongId, loadPersistentState,
     enablePersonalFM, disablePersonalFM, restorePlayback, destroy,
   }

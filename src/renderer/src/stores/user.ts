@@ -57,6 +57,12 @@ export const useUserStore = defineStore('user', () => {
     } else {
       likedSongIds.value.push(songId)
     }
+
+    // Update Touch Bar like state
+    if (window.electronAPI?.sendIpcEvent) {
+      const isLiked = likedSongIds.value.includes(songId)
+      window.electronAPI.sendIpcEvent('player:updateLikeState', isLiked)
+    }
   }
 
   function setProfile(p: UserProfile | null) {

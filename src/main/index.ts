@@ -11,6 +11,8 @@ import {
 } from "electron"
 import { join } from "path"
 import { electronApp, optimizer, is } from "@electron-toolkit/utils"
+import { createTouchBar, updateTouchBarLyrics, updateTouchBarPlayState, updateTouchBarLikeState } from "./touchBar"
+// import { registerScanHandlers } from "./scanner"
 
 // ==================== 类型定义 ====================
 
@@ -33,6 +35,8 @@ interface TrayState {
 // ==================== 全局状态 ====================
 
 let mainWindow: BrowserWindow | null = null
+let miniWindow: BrowserWindow | null = null
+let lyricsWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let minimizeToTray = true
 let globalShortcutsEnabled = true
@@ -86,6 +90,11 @@ function createWindow(): BrowserWindow {
     mainWindow!.show()
   })
 
+  // Initialize Touch Bar for macOS
+  if (process.platform === "darwin") {
+    createTouchBar(mainWindow)
+  }
+
   // 处理外部链接
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
@@ -108,6 +117,123 @@ function createWindow(): BrowserWindow {
   }
 
   return mainWindow
+}
+
+/**
+ * 创建迷你悬浮窗
+ */
+function createMiniWindow(): BrowserWindow {
+  // 如果已存在，先关闭
+  if (miniWindow && !miniWindow.isDestroyed()) {
+    miniWindow.close()
+  }
+
+  miniWindow = new BrowserWindow({
+    width: 320,
+    height: 120,
+    minWidth: 320,
+    minHeight: 120,
+    maxWidth: 400,
+    maxHeight: 150,
+    show: false,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: join(__dirname, "../preload/index.mjs"),
+      sandbox: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true
+    }
+  })
+
+  // 窗口准备好后显示
+  miniWindow.on("ready-to-show", () => {
+    miniWindow!.show()
+  })
+
+  // 加载迷你窗口页面
+  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+    miniWindow.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}#/mini-player`)
+  } else {
+    miniWindow.loadFile(join(__dirname, "../renderer/index.html"), {
+      hash: "/mini-player"
+    })
+  }
+
+  return miniWindow
+}
+
+/**
+ * 关闭迷你悬浮窗
+ */
+function closeMiniWindow(): void {
+  if (miniWindow && !miniWindow.isDestroyed()) {
+    miniWindow.close()
+    miniWindow = null
+  }
+}
+
+/**
+ * 创建桌面歌词窗口
+ */
+function createLyricsWindow(): BrowserWindow {
+  // 如果已存在，先关闭
+  if (lyricsWindow && !lyricsWindow.isDestroyed()) {
+    lyricsWindow.close()
+  }
+
+  lyricsWindow = new BrowserWindow({
+    width: 800,
+    height: 120,
+    minWidth: 400,
+    minHeight: 80,
+    maxHeight: 200,
+    show: false,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: true,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: join(__dirname, "../preload/index.mjs"),
+      sandbox: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true
+    }
+  })
+
+  // 窗口准备好后显示
+  lyricsWindow.on("ready-to-show", () => {
+    lyricsWindow!.show()
+  })
+
+  // 加载桌面歌词窗口页面
+  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+    lyricsWindow.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}#/desktop-lyrics`)
+  } else {
+    lyricsWindow.loadFile(join(__dirname, "../renderer/index.html"), {
+      hash: "/desktop-lyrics"
+    })
+  }
+
+  return lyricsWindow
+}
+
+/**
+ * 关闭桌面歌词窗口
+ */
+function closeLyricsWindow(): void {
+  if (lyricsWindow && !lyricsWindow.isDestroyed()) {
+    lyricsWindow.close()
+    lyricsWindow = null
+  }
 }
 
 // ==================== 系统托盘 ====================
@@ -327,11 +453,77 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle("app:getPlatform", () => process.platform)
 
+  // ========== 迷你悬浮窗 ==========
+  ipcMain.handle("miniWindow:open", () => {
+    if (!miniWindow || miniWindow.isDestroyed()) {
+      createMiniWindow()
+    } else {
+      miniWindow.show()
+      miniWindow.focus()
+    }
+    return true
+  })
+
+  ipcMain.handle("miniWindow:close", () => {
+    closeMiniWindow()
+    return true
+  })
+
+  ipcMain.handle("miniWindow:isOpen", () => {
+    return miniWindow !== null && !miniWindow.isDestroyed() && miniWindow.isVisible()
+  })
+
+  // ========== 桌面歌词窗口 ==========
+  ipcMain.handle("lyricsWindow:open", () => {
+    if (!lyricsWindow || lyricsWindow.isDestroyed()) {
+      createLyricsWindow()
+    } else {
+      lyricsWindow.show()
+      lyricsWindow.focus()
+    }
+    return true
+  })
+
+  ipcMain.handle("lyricsWindow:close", () => {
+    closeLyricsWindow()
+    return true
+  })
+
+  ipcMain.handle("lyricsWindow:isOpen", () => {
+    return lyricsWindow !== null && !lyricsWindow.isDestroyed() && lyricsWindow.isVisible()
+  })
+
+  ipcMain.handle("lyricsWindow:setAlwaysOnTop", (_event, flag: boolean) => {
+    if (lyricsWindow && !lyricsWindow.isDestroyed()) {
+      lyricsWindow.setAlwaysOnTop(flag)
+      return true
+    }
+    return false
+  })
+
+  ipcMain.handle("lyricsWindow:setLocked", (_event, locked: boolean) => {
+    if (lyricsWindow && !lyricsWindow.isDestroyed()) {
+      lyricsWindow.setIgnoreMouseEvents(locked, { forward: true })
+      return true
+    }
+    return false
+  })
+
   // ========== 播放器状态同步（渲染进程 -> 主进程）==========
   ipcMain.on("player:updateTrack", (_event, trackInfo: PlayerTrackInfo) => {
     trayState.currentTrack = trackInfo
     trayState.isPlaying = true
     updateTrayMenu()
+
+    // 同步到迷你窗口
+    if (miniWindow && !miniWindow.isDestroyed()) {
+      miniWindow.webContents.send("player:trackUpdated", trackInfo)
+    }
+
+    // 同步到桌面歌词窗口
+    if (lyricsWindow && !lyricsWindow.isDestroyed()) {
+      lyricsWindow.webContents.send("player:trackUpdated", trackInfo)
+    }
 
     // 更新任务栏进度（Windows）或 Dock 图标（macOS）
     updateTaskbarProgress(trackInfo.duration, 0)
@@ -340,16 +532,58 @@ function registerIpcHandlers(): void {
   ipcMain.on("player:updatePlayState", (_event, isPlaying: boolean) => {
     trayState.isPlaying = isPlaying
     updateTrayMenu()
+
+    // Update Touch Bar
+    if (process.platform === "darwin") {
+      updateTouchBarPlayState(isPlaying)
+    }
+
+    // 同步到迷你窗口
+    if (miniWindow && !miniWindow.isDestroyed()) {
+      miniWindow.webContents.send("player:playStateUpdated", isPlaying)
+    }
+
+    // 同步到桌面歌词窗口
+    if (lyricsWindow && !lyricsWindow.isDestroyed()) {
+      lyricsWindow.webContents.send("player:playStateUpdated", isPlaying)
+    }
   })
 
   ipcMain.on("player:updateLikeState", (_event, liked: boolean) => {
     trayState.liked = liked
     updateTrayMenu()
+
+    // Update Touch Bar
+    if (process.platform === "darwin") {
+      updateTouchBarLikeState(liked)
+    }
+
+    // 同步到迷你窗口
+    if (miniWindow && !miniWindow.isDestroyed()) {
+      miniWindow.webContents.send("player:likeStateUpdated", liked)
+    }
   })
 
   ipcMain.on("player:updateProgress", (_event, progress: number) => {
     if (trayState.currentTrack) {
       updateTaskbarProgress(trayState.currentTrack.duration, progress)
+    }
+
+    // 同步到迷你窗口
+    if (miniWindow && !miniWindow.isDestroyed()) {
+      miniWindow.webContents.send("player:progressUpdated", progress)
+    }
+
+    // 同步到桌面歌词窗口
+    if (lyricsWindow && !lyricsWindow.isDestroyed()) {
+      lyricsWindow.webContents.send("player:progressUpdated", progress)
+    }
+  })
+
+  // ========== Touch Bar 歌词同步 ==========
+  ipcMain.on("player:updateLyrics", (_event, data: { currentText: string; hasLyrics: boolean }) => {
+    if (process.platform === "darwin") {
+      updateTouchBarLyrics(data.currentText, data.hasLyrics)
     }
   })
 
@@ -359,6 +593,9 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.handle("theme:shouldUseDarkColors", () => nativeTheme.shouldUseDarkColors)
+
+  // 注册扫描相关处理器
+  // registerScanHandlers(mainWindow)
 
 }
 
@@ -421,6 +658,8 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   isQuittingApp = true
   unregisterGlobalShortcuts()
+  closeMiniWindow()
+  closeLyricsWindow()
 })
 
 // 防止多实例运行

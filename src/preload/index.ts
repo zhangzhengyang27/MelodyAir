@@ -38,7 +38,8 @@ const api = {
       'player:updateTrack',
       'player:updatePlayState',
       'player:updateLikeState',
-      'player:updateProgress'
+      'player:updateProgress',
+      'player:updateLyrics'
     ]
 
     if (allowedChannels.includes(channel)) {
@@ -91,6 +92,42 @@ const api = {
   getPlatform: (): Promise<string> =>
     ipcRenderer.invoke('app:getPlatform'),
 
+  // ==================== 迷你悬浮窗 ====================
+
+  /** 打开迷你悬浮窗 */
+  openMiniWindow: (): Promise<boolean> =>
+    ipcRenderer.invoke('miniWindow:open'),
+
+  /** 关闭迷你悬浮窗 */
+  closeMiniWindow: (): Promise<boolean> =>
+    ipcRenderer.invoke('miniWindow:close'),
+
+  /** 检查迷你悬浮窗是否打开 */
+  isMiniWindowOpen: (): Promise<boolean> =>
+    ipcRenderer.invoke('miniWindow:isOpen'),
+
+  // ==================== 桌面歌词窗口 ====================
+
+  /** 打开桌面歌词窗口 */
+  openLyricsWindow: (): Promise<boolean> =>
+    ipcRenderer.invoke('lyricsWindow:open'),
+
+  /** 关闭桌面歌词窗口 */
+  closeLyricsWindow: (): Promise<boolean> =>
+    ipcRenderer.invoke('lyricsWindow:close'),
+
+  /** 检查桌面歌词窗口是否打开 */
+  isLyricsWindowOpen: (): Promise<boolean> =>
+    ipcRenderer.invoke('lyricsWindow:isOpen'),
+
+  /** 设置桌面歌词窗口置顶 */
+  setLyricsWindowAlwaysOnTop: (flag: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('lyricsWindow:setAlwaysOnTop', flag),
+
+  /** 设置桌面歌词窗口锁定（鼠标穿透） */
+  setLyricsWindowLocked: (locked: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('lyricsWindow:setLocked', locked),
+
   // ==================== 主题同步 ====================
 
   /** 向主进程同步暗色模式设置 */
@@ -100,7 +137,46 @@ const api = {
 
   /** 获取系统是否应该使用深色颜色 */
   shouldUseDarkColors: (): Promise<boolean> =>
-    ipcRenderer.invoke('theme:shouldUseDarkColors')
+    ipcRenderer.invoke('theme:shouldUseDarkColors'),
+
+  // ==================== 本地音乐扫描 ====================
+
+  /** 选择扫描目录 */
+  selectScanDirectory: (): Promise<string | null> =>
+    ipcRenderer.invoke('scan:selectDirectory'),
+
+  /** 开始扫描 */
+  startScan: (dirPath: string): Promise<any> =>
+    ipcRenderer.invoke('scan:start', dirPath),
+
+  /** 中止扫描 */
+  abortScan: (): Promise<boolean> =>
+    ipcRenderer.invoke('scan:abort'),
+
+  /** 提取封面 */
+  extractCover: (filePath: string): Promise<{ data: string; mimeType: string } | null> =>
+    ipcRenderer.invoke('scan:extractCover', filePath),
+
+  /** 计算文件校验和 */
+  calculateChecksum: (filePath: string): Promise<string | null> =>
+    ipcRenderer.invoke('scan:calculateChecksum', filePath),
+
+  /** 保存封面图片 */
+  saveCover: (coverData: string, fileName: string): Promise<string | null> =>
+    ipcRenderer.invoke('scan:saveCover', coverData, fileName),
+
+  /** 监听扫描进度 */
+  onScanProgress: (callback: (progress: any) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, progress: any) => {
+      callback(progress)
+    }
+
+    ipcRenderer.on('scan:progress', handler)
+
+    return () => {
+      ipcRenderer.removeListener('scan:progress', handler)
+    }
+  }
 }
 
 // 通过 contextBridge 暴露安全的 API 给渲染进程

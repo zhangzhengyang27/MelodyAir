@@ -59,8 +59,12 @@ import AppHeader from './AppHeader.vue'
 import AppPlayer from './AppPlayer.vue'
 import PlayerFull from '@/components/player/PlayerFull.vue'
 import ToastContainer from '@/components/common/ToastContainer.vue'
+import { useLyricsSync } from '@/composables/useLyricsSync'
 
 const showFullPlayer = ref(false)
+
+// Initialize global lyrics sync for Touch Bar
+useLyricsSync()
 
 function handleClose() {
   window.electronAPI?.windowClose?.()
