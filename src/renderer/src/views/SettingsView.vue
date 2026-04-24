@@ -181,7 +181,7 @@
             v-for="key in presetKeys"
             :key="key"
             class="secondary-button"
-            :class="activePresetName === key ? '!border-coral !text-coral' : ''"
+            :class="activePresetName === key ? '!border-[#FF5A5F] !text-[#FF5A5F]' : ''"
             @click="equalizer.applyPreset(key)"
           >
             {{ key }}
@@ -237,13 +237,13 @@
                 type="text"
                 readonly
                 class="w-48 rounded-lg bg-white/10 px-3 py-2 text-center font-mono text-sm"
-                :class="{ 'ring-2 ring-coral': recordingKey === 'playPause' }"
+                :class="{ 'ring-2 ring-[#FF5A5F]': recordingKey === 'playPause' }"
                 @click="startRecording('playPause')"
                 placeholder="点击录制"
               />
               <button
                 v-if="tempShortcuts.playPause !== defaultShortcuts.playPause"
-                class="text-sm text-coral hover:underline"
+                class="text-sm text-[#FF5A5F] hover:underline"
                 @click="resetShortcut('playPause')"
               >
                 重置
@@ -263,13 +263,13 @@
                 type="text"
                 readonly
                 class="w-48 rounded-lg bg-white/10 px-3 py-2 text-center font-mono text-sm"
-                :class="{ 'ring-2 ring-coral': recordingKey === 'prev' }"
+                :class="{ 'ring-2 ring-[#FF5A5F]': recordingKey === 'prev' }"
                 @click="startRecording('prev')"
                 placeholder="点击录制"
               />
               <button
                 v-if="tempShortcuts.prev !== defaultShortcuts.prev"
-                class="text-sm text-coral hover:underline"
+                class="text-sm text-[#FF5A5F] hover:underline"
                 @click="resetShortcut('prev')"
               >
                 重置
@@ -289,13 +289,13 @@
                 type="text"
                 readonly
                 class="w-48 rounded-lg bg-white/10 px-3 py-2 text-center font-mono text-sm"
-                :class="{ 'ring-2 ring-coral': recordingKey === 'next' }"
+                :class="{ 'ring-2 ring-[#FF5A5F]': recordingKey === 'next' }"
                 @click="startRecording('next')"
                 placeholder="点击录制"
               />
               <button
                 v-if="tempShortcuts.next !== defaultShortcuts.next"
-                class="text-sm text-coral hover:underline"
+                class="text-sm text-[#FF5A5F] hover:underline"
                 @click="resetShortcut('next')"
               >
                 重置
@@ -382,8 +382,6 @@ const tempShortcuts = ref({
 })
 const recordingKey = ref<'playPause' | 'prev' | 'next' | null>(null)
 const shortcutError = ref('')
-
-const cacheLimitDisplay = computed(() => cacheLimitMB.value)
 
 function applyTheme(): void {
   if (settingsStore.theme === 'dark') document.documentElement.classList.add('dark')
@@ -632,7 +630,6 @@ onMounted(async () => {
 }
 
 .settings-card:hover {
-  transform: translateY(-2px);
   box-shadow:
     0 8px 28px rgba(0, 0, 0, 0.10),
     0 0 1px rgba(0, 0, 0, 0.06);
@@ -793,5 +790,45 @@ onMounted(async () => {
 .danger-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Toggle Switch 开关样式 */
+.toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.toggle-track {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.15);
+  transition: background 0.2s ease;
+  position: relative;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.toggle-switch:has(input:checked) .toggle-track {
+  background: #FF5A5F;
+}
+
+.toggle-switch:has(input:checked) .toggle-thumb {
+  transform: translateX(18px);
+}
+
+.dark .toggle-track {
+  background: rgba(255, 255, 255, 0.2);
 }
 </style>

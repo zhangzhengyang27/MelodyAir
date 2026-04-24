@@ -175,7 +175,6 @@ export const usePlayerStore = defineStore('player', () => {
     try {
       status.value = 'loading'
       markPlayHistory(song)
-      markPlayHistory(song)
 
       const url = await playerCache.getAudioSource(song.id, true, song._localTrackId)
       if (!url) {

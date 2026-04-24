@@ -4,7 +4,7 @@
       <h1 class="text-display">本地音乐</h1>
       <div class="flex gap-2">
         <button
-          class="rounded-xl border border-coral-500 px-4 py-2 text-sm font-medium text-coral-500 transition-colors hover:bg-coral-50 dark:hover:bg-coral-500/10"
+          class="rounded-xl border border-[#FF5A5F] px-4 py-2 text-sm font-medium text-[#FF5A5F] transition-colors hover:bg-[#FF5A5F]/10"
           @click="$router.push('/local/scan')"
         >
           扫描音乐

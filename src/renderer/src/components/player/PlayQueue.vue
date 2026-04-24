@@ -303,17 +303,19 @@ function formatTimestamp(timestamp: number): string {
                 @dragend="handleDragEnd"
               >
                 <div class="item-info" @click="$emit('play', song, index)">
-                  <img
-                    :src="song.album.picUrl"
-                    :alt="song.name"
-                    class="item-cover"
-                  />
+                  <div class="cover-wrapper">
+                    <img
+                      :src="song.album.picUrl"
+                      :alt="song.name"
+                      class="item-cover"
+                    />
 
-                  <!-- 播放状态指示器 -->
-                  <div v-if="index === currentIndex" class="playing-indicator">
-                    <span class="bar"></span>
-                    <span class="bar"></span>
-                    <span class="bar"></span>
+                    <!-- 播放状态指示器 -->
+                    <div v-if="index === currentIndex" class="playing-indicator">
+                      <span class="bar"></span>
+                      <span class="bar"></span>
+                      <span class="bar"></span>
+                    </div>
                   </div>
 
                   <div class="item-details">
@@ -559,8 +561,7 @@ function formatTimestamp(timestamp: number): string {
 }
 
 .queue-item.drag-over {
-  border-top: 2px solid #ff5a5f;
-  margin-top: 2px;
+  background: rgba(255, 90, 95, 0.1);
 }
 
 .item-info {
@@ -572,23 +573,30 @@ function formatTimestamp(timestamp: number): string {
   cursor: pointer;
 }
 
+/* 封面图包装器 */
+.cover-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .item-cover {
   width: 40px;
   height: 40px;
   border-radius: 6px;
   object-fit: cover;
-  flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* 播放动画指示器 */
 .playing-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: flex-end;
   gap: 2px;
   height: 16px;
-  margin-left: -36px; /* 覆盖在封面图上 */
-  position: absolute;
 }
 
 .playing-indicator .bar {

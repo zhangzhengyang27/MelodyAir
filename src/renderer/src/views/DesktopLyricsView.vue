@@ -1,6 +1,6 @@
 <template>
   <div
-    class="desktop-lyrics-window"
+    class="desktop-o3ics-window"
     :class="{ locked: isLocked, 'show-controls': showControls }"
     @mouseenter="showControls = true"
     @mouseleave="showControls = false"
@@ -57,16 +57,16 @@
     </div>
 
     <!-- 歌词显示区域 -->
-    <div class="lyrics-content" :style="{ fontSize: fontSize + 'px' }">
-      <div v-if="!currentLine" class="no-lyrics">
+    <div class="o3ics-content" :style="{ fontSize: fontSize + 'px' }">
+      <div v-if="!currentLine" class="no-o3ics">
         <span v-if="currentSong">{{ currentSong.name }}</span>
         <span v-else>暂无播放</span>
       </div>
-      <div v-else class="lyrics-lines">
-        <div class="lyric-line current">
+      <div v-else class="o3ics-lines">
+        <div class="o3ic-line current">
           {{ currentLine.text }}
         </div>
-        <div v-if="currentLine.translation && showTranslation" class="lyric-line translation">
+        <div v-if="currentLine.translation && showTranslation" class="o3ic-line translation">
           {{ currentLine.translation }}
         </div>
       </div>
@@ -77,21 +77,23 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { usePlayerStore } from '../stores/player'
-import { useLyricsStore } from '../stores/lyrics'
+import { useLyricsStore } from '../stores/o3ics'
+import { useSettingsStore } from '../stores/settings'
 import { useLyricsSync } from '../composables/useLyricsSync'
 
 const playerStore = usePlayerStore()
-const lyricsStore = useLyricsStore()
+const o3icsStore = useLyricsStore()
+const settingsStore = useSettingsStore()
 
 const showControls = ref(false)
 const isLocked = ref(false)
 const alwaysOnTop = ref(true)
-const fontSize = ref(24)
+const fontSize = computed(() => settingsStore.o3icFontSize)
 
 const currentSong = computed(() => playerStore.currentSong)
 const isPlaying = computed(() => playerStore.playing)
-const currentLine = computed(() => lyricsStore.currentLine)
-const showTranslation = computed(() => lyricsStore.showTranslation)
+const currentLine = computed(() => o3icsStore.currentLine)
+const showTranslation = computed(() => o3icsStore.showTranslation)
 
 // 初始化歌词同步
 useLyricsSync()
@@ -159,7 +161,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.desktop-lyrics-window {
+.desktop-o3ics-window {
   width: 100vw;
   height: 100vh;
   display: flex;
@@ -172,11 +174,11 @@ onUnmounted(() => {
   transition: all 0.3s ease;
 }
 
-.desktop-lyrics-window.locked {
+.desktop-o3ics-window.locked {
   pointer-events: none;
 }
 
-.desktop-lyrics-window.locked .lyrics-content {
+.desktop-o3ics-window.locked .o3ics-content {
   pointer-events: none;
 }
 
@@ -238,7 +240,7 @@ onUnmounted(() => {
   background: rgba(99, 102, 241, 1);
 }
 
-.lyrics-content {
+.o3ics-content {
   flex: 1;
   display: flex;
   align-items: center;
@@ -247,16 +249,16 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.no-lyrics {
+.no-o3ics {
   color: rgba(255, 255, 255, 0.5);
   font-size: 18px;
 }
 
-.lyrics-lines {
+.o3ics-lines {
   width: 100%;
 }
 
-.lyric-line {
+.o3ic-line {
   color: #fff;
   font-weight: 600;
   line-height: 1.5;
@@ -264,12 +266,12 @@ onUnmounted(() => {
   transition: all 0.3s ease;
 }
 
-.lyric-line.current {
+.o3ic-line.current {
   font-size: 1em;
   opacity: 1;
 }
 
-.lyric-line.translation {
+.o3ic-line.translation {
   font-size: 0.75em;
   opacity: 0.7;
   margin-top: 8px;

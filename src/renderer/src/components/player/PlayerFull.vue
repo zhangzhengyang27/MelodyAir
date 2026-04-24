@@ -979,11 +979,12 @@ onUnmounted(() => {
   cursor: pointer;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.08);
-  transition: height 0.2s ease;
+  transition: transform 0.2s ease;
+  transform-origin: center;
 }
 
 .progress-track:hover {
-  height: 4px;
+  transform: scaleY(1.33);
 }
 
 .progress-buffer {

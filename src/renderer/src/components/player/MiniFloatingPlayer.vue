@@ -28,7 +28,7 @@
 
     <div class="mt-3">
       <div class="h-1.5 overflow-hidden rounded-full bg-white/10" @click="onSeekTrack">
-        <div class="h-full rounded-full bg-coral" :style="{ width: progress * 100 + '%' }" />
+        <div class="h-full rounded-full bg-[#FF5A5F]" :style="{ width: progress * 100 + '%' }" />
       </div>
       <div class="mt-2 min-h-[2.25rem] rounded-xl bg-white/5 px-3 py-2 text-xs text-white/75">
         <p class="truncate">{{ currentLyric || '暂无歌词' }}</p>
