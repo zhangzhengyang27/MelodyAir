@@ -75,7 +75,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import { useLyricsStore } from '../stores/o3ics'
 import { useSettingsStore } from '../stores/settings'
@@ -97,6 +97,15 @@ const showTranslation = computed(() => o3icsStore.showTranslation)
 
 // 初始化歌词同步
 useLyricsSync()
+
+// 监听歌曲变化，重置歌词状态
+watch(
+  () => currentSong.value?.id,
+  () => {
+    // 歌曲变化时，重置 currentIndex
+    o3icsStore.setCurrentIndex(-1)
+  }
+)
 
 // 播放控制
 function togglePlay() {
