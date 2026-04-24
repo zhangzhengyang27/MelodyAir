@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { Song } from '../../stores/player'
+import { useQueueHistory } from '@/composables/useQueueHistory'
 
 interface Props {
   /** 播放列表 */
@@ -23,7 +24,12 @@ const emit = defineEmits<{
   (e: 'clearAll'): void
   (e: 'reorder', fromIndex: number, toIndex: number): void
   (e: 'removeDuplicates'): void
+  (e: 'saveAsPlaylist'): void
+  (e: 'restoreQueue', playlist: Song[], currentIndex: number): void
 }>()
+
+const queueHistory = useQueueHistory()
+const showHistory = ref(false)
 
 // 拖拽状态
 const draggedIndex = ref<number | null>(null)
@@ -107,6 +113,45 @@ function handleRemoveDuplicates() {
   }
 }
 
+function handleSaveQueue() {
+  const name = prompt('请输入队列名称', `队列 ${new Date().toLocaleString()}`)
+  if (name && name.trim()) {
+    queueHistory.saveSnapshot(props.playlist, props.currentIndex, name.trim())
+    alert('队列已保存')
+  }
+}
+
+function handleRestoreQueue(snapshotId: string) {
+  const snapshot = queueHistory.restoreSnapshot(snapshotId)
+  if (snapshot) {
+    emit('restoreQueue', snapshot.playlist, snapshot.currentIndex)
+    showHistory.value = false
+  }
+}
+
+function handleDeleteSnapshot(snapshotId: string) {
+  if (confirm('确定要删除这个队列快照吗？')) {
+    queueHistory.removeSnapshot(snapshotId)
+  }
+}
+
+function formatTimestamp(timestamp: number): string {
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+  if (days === 0) {
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  } else if (days === 1) {
+    return '昨天 ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  } else if (days < 7) {
+    return `${days}天前`
+  } else {
+    return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
+  }
+}
+
 </script>
 
 <template>
@@ -176,6 +221,30 @@ function handleRemoveDuplicates() {
               <span class="section-label">播放列表</span>
               <div class="header-actions">
                 <button
+                  v-if="queueHistory.history.value.length > 0"
+                  class="action-btn"
+                  @click="showHistory = !showHistory"
+                  title="队列历史"
+                >
+                  历史 ({{ queueHistory.history.value.length }})
+                </button>
+                <button
+                  v-if="playlist.length > 0"
+                  class="action-btn"
+                  @click="handleSaveQueue"
+                  title="保存当前队列"
+                >
+                  保存队列
+                </button>
+                <button
+                  v-if="playlist.length > 0"
+                  class="action-btn"
+                  @click="emit('saveAsPlaylist')"
+                  title="保存为歌单"
+                >
+                  保存为歌单
+                </button>
+                <button
                   v-if="duplicateCount > 0"
                   class="action-btn"
                   @click="handleRemoveDuplicates"
@@ -184,6 +253,35 @@ function handleRemoveDuplicates() {
                   去重 ({{ duplicateCount }})
                 </button>
                 <span v-if="currentSong" class="now-playing-badge">正在播放</span>
+              </div>
+            </div>
+
+            <!-- 队列历史面板 -->
+            <div v-if="showHistory" class="history-panel">
+              <div class="history-header">
+                <h4>队列历史</h4>
+                <button class="close-history-btn" @click="showHistory = false">✕</button>
+              </div>
+              <div class="history-list">
+                <div
+                  v-for="snapshot in queueHistory.history.value"
+                  :key="snapshot.id"
+                  class="history-item"
+                >
+                  <div class="history-info" @click="handleRestoreQueue(snapshot.id)">
+                    <p class="history-name">{{ snapshot.name }}</p>
+                    <p class="history-meta">
+                      {{ snapshot.playlist.length }} 首 · {{ formatTimestamp(snapshot.timestamp) }}
+                    </p>
+                  </div>
+                  <button
+                    class="delete-history-btn"
+                    @click.stop="handleDeleteSnapshot(snapshot.id)"
+                    title="删除"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -605,5 +703,115 @@ function handleRemoveDuplicates() {
 .slide-up-enter-from .queue-panel,
 .slide-up-leave-to .queue-panel {
   transform: translateX(100%);
+}
+
+/* 队列历史面板 */
+.history-panel {
+  margin: 12px 24px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.history-header h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+.close-history-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.close-history-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.history-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.history-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-name {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 4px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+}
+
+.delete-history-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s ease;
+  font-size: 12px;
+}
+
+.history-item:hover .delete-history-btn {
+  opacity: 1;
+}
+
+.delete-history-btn:hover {
+  background: rgba(255, 69, 58, 0.15);
+  color: #ff453a;
 }
 </style>

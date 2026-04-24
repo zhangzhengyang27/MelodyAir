@@ -61,6 +61,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '本地音乐' }
       },
       {
+        path: 'local/scan',
+        name: 'local-music-scan',
+        component: () => import('@/views/LocalMusicScanView.vue'),
+        meta: { title: '扫描本地音乐' }
+      },
+      {
         path: 'local/album/:id',
         name: 'local-album',
         component: () => import('@/views/LocalAlbumDetailView.vue'),
@@ -151,6 +157,18 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '本地音乐元数据' }
       }
     ]
+  },
+  {
+    path: '/mini-player',
+    name: 'mini-player',
+    component: () => import('@/views/MiniPlayerView.vue'),
+    meta: { title: '迷你播放器' }
+  },
+  {
+    path: '/desktop-lyrics',
+    name: 'desktop-lyrics',
+    component: () => import('@/views/DesktopLyricsView.vue'),
+    meta: { title: '桌面歌词' }
   }
 ]
 

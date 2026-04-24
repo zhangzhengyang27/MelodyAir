@@ -57,6 +57,54 @@ export const uploadFile = (
  */
 export const getOssUrl = (id: number) => request.get<{ url: string }>(`/audio-file/${id}/oss-url`)
 
+// ==================== 批量导入 ====================
+
+export interface ImportFileData {
+  filePath: string
+  fileName: string
+  fileSize: number
+  checksum: string
+  format: string
+  bitrate?: number
+  duration?: number
+  title?: string
+  artist?: string
+  album?: string
+  albumArtist?: string
+  year?: number
+  genre?: string[]
+  trackNumber?: number
+  diskNumber?: number
+  coverPath?: string
+}
+
+export interface ImportProgress {
+  status: 'processing' | 'completed' | 'error'
+  currentFile: string
+  processedCount: number
+  totalCount: number
+  successCount: number
+  errorCount: number
+  skippedCount: number
+}
+
+export interface ImportResult {
+  totalFiles: number
+  successCount: number
+  errorCount: number
+  skippedCount: number
+  errors: Array<{ file: string; error: string }>
+  duration: number
+}
+
+/**
+ * 批量导入音频文件
+ * @param libraryId 音乐库 ID
+ * @param files 文件数据列表
+ */
+export const batchImportFiles = (libraryId: number, files: ImportFileData[]): Promise<ApiResponse<ImportResult>> =>
+  request.post(`/library/${libraryId}/batch-import`, { files })
+
 // ==================== 本地音轨 ====================
 
 export const getTracks = (params?: { songId?: number; albumId?: number; page?: number; limit?: number }) =>

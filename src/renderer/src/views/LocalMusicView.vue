@@ -2,7 +2,15 @@
   <div class="space-y-6">
     <div class="flex items-center justify-between">
       <h1 class="text-display">本地音乐</h1>
-      <CoralButton @click="showAddDialog = true">添加音乐库</CoralButton>
+      <div class="flex gap-2">
+        <button
+          class="rounded-xl border border-coral-500 px-4 py-2 text-sm font-medium text-coral-500 transition-colors hover:bg-coral-50 dark:hover:bg-coral-500/10"
+          @click="$router.push('/local/scan')"
+        >
+          扫描音乐
+        </button>
+        <CoralButton @click="showAddDialog = true">添加音乐库</CoralButton>
+      </div>
     </div>
 
     <!-- 统计概览 -->

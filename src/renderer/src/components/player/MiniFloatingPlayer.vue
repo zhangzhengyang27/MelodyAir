@@ -30,6 +30,9 @@
       <div class="h-1.5 overflow-hidden rounded-full bg-white/10" @click="onSeekTrack">
         <div class="h-full rounded-full bg-coral" :style="{ width: progress * 100 + '%' }" />
       </div>
+      <div class="mt-2 min-h-[2.25rem] rounded-xl bg-white/5 px-3 py-2 text-xs text-white/75">
+        <p class="truncate">{{ currentLyric || '暂无歌词' }}</p>
+      </div>
       <div class="mt-1 flex justify-between text-[11px] text-white/35">
         <span>{{ formatTime(currentTime) }}</span>
         <span>{{ formatTime(duration) }}</span>
@@ -41,15 +44,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
+import { useLyricsStore } from '@/stores/lyrics'
 import { formatTime } from '@/utils/format'
 
 const emit = defineEmits<{ close: []; toggle: []; prev: []; next: [] }>()
 const player = usePlayerStore()
+const lyricsStore = useLyricsStore()
 const currentSong = computed(() => player.currentSong)
 const playing = computed(() => player.playing)
 const currentTime = computed(() => player.currentTime)
 const duration = computed(() => player.duration)
 const progress = computed(() => player.progress)
+const currentLyric = computed(() => lyricsStore.currentLine?.text || '')
 
 function onSeekTrack(event: MouseEvent) {
   const target = event.currentTarget as HTMLElement

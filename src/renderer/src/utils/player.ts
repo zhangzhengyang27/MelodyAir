@@ -1,4 +1,5 @@
 import { Howl, Howler } from 'howler'
+import { logger } from './logger'
 
 export type PlayMode = 'sequence' | 'loop' | 'loopOne' | 'random' | 'reversed'
 export type PlayerStatus = 'playing' | 'paused' | 'loading' | 'error'
@@ -13,12 +14,19 @@ export interface PlayerOptions {
   onError?: (error: Error) => void
 }
 
+export interface EqualizerBand {
+  frequency: number
+  gain: number
+  Q: number
+}
+
 /**
  * 基于 Howler.js 的音频引擎封装
  * 参考 YesPlayMusic Player.js 设计：
  * - 全局单例 Howl 实例（每次播放新歌时 unload 旧的再创建新的）
  * - HTML5 模式以支持流媒体
  * - 淡入淡出效果
+ * - Web Audio API 均衡器支持
  */
 export class AudioEngine {
   private _howl: Howl | null = null
@@ -31,6 +39,11 @@ export class AudioEngine {
   private _isFadeOut: boolean = false
   /** 防止手动 stop() 时误触发 onend 回调 */
   private _isStopping: boolean = false
+
+  // Web Audio API 均衡器
+  private audioContext: AudioContext | null = null
+  private equalizerFilters: BiquadFilterNode[] = []
+  private equalizerEnabled: boolean = false
 
   // 回调函数
   private onEndCallback?: () => void
@@ -53,6 +66,41 @@ export class AudioEngine {
     this.onErrorCallback = options.onError
 
     Howler.volume(this._volume)
+    this.initializeEqualizer()
+  }
+
+  /**
+   * 初始化 Web Audio API 均衡器
+   * 创建 5 个频段的 BiquadFilterNode
+   */
+  private initializeEqualizer(): void {
+    try {
+      // 获取或创建 AudioContext
+      const ctx = Howler.ctx as AudioContext
+      if (!ctx) {
+        logger.warn('player', '[AudioEngine] AudioContext not available')
+        return
+      }
+
+      this.audioContext = ctx
+
+      // 定义 5 个频段（与 useEqualizer 对应）
+      const frequencies = [60, 230, 910, 3600, 14000]
+
+      // 创建 BiquadFilterNode
+      this.equalizerFilters = frequencies.map((freq) => {
+        const filter = ctx.createBiquadFilter()
+        filter.type = 'peaking'
+        filter.frequency.value = freq
+        filter.Q.value = 1
+        filter.gain.value = 0
+        return filter
+      })
+
+      logger.info('player', '[AudioEngine] Equalizer initialized with', this.equalizerFilters.length, 'bands')
+    } catch (error) {
+      logger.error('player', '[AudioEngine] Failed to initialize equalizer:', error)
+    }
   }
 
   /**
@@ -84,6 +132,8 @@ export class AudioEngine {
             this._howl.volume(this._muted ? 0 : this._volume)
             this._howl.rate(this._playbackRate)
           }
+          // 连接均衡器
+          this.connectEqualizer()
           this.emitStateChange('playing')
           this.startProgressTracking()
           resolve()
@@ -222,6 +272,125 @@ export class AudioEngine {
   destroy(): void {
     this.stop()
     this._howl = null
+    this.destroyEqualizer()
+  }
+
+  /**
+   * 设置均衡器频段增益
+   * @param bandIndex 频段索引 (0-4)
+   * @param gain 增益值 (-12 到 12 dB)
+   */
+  setEqualizerBand(bandIndex: number, gain: number): void {
+    if (bandIndex < 0 || bandIndex >= this.equalizerFilters.length) {
+      logger.warn('player', '[AudioEngine] Invalid band index:', bandIndex)
+      return
+    }
+
+    const safeGain = Math.max(-12, Math.min(12, gain))
+    this.equalizerFilters[bandIndex].gain.value = safeGain
+    logger.debug('player', `[AudioEngine] Set band ${bandIndex} to ${safeGain}dB`)
+  }
+
+  /**
+   * 批量设置均衡器所有频段
+   * @param gains 增益值数组 [60Hz, 230Hz, 910Hz, 3.6kHz, 14kHz]
+   */
+  setEqualizerBands(gains: number[]): void {
+    gains.forEach((gain, index) => {
+      if (index < this.equalizerFilters.length) {
+        this.setEqualizerBand(index, gain)
+      }
+    })
+  }
+
+  /**
+   * 启用或禁用均衡器
+   */
+  setEqualizerEnabled(enabled: boolean): void {
+    this.equalizerEnabled = enabled
+
+    if (!enabled) {
+      // 禁用时将所有增益设为 0
+      this.equalizerFilters.forEach(filter => {
+        filter.gain.value = 0
+      })
+    }
+
+    logger.info('player', '[AudioEngine] Equalizer', enabled ? 'enabled' : 'disabled')
+  }
+
+  /**
+   * 获取均衡器启用状态
+   */
+  isEqualizerEnabled(): boolean {
+    return this.equalizerEnabled
+  }
+
+  /**
+   * 连接均衡器到音频链路
+   * 在 Howl 实例创建后调用
+   */
+  private connectEqualizer(): void {
+    if (!this.audioContext || this.equalizerFilters.length === 0) {
+      return
+    }
+
+    try {
+      // Howler.js 使用 Web Audio API，我们可以获取其 masterGain 节点
+      const masterGain = (Howler as any).masterGain
+      if (!masterGain) {
+        logger.warn('player', '[AudioEngine] masterGain not available')
+        return
+      }
+
+      // 断开现有连接
+      masterGain.disconnect()
+
+      // 连接均衡器链：masterGain -> filter1 -> filter2 -> ... -> destination
+      let previousNode: AudioNode = masterGain
+
+      for (const filter of this.equalizerFilters) {
+        previousNode.connect(filter)
+        previousNode = filter
+      }
+
+      // 最后连接到输出
+      previousNode.connect(this.audioContext.destination)
+
+      logger.info('player', '[AudioEngine] Equalizer connected to audio chain')
+    } catch (error) {
+      logger.error('player', '[AudioEngine] Failed to connect equalizer:', error)
+    }
+  }
+
+  /**
+   * 断开均衡器连接
+   */
+  private disconnectEqualizer(): void {
+    if (!this.audioContext) return
+
+    try {
+      const masterGain = (Howler as any).masterGain
+      if (masterGain) {
+        // 断开所有连接
+        masterGain.disconnect()
+        this.equalizerFilters.forEach(filter => filter.disconnect())
+
+        // 直接连接到输出
+        masterGain.connect(this.audioContext.destination)
+      }
+    } catch (error) {
+      logger.error('player', '[AudioEngine] Failed to disconnect equalizer:', error)
+    }
+  }
+
+  /**
+   * 销毁均衡器
+   */
+  private destroyEqualizer(): void {
+    this.disconnectEqualizer()
+    this.equalizerFilters = []
+    this.audioContext = null
   }
 
   // ---- 私有方法 ----

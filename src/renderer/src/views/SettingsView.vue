@@ -71,10 +71,58 @@
 
       <div class="setting-row">
         <div class="setting-info">
+          <p class="setting-label">歌词字体大小</p>
+          <p class="setting-description">调整歌词展示字号，适合不同窗口尺寸</p>
+        </div>
+        <input
+          :value="settingsStore.lyricFontSize"
+          type="range"
+          min="12"
+          max="28"
+          step="1"
+          class="w-48"
+          @input="($event) => settingsStore.lyricFontSize = Number(($event.target as HTMLInputElement).value)"
+        />
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">歌词翻译</p>
+          <p class="setting-description">默认展示翻译行，适合双语歌词</p>
+        </div>
+        <ToggleSwitch v-model="settingsStore.showLyricTranslation" />
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">歌词音译 / 罗马音</p>
+          <p class="setting-description">对日文 / 韩文等歌词展示音译辅助</p>
+        </div>
+        <ToggleSwitch v-model="settingsStore.showLyricRomanization" />
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">逐字歌词增强</p>
+          <p class="setting-description">优先使用更精细的逐字歌词接口</p>
+        </div>
+        <ToggleSwitch v-model="settingsStore.enableEnhancedLyric" />
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
           <p class="setting-label">迷你悬浮窗</p>
           <p class="setting-description">显示轻量悬浮播放面板</p>
         </div>
-        <button class="primary-button" @click="showMiniPlayer = true">打开悬浮窗</button>
+        <button class="primary-button" @click="handleOpenMiniWindow">打开悬浮窗</button>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">桌面歌词</p>
+          <p class="setting-description">在桌面显示歌词窗口，支持置顶和锁定</p>
+        </div>
+        <button class="primary-button" @click="handleOpenLyricsWindow">打开桌面歌词</button>
       </div>
 
       <div class="setting-row">
@@ -88,6 +136,23 @@
 
     <section class="settings-card">
       <h2 class="card-title">⚙️ 系统设置</h2>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">全局快捷键</p>
+          <p class="setting-description">在任何界面控制播放器</p>
+        </div>
+        <ToggleSwitch v-model="settingsStore.globalShortcut" @update:model-value="handleGlobalShortcutChange" />
+      </div>
+
+      <div v-if="settingsStore.globalShortcut" class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">自定义快捷键</p>
+          <p class="setting-description">自定义播放控制快捷键</p>
+        </div>
+        <button class="primary-button" @click="showShortcutManager = true">管理快捷键</button>
+      </div>
+
       <div class="setting-row">
         <div class="setting-info">
           <p class="setting-label">本地音乐元数据管理</p>
@@ -145,6 +210,113 @@
         </div>
       </div>
     </div>
+
+    <!-- 快捷键管理对话框 -->
+    <div v-if="showShortcutManager" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div class="w-full max-w-2xl rounded-2xl bg-[#11111a] p-6">
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-lg font-semibold">全局快捷键管理</h2>
+          <button class="secondary-button" @click="showShortcutManager = false">关闭</button>
+        </div>
+
+        <div class="mb-4 rounded-lg bg-white/5 p-3 text-sm text-white/70">
+          <p>点击快捷键输入框，然后按下你想要设置的组合键。</p>
+          <p class="mt-1">按 Esc 取消录制。</p>
+        </div>
+
+        <div class="space-y-4">
+          <!-- 播放/暂停 -->
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="font-medium">播放 / 暂停</p>
+              <p class="text-sm text-white/50">控制音乐播放和暂停</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <input
+                v-model="tempShortcuts.playPause"
+                type="text"
+                readonly
+                class="w-48 rounded-lg bg-white/10 px-3 py-2 text-center font-mono text-sm"
+                :class="{ 'ring-2 ring-coral': recordingKey === 'playPause' }"
+                @click="startRecording('playPause')"
+                placeholder="点击录制"
+              />
+              <button
+                v-if="tempShortcuts.playPause !== defaultShortcuts.playPause"
+                class="text-sm text-coral hover:underline"
+                @click="resetShortcut('playPause')"
+              >
+                重置
+              </button>
+            </div>
+          </div>
+
+          <!-- 上一首 -->
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="font-medium">上一首</p>
+              <p class="text-sm text-white/50">播放上一首歌曲</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <input
+                v-model="tempShortcuts.prev"
+                type="text"
+                readonly
+                class="w-48 rounded-lg bg-white/10 px-3 py-2 text-center font-mono text-sm"
+                :class="{ 'ring-2 ring-coral': recordingKey === 'prev' }"
+                @click="startRecording('prev')"
+                placeholder="点击录制"
+              />
+              <button
+                v-if="tempShortcuts.prev !== defaultShortcuts.prev"
+                class="text-sm text-coral hover:underline"
+                @click="resetShortcut('prev')"
+              >
+                重置
+              </button>
+            </div>
+          </div>
+
+          <!-- 下一首 -->
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="font-medium">下一首</p>
+              <p class="text-sm text-white/50">播放下一首歌曲</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <input
+                v-model="tempShortcuts.next"
+                type="text"
+                readonly
+                class="w-48 rounded-lg bg-white/10 px-3 py-2 text-center font-mono text-sm"
+                :class="{ 'ring-2 ring-coral': recordingKey === 'next' }"
+                @click="startRecording('next')"
+                placeholder="点击录制"
+              />
+              <button
+                v-if="tempShortcuts.next !== defaultShortcuts.next"
+                class="text-sm text-coral hover:underline"
+                @click="resetShortcut('next')"
+              >
+                重置
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="shortcutError" class="mt-4 rounded-lg bg-red-500/20 p-3 text-sm text-red-400">
+          {{ shortcutError }}
+        </div>
+
+        <div class="mt-6 flex items-center justify-between">
+          <button class="secondary-button" @click="resetAllShortcuts">恢复默认</button>
+          <div class="flex gap-2">
+            <button class="secondary-button" @click="cancelShortcutChanges">取消</button>
+            <button class="primary-button" @click="saveShortcuts">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -192,9 +364,24 @@ const presetKeys = Object.keys(equalizer.presets)
 
 const showMiniPlayer = ref(false)
 const showEqualizer = ref(false)
+const showShortcutManager = ref(false)
 const cacheSizeUsed = ref(0)
 const cacheLimitMB = ref(settingsStore.cacheLimitMB)
 const isClearingCache = ref(false)
+
+// 快捷键管理
+const defaultShortcuts = {
+  playPause: 'MediaPlayPause',
+  prev: 'MediaPreviousTrack',
+  next: 'MediaNextTrack',
+}
+const tempShortcuts = ref({
+  playPause: settingsStore.shortcutPlayPause,
+  prev: settingsStore.shortcutPrev,
+  next: settingsStore.shortcutNext,
+})
+const recordingKey = ref<'playPause' | 'prev' | 'next' | null>(null)
+const shortcutError = ref('')
 
 const cacheLimitDisplay = computed(() => cacheLimitMB.value)
 
@@ -219,6 +406,28 @@ function onEqualizerBandInput(index: number, event: Event): void {
 
 function goToMetadata(): void {
   router.push('/local-metadata')
+}
+
+async function handleOpenMiniWindow(): Promise<void> {
+  try {
+    if (window.electronAPI?.openMiniWindow) {
+      await window.electronAPI.openMiniWindow()
+      logger.info('settings', 'Mini window opened')
+    }
+  } catch (error) {
+    logger.error('settings', 'Failed to open mini window:', error)
+  }
+}
+
+async function handleOpenLyricsWindow(): Promise<void> {
+  try {
+    if (window.electronAPI?.openLyricsWindow) {
+      await window.electronAPI.openLyricsWindow()
+      logger.info('settings', 'Lyrics window opened')
+    }
+  } catch (error) {
+    logger.error('settings', 'Failed to open lyrics window:', error)
+  }
 }
 
 async function handleCacheLimitChange(): Promise<void> {
@@ -270,6 +479,114 @@ async function handleLogout(): Promise<void> {
   await userStore.logout()
 }
 
+function handleGlobalShortcutChange(enabled: boolean): void {
+  window.electronAPI?.setGlobalShortcuts?.(enabled)
+}
+
+function startRecording(key: 'playPause' | 'prev' | 'next'): void {
+  recordingKey.value = key
+  shortcutError.value = ''
+
+  const handleKeyDown = (event: KeyboardEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    // Esc 取消录制
+    if (event.key === 'Escape') {
+      stopRecording()
+      return
+    }
+
+    // 构建快捷键字符串
+    const parts: string[] = []
+    if (event.ctrlKey || event.metaKey) parts.push(event.metaKey ? 'Command' : 'Control')
+    if (event.altKey) parts.push('Alt')
+    if (event.shiftKey) parts.push('Shift')
+
+    // 添加主键
+    const mainKey = event.key.length === 1 ? event.key.toUpperCase() : event.key
+    if (!['Control', 'Alt', 'Shift', 'Meta'].includes(mainKey)) {
+      parts.push(mainKey)
+    }
+
+    if (parts.length > 0) {
+      const shortcut = parts.join('+')
+
+      // 检查冲突
+      const conflictKey = Object.entries(tempShortcuts.value).find(
+        ([k, v]) => k !== key && v === shortcut
+      )?.[0]
+
+      if (conflictKey) {
+        shortcutError.value = `快捷键冲突：该快捷键已被"${getShortcutLabel(conflictKey)}"使用`
+        stopRecording()
+        return
+      }
+
+      tempShortcuts.value[key] = shortcut
+      stopRecording()
+    }
+  }
+
+  const stopRecording = () => {
+    recordingKey.value = null
+    document.removeEventListener('keydown', handleKeyDown)
+  }
+
+  document.addEventListener('keydown', handleKeyDown)
+}
+
+function getShortcutLabel(key: string): string {
+  const labels: Record<string, string> = {
+    playPause: '播放/暂停',
+    prev: '上一首',
+    next: '下一首',
+  }
+  return labels[key] || key
+}
+
+function resetShortcut(key: 'playPause' | 'prev' | 'next'): void {
+  tempShortcuts.value[key] = defaultShortcuts[key]
+  shortcutError.value = ''
+}
+
+function resetAllShortcuts(): void {
+  tempShortcuts.value = { ...defaultShortcuts }
+  shortcutError.value = ''
+}
+
+function cancelShortcutChanges(): void {
+  tempShortcuts.value = {
+    playPause: settingsStore.shortcutPlayPause,
+    prev: settingsStore.shortcutPrev,
+    next: settingsStore.shortcutNext,
+  }
+  shortcutError.value = ''
+  showShortcutManager.value = false
+}
+
+async function saveShortcuts(): Promise<void> {
+  try {
+    settingsStore.shortcutPlayPause = tempShortcuts.value.playPause
+    settingsStore.shortcutPrev = tempShortcuts.value.prev
+    settingsStore.shortcutNext = tempShortcuts.value.next
+
+    if (window.electronAPI?.setCustomShortcuts) {
+      await window.electronAPI.setCustomShortcuts({
+        playPause: tempShortcuts.value.playPause,
+        prev: tempShortcuts.value.prev,
+        next: tempShortcuts.value.next,
+      })
+    }
+
+    showShortcutManager.value = false
+    logger.info('settings', 'Shortcuts saved successfully')
+  } catch (error) {
+    logger.error('settings', 'Failed to save shortcuts:', error)
+    shortcutError.value = '保存快捷键失败，请重试'
+  }
+}
+
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B'
   const k = 1024
@@ -286,3 +603,195 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+@reference "tailwindcss";
+
+/* 容器 */
+.settings-container {
+  padding-bottom: 60px;
+}
+
+/* 卡片通用样式 - Deep Dark elevation system */
+.settings-card {
+  background: var(--bg-card, #fff);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow:
+    0 2px 16px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+.dark .settings-card {
+  background: #171722;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.40),
+    0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.settings-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.10),
+    0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.dark .settings-card:hover {
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.55),
+    0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dark .card-title {
+  color: #F0F0F5;
+}
+
+/* 设置行 */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.setting-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.dark .setting-row {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.setting-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.setting-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #1a1a2e);
+  margin-bottom: 2px;
+}
+
+.dark .setting-label {
+  color: #F0F0F5;
+}
+
+.setting-description {
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+  line-height: 1.4;
+}
+
+.dark .setting-description {
+  color: #A1A1B5;
+}
+
+/* 输入框/选择器 - Deep dark input styling */
+.input-field,
+.select-field,
+.number-field {
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: var(--bg-input, #fafafa);
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.input-field:focus,
+.select-field:focus,
+.number-field:focus {
+  border-color: #FF5A5F;
+  box-shadow: 0 0 0 3px rgba(255, 90, 95, 0.15);
+}
+
+.dark .input-field,
+.dark .select-field,
+.dark .number-field {
+  background: #13131C;
+  border-color: rgba(255, 255, 255, 0.10);
+  color: #F0F0F5;
+}
+
+.dark .input-field:focus,
+.dark .select-field:focus,
+.dark .number-field:focus {
+  border-color: rgba(255, 90, 95, 0.55);
+  box-shadow: 0 0 0 3px rgba(255, 90, 95, 0.15);
+}
+
+/* 危险按钮 - Adapted for dark mode */
+.danger-button {
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid #F87171;
+  background: transparent;
+  color: #EF4444;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.danger-button:hover:not(:disabled) {
+  background: #EF4444;
+  color: white;
+}
+
+.dark .danger-button {
+  border-color: rgba(248, 113, 113, 0.50);
+  color: #F87171;
+}
+
+.dark .danger-button:hover:not(:disabled) {
+  background: #DC2626;
+  border-color: #DC2626;
+  color: white;
+}
+
+.primary-button {
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #FF5A5F, #E0484D);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.primary-button:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.primary-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.danger-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+</style>

@@ -1,5 +1,6 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { getStorage, setStorage } from '@/utils/storage'
+import { usePlayerStore } from '@/stores/player'
 
 export type EqualizerPreset = 'flat' | 'pop' | 'rock' | 'classical' | 'vocal' | 'bass'
 
@@ -12,6 +13,8 @@ export interface EqualizerBand {
 const STORAGE_KEY = 'equalizer-settings'
 
 export function useEqualizer() {
+  const playerStore = usePlayerStore()
+
   const enabled = ref(getStorage(`${STORAGE_KEY}:enabled`, false))
   const preset = ref<EqualizerPreset>(getStorage(`${STORAGE_KEY}:preset`, 'flat'))
   const bands = ref<EqualizerBand[]>(getStorage(`${STORAGE_KEY}:bands`, [
@@ -31,6 +34,20 @@ export function useEqualizer() {
     bass: [4, 3, 0, -1, -2],
   }
 
+  // 监听 enabled 变化，同步到音频引擎
+  watch(enabled, (newEnabled) => {
+    playerStore.setEqualizerEnabled(newEnabled)
+    persist()
+  })
+
+  // 监听 bands 变化，同步到音频引擎
+  watch(bands, (newBands) => {
+    if (enabled.value) {
+      const gains = newBands.map(band => band.value)
+      playerStore.setEqualizerBands(gains)
+    }
+  }, { deep: true })
+
   function persist() {
     setStorage(`${STORAGE_KEY}:enabled`, enabled.value)
     setStorage(`${STORAGE_KEY}:preset`, preset.value)
@@ -41,13 +58,33 @@ export function useEqualizer() {
     preset.value = nextPreset
     const values = presets[nextPreset]
     bands.value = bands.value.map((band, index) => ({ ...band, value: values[index] ?? 0 }))
+
+    // 立即应用到音频引擎
+    if (enabled.value) {
+      playerStore.setEqualizerBands(values)
+    }
+
     persist()
   }
 
   function setBand(index: number, value: number) {
     if (!bands.value[index]) return
-    bands.value[index].value = Math.max(-12, Math.min(12, value))
+    const safeValue = Math.max(-12, Math.min(12, value))
+    bands.value[index].value = safeValue
+
+    // 立即应用到音频引擎
+    if (enabled.value) {
+      playerStore.setEqualizerBand(index, safeValue)
+    }
+
     persist()
+  }
+
+  // 初始化时应用当前设置到音频引擎
+  if (enabled.value) {
+    const gains = bands.value.map(band => band.value)
+    playerStore.setEqualizerBands(gains)
+    playerStore.setEqualizerEnabled(true)
   }
 
   const activePresetName = computed(() => preset.value)

@@ -33,60 +33,76 @@
       </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="relative flex min-h-0 flex-1 overflow-hidden">
-      <!-- Left: Cover + Info + Controls -->
-      <section class="flex flex-1 flex-col items-center justify-center gap-6 px-8 pb-6">
-        <!-- 唱片封面 -->
-        <div class="vinyl-container">
-          <!-- 外部光晕 -->
-          <div class="vinyl-glow" :class="{ active: playerStore.playing }" />
-          <!-- 唱片主体 -->
-          <div
-            class="vinyl-disc"
-            :class="{ spinning: playerStore.playing }"
-          >
-            <img
-              v-if="playerStore.currentSong?.album?.picUrl"
-              :src="playerStore.currentSong.album.picUrl + '?param=600y600'"
-              alt="cover"
-              class="disc-cover"
-            />
-            <div v-else class="disc-placeholder">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 text-white/15" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-              </svg>
+    <!-- Main Content - 网易云布局：上下结构 -->
+    <main class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+      <!-- 上半部分：左右布局 -->
+      <div class="content-top flex flex-1 min-h-0">
+        <!-- 左侧：唱片封面 -->
+        <section class="cover-section flex items-center justify-center">
+          <div class="vinyl-container">
+            <div class="vinyl-glow" :class="{ active: playerStore.playing }" />
+            <div class="vinyl-disc" :class="{ spinning: playerStore.playing }">
+              <img
+                v-if="playerStore.currentSong?.album?.picUrl"
+                :src="playerStore.currentSong.album.picUrl + '?param=600y600'"
+                alt="cover"
+                class="disc-cover"
+              />
+              <div v-else class="disc-placeholder">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 text-white/15" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                </svg>
+              </div>
+              <div class="disc-center-hole">
+                <div class="disc-center-inner" />
+              </div>
+              <div class="disc-grooves" />
             </div>
-            <!-- 中心孔 -->
-            <div class="disc-center-hole">
-              <div class="disc-center-inner" />
-            </div>
-            <!-- 唱片纹路 -->
-            <div class="disc-grooves" />
+            <div class="vinyl-reflection" />
           </div>
-          <!-- 底部反射 -->
-          <div class="vinyl-reflection" />
-        </div>
+        </section>
 
-        <!-- 曲目信息 -->
-        <div class="song-info max-w-sm text-center">
-          <h1 class="song-title">{{ playerStore.currentSong?.name || '未在播放' }}</h1>
-          <p class="song-artist">
-            <template v-if="playerStore.currentSong?.artists?.length">
-              <template v-for="(artist, idx) in playerStore.currentSong.artists" :key="artist.id">
-                <router-link :to="`/artist/${artist.id}`" class="artist-link">{{ artist.name }}</router-link>
-                <span v-if="idx < playerStore.currentSong.artists.length - 1" class="mx-1"> / </span>
+        <!-- 右侧：歌词面板 -->
+        <aside class="lyrics-section">
+          <!-- 歌曲标题和艺术家 -->
+          <div class="lyrics-header">
+            <h1 class="lyrics-song-title">{{ playerStore.currentSong?.name || '未在播放' }}</h1>
+            <p class="lyrics-song-artist">
+              <template v-if="playerStore.currentSong?.artists?.length">
+                <template v-for="(artist, idx) in playerStore.currentSong.artists" :key="artist.id">
+                  <router-link :to="`/artist/${artist.id}`" class="artist-link">{{ artist.name }}</router-link>
+                  <span v-if="idx < playerStore.currentSong.artists.length - 1" class="mx-1"> / </span>
+                </template>
               </template>
-            </template>
-            <span v-else>--</span>
-          </p>
-          <p v-if="playerStore.currentSong?.album?.name" class="song-album">
-            <router-link :to="`/album/${playerStore.currentSong.album.id}`" class="album-link">{{ playerStore.currentSong.album.name }}</router-link>
-          </p>
-        </div>
+              <span v-else>--</span>
+            </p>
+          </div>
 
-        <!-- 进度条（增强版） -->
-        <div class="progress-section w-full max-w-md">
+          <!-- 歌词显示 -->
+          <div class="lyrics-display-wrapper">
+            <LyricsDisplay
+              :lyrics="lyricsStore.lines"
+              :current-index="lyricsStore.currentIndex"
+              :current-line="lyricsStore.currentLine"
+              :prev-line="lyricsStore.prevLine"
+              :next-line="lyricsStore.nextLine"
+              :mode="lyricsStore.effectiveMode"
+              :font-size="lyricsStore.fontSize"
+              :show-translation="lyricsStore.showTranslation"
+              :show-romanized="lyricsStore.showRomanized"
+              :loading="lyricsStore.loading"
+              :error="lyricsStore.error"
+              @line-click="handleLyricSeek"
+            />
+          </div>
+        </aside>
+      </div>
+
+      <!-- 下半部分：播放控制区 -->
+      <div class="controls-bottom">
+        <!-- 进度条 -->
+        <div class="progress-wrapper">
+          <span class="time-current">{{ formatTime(playerStore.currentTime) }}</span>
           <div
             ref="progressBarEl"
             class="progress-track"
@@ -96,17 +112,13 @@
             @mouseleave="isProgressHovered = false"
             @mousemove="onProgressHoverMove"
           >
-            <!-- 缓冲条（预留） -->
             <div class="progress-buffer" :style="bufferStyle" />
-            <!-- 已播进度 -->
             <div class="progress-fill" :style="progressStyle" />
-            <!-- 拖拽手柄 -->
             <div
               class="progress-thumb"
               :class="{ visible: isDragging || isProgressHovered }"
               :style="progressThumbStyle"
             />
-            <!-- 悬停预览 -->
             <div
               v-if="isProgressHovered && !isDragging"
               class="progress-tooltip"
@@ -114,7 +126,6 @@
             >
               {{ formatTime(hoverTime) }}
             </div>
-            <!-- 拖拽时的时间预览 -->
             <div
               v-if="isDragging"
               class="progress-tooltip dragging"
@@ -123,124 +134,87 @@
               {{ formatTime(dragTime) }}
             </div>
           </div>
-          <div class="time-labels">
-            <span>{{ formatTime(playerStore.currentTime) }}</span>
-            <span>{{ formatTime(playerStore.duration) }}</span>
+          <span class="time-duration">{{ formatTime(playerStore.duration) }}</span>
+        </div>
+
+        <!-- 控制按钮 -->
+        <div class="controls-bar">
+          <div class="controls-left">
+            <button class="ctrl-btn-icon" @click="playerStore.togglePlayMode" :title="playModeLabel">
+              <span class="text-lg">{{ playModeIcon }}</span>
+            </button>
+            <button class="ctrl-btn-icon" @click="handleLike" :title="isLiked ? '取消喜欢' : '喜欢'">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" :class="[isLiked ? 'text-coral' : '']" :fill="isLiked ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            </button>
           </div>
-        </div>
 
-        <!-- 控制按钮组 -->
-        <div class="controls-row flex items-center gap-5">
-          <!-- 播放模式 -->
-          <button class="ctrl-btn ctrl-btn-sm" @click="playerStore.togglePlayMode" :title="playModeLabel">
-            <span class="text-base leading-none">{{ playModeIcon }}</span>
-          </button>
+          <div class="controls-center">
+            <button class="ctrl-btn-icon" @click="playerStore.playPrev" title="上一首">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+              </svg>
+            </button>
 
-          <!-- 上一首 -->
-          <button class="ctrl-btn" @click="playerStore.playPrev" title="上一首">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
-            </svg>
-          </button>
+            <button class="play-btn-large" @click="playerStore.togglePlaying">
+              <svg v-if="!playerStore.playing" xmlns="http://www.w3.org/2000/svg" class="play-icon" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" class="pause-icon" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+              </svg>
+            </button>
 
-          <!-- 播放/暂停（主按钮）-->
-          <button
-            class="play-btn-main"
-            :class="{ playing: playerStore.playing }"
-            @click="playerStore.togglePlaying"
-          >
-            <!-- 播放图标 -->
-            <svg v-if="!playerStore.playing" xmlns="http://www.w3.org/2000/svg" class="play-icon" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z"/>
-            </svg>
-            <!-- 暂停图标 -->
-            <svg v-else xmlns="http://www.w3.org/2000/svg" class="pause-icon" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-            </svg>
-            <!-- 播放时的脉冲环 -->
-            <div v-if="playerStore.playing" class="pulse-ring" />
-          </button>
+            <button class="ctrl-btn-icon" @click="playerStore.playNext" title="下一首">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+              </svg>
+            </button>
+          </div>
 
-          <!-- 下一首 -->
-          <button class="ctrl-btn" @click="playerStore.playNext" title="下一首">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
-            </svg>
-          </button>
+          <div class="controls-right">
+            <button class="ctrl-btn-icon" @click="toggleDesktopLyrics" title="桌面歌词">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+              </svg>
+            </button>
 
-          <!-- 喜欢 -->
-          <button class="ctrl-btn ctrl-btn-sm" @click="handleLike" :title="isLiked ? '取消喜欢' : '喜欢'">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-colors duration-300" :class="[isLiked ? 'text-coral' : '']" :fill="isLiked ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
-          </button>
+            <button class="ctrl-btn-icon" @click="showQueue = true" title="播放队列">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h10m-10 4h6" />
+              </svg>
+            </button>
 
-          <!-- 播放队列 -->
-          <button class="ctrl-btn ctrl-btn-sm" @click="showQueue = true" title="播放队列">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h10m-10 4h6" />
-            </svg>
-          </button>
-        </div>
+            <button class="ctrl-btn-icon" @click="toggleMute" :title="playerStore.volume === 0 ? '取消静音' : '静音'">
+              <svg v-if="playerStore.volume === 0" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+              </svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M12 6l-4 4H4v4h4l4 4V6z" />
+              </svg>
+            </button>
 
-        <!-- 音量控制行 -->
-        <div class="volume-row flex w-full max-w-xs items-center gap-3">
-          <button class="vol-btn" @click="toggleMute" :title="playerStore.volume === 0 ? '取消静音' : '静音'">
-            <!-- 静音图标 -->
-            <svg v-if="playerStore.volume === 0" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-            </svg>
-            <!-- 低音量 -->
-            <svg v-else-if="playerStore.volume < 0.35" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M12 6l-4 4H4v4h4l4 4V6z" />
-            </svg>
-            <!-- 中音量 -->
-            <svg v-else-if="playerStore.volume < 0.7" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M12 6l-4 4H4v4h4l4 4V6z" />
-            </svg>
-            <!-- 高音量 -->
-            <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M12 6l-4 4H4v4h4l4 4V6z" />
-            </svg>
-          </button>
-          <div
-            ref="volumeBarEl"
-            class="volume-track"
-            @mousedown="onVolumeDragStart"
-            @touchstart.prevent="onVolumeTouchStart"
-            @mouseenter="isVolumeHovered = true"
-            @mouseleave="isVolumeHovered = false"
-          >
-            <div class="volume-track-bg" />
-            <div class="volume-fill" :style="volumeFillStyle" />
             <div
-              class="volume-thumb"
-              :class="{ visible: isVolumeDragging || isVolumeHovered }"
-              :style="volumeThumbStyle"
-            />
+              ref="volumeBarEl"
+              class="volume-slider"
+              @mousedown="onVolumeDragStart"
+              @touchstart.prevent="onVolumeTouchStart"
+              @mouseenter="isVolumeHovered = true"
+              @mouseleave="isVolumeHovered = false"
+            >
+              <div class="volume-track-bg" />
+              <div class="volume-fill" :style="volumeFillStyle" />
+              <div
+                class="volume-thumb"
+                :class="{ visible: isVolumeDragging || isVolumeHovered }"
+                :style="volumeThumbStyle"
+              />
+            </div>
           </div>
-          <span class="volume-value text-xs text-white/40 tabular-nums w-8 text-right">
-            {{ Math.round(playerStore.volume * 100) }}%
-          </span>
         </div>
-      </section>
-
-      <!-- Right: 歌词面板 -->
-      <aside class="lyric-panel glass-panel flex w-[380px] flex-col overflow-hidden border-l border-white/5 lg:w-[420px]">
-        <LyricView
-          v-if="lyrics.length > 0"
-          :lyrics="lyrics"
-          :current-index="currentLyricIndex"
-          @seek="handleLyricSeek"
-        />
-        <div v-else class="flex flex-1 flex-col items-center justify-center gap-3 text-white/20">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-          </svg>
-          <span class="text-sm">暂无歌词</span>
-        </div>
-      </aside>
+      </div>
     </main>
 
     <!-- 播放队列弹窗 -->
@@ -256,6 +230,8 @@
       @clear-all="playerStore.clearPlaylist()"
       @reorder="(from, to) => playerStore.reorderPlaylist(from, to)"
       @remove-duplicates="handleRemoveDuplicates"
+      @save-as-playlist="handleSaveAsPlaylist"
+      @restore-queue="handleRestoreQueue"
     />
   </div>
 </template>
@@ -263,21 +239,170 @@
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue'
 import { usePlayerStore } from '@/stores/player'
+import { useLyricsStore } from '@/stores/lyrics'
 import { useUserStore } from '@/stores/user'
 import { useAudio } from '@/composables/useAudio'
-import { useLyric } from '@/composables/useLyric'
 import { formatTime } from '@/utils/format'
-import LyricView from './LyricView.vue'
+import { parseLrc } from '@/utils/lyricsParser'
+import { getLyric, getLyricV1 } from '@/api/song'
+import { getLocalLyrics } from '@/api/local'
+import { cacheManager } from '@/utils/db'
+import { useSettingsStore } from '@/stores/settings'
+import { logger } from '@/utils/logger'
+import LyricsDisplay from '@/components/lyrics/LyricsDisplay.vue'
 import PlayQueue from './PlayQueue.vue'
+import { useLyricsSync } from '@/composables/useLyricsSync'
 
 defineEmits<{
   close: []
 }>()
 
 const playerStore = usePlayerStore()
+const lyricsStore = useLyricsStore()
 const userStore = useUserStore()
+const settingsStore = useSettingsStore()
 const { seek, seekByProgress } = useAudio()
-const { lyrics, currentIndex: currentLyricIndex } = useLyric()
+
+const { syncEngine, seekToIndex, setSeekPause } = useLyricsSync()
+
+watch(
+  () => playerStore.currentSong?.id,
+  async (songId) => {
+    if (!songId) {
+      lyricsStore.resetForTrack(null)
+      return
+    }
+
+    await loadLyrics(songId)
+  },
+  { immediate: true }
+)
+
+async function loadLyrics(songId: number) {
+  lyricsStore.resetForTrack(songId)
+  lyricsStore.setLoading(true)
+
+  try {
+    const currentSong = playerStore.currentSong
+    if (!currentSong) return
+
+    let lrc = ''
+    let source: 'local' | 'online' | 'cache' = 'online'
+
+    if (!currentSong._localTrackId) {
+      try {
+        const cached = await cacheManager.getLyric(songId)
+        if (cached?.lyric) {
+          lrc = cached.lyric
+          source = 'cache'
+          logger.debug('lyric', `命中 IDB 缓存: songId=${songId}`)
+        }
+      } catch (e) {
+        logger.warn('lyric', 'IDB 缓存读取失败:', e)
+      }
+    }
+
+    if (!lrc && currentSong._localTrackId) {
+      const res: any = await getLocalLyrics(songId)
+      const data = res?.body ?? res
+      lrc = data?.lrc?.lyric || ''
+      if (!lrc && data?.synced && typeof data.synced === 'string') {
+        try {
+          const syncedObj = JSON.parse(data.synced)
+          if (syncedObj && typeof syncedObj === 'object') {
+            const parts: string[] = []
+            for (const [k, v] of Object.entries(syncedObj)) {
+              if (/^\d{1,2}:\d{2}\.\d{2,3}$/.test(k) && v) {
+                const [min, sec] = k.split(':')
+                parts.push(`[${min.padStart(2, '0')}:${sec}]${v}`)
+              }
+            }
+            if (parts.length > 0) lrc = parts.join('\n')
+          }
+        } catch (e) {
+          logger.warn('lyric', 'synced JSON 解析失败:', e)
+        }
+      }
+      if (!lrc) lrc = data?.plain || ''
+      source = 'local'
+    }
+
+    if (!lrc && !currentSong._localTrackId) {
+      if (settingsStore.enableEnhancedLyric) {
+        try {
+          const resV1: any = await getLyricV1(songId, { cp: true, tv: 1, lv: 1, rv: 1, yv: 1 })
+          lrc = resV1?.lrc?.lyric || resV1?.klyric?.lyric || resV1?.yrc?.lyric || ''
+          if (lrc) source = 'online'
+          const tlyric = resV1?.tlyric?.lyric || undefined
+          const romalrc = resV1?.romalrc?.lyric || resV1?.yrc?.lyric || undefined
+          if (lrc) {
+            let parsed = parseLrc(lrc)
+            if (tlyric) {
+              const translated = parseLrc(tlyric)
+              parsed = parsed.map((line) => {
+                const matched = translated.find((t) => Math.abs(t.time - line.time) < 500)
+                return matched ? { ...line, translation: matched.text } : line
+              })
+            }
+            if (romalrc) {
+              const roman = parseLrc(romalrc)
+              parsed = parsed.map((line) => {
+                const matched = roman.find((r) => Math.abs(r.time - line.time) < 500)
+                return matched ? { ...line, romanized: matched.text } : line
+              })
+            }
+            lyricsStore.setLyrics({
+              trackId: songId,
+              trackName: currentSong.name,
+              artists: currentSong.artists.map(a => a.name).join(' / '),
+              source,
+              rawText: lrc,
+              lines: parsed,
+            })
+            syncEngine.setLines(parsed)
+            syncEngine.reset()
+            return
+          }
+        } catch (e) {
+          logger.warn('lyric', '逐字歌词请求失败，回退到普通歌词:', e)
+        }
+      }
+
+      const res: any = await getLyric(songId)
+      lrc = res?.lrc?.lyric || ''
+      const tlyric = res?.tlyric?.lyric || undefined
+      if (lrc) {
+        await cacheManager.cacheLyric(songId, lrc, tlyric).catch(() => {})
+      }
+    }
+
+    if (lrc) {
+      const parsed = parseLrc(lrc)
+      lyricsStore.setLyrics({
+        trackId: songId,
+        trackName: currentSong.name,
+        artists: currentSong.artists.map(a => a.name).join(' / '),
+        source,
+        rawText: lrc,
+        lines: parsed,
+      })
+      syncEngine.setLines(parsed)
+      syncEngine.reset()
+    } else {
+      lyricsStore.setError('暂无歌词')
+    }
+  } catch (e) {
+    logger.error('lyric', 'Failed to fetch lyric:', e)
+    lyricsStore.setError('歌词加载失败')
+  } finally {
+    lyricsStore.setLoading(false)
+  }
+}
+
+function handleLyricSeek(index: number) {
+  setSeekPause()
+  seekToIndex(index)
+}
 
 // UI State
 const showQueue = ref(false)
@@ -356,6 +481,17 @@ function handleLike() {
   }
 }
 
+async function toggleDesktopLyrics() {
+  if (window.electronAPI?.openLyricsWindow) {
+    const isOpen = await window.electronAPI.isLyricsWindowOpen()
+    if (isOpen) {
+      await window.electronAPI.closeLyricsWindow()
+    } else {
+      await window.electronAPI.openLyricsWindow()
+    }
+  }
+}
+
 function handleRemoveDuplicates() {
   const removedCount = playerStore.removeDuplicates()
   if (removedCount > 0) {
@@ -363,8 +499,41 @@ function handleRemoveDuplicates() {
   }
 }
 
-function handleLyricSeek(time: number) {
-  seek(time)
+async function handleSaveAsPlaylist() {
+  const playlistName = prompt('请输入歌单名称', `播放队列 ${new Date().toLocaleDateString()}`)
+  if (!playlistName || !playlistName.trim()) return
+
+  try {
+    // 获取当前播放列表的歌曲 ID
+    const trackIds = playerStore.playlist.map(song => song.id)
+
+    if (trackIds.length === 0) {
+      alert('播放列表为空')
+      return
+    }
+
+    // 调用创建歌单 API
+    const { createPlaylist, addTracksToPlaylist } = await import('@/api/playlist')
+    const result = await createPlaylist(playlistName.trim())
+
+    if (result && result.id) {
+      // 添加歌曲到歌单
+      await addTracksToPlaylist(result.id, trackIds)
+      alert(`成功创建歌单「${playlistName}」，已添加 ${trackIds.length} 首歌曲`)
+    }
+  } catch (error) {
+    console.error('Failed to save playlist:', error)
+    alert('保存歌单失败，请重试')
+  }
+}
+
+function handleRestoreQueue(playlist: any[], currentIndex: number) {
+  if (confirm(`确定要恢复这个队列吗？当前队列将被替换。`)) {
+    playerStore.setPlaylist(playlist, currentIndex)
+    if (playlist.length > 0 && currentIndex >= 0 && currentIndex < playlist.length) {
+      playerStore.playSong(playlist[currentIndex])
+    }
+  }
 }
 
 // === Progress Bar Drag Logic ===
@@ -688,66 +857,125 @@ onUnmounted(() => {
   opacity: 0.6;
 }
 
-/* ===== Song Info ===== */
-.song-info {
-  padding-top: 8px;
-  pointer-events: auto;
+/* ===== Main Content Layout - 网易云风格 ===== */
+.content-top {
+  padding: 0;
+  gap: 0;
 }
 
-.song-title {
-  font-size: 1.375rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+.cover-section {
+  flex: 0 0 45%;
+  padding: 40px 60px;
+}
+
+.lyrics-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 60px 80px 40px 40px;
+  position: relative;
+}
+
+/* 歌词区域标题 */
+.lyrics-header {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.lyrics-song-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0 0 8px 0;
   line-height: 1.3;
-  color: #fff;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+}
+
+.lyrics-song-artist {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0;
+}
+
+.lyrics-song-artist .artist-link {
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.lyrics-song-artist .artist-link:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 歌词显示区域 */
+.lyrics-display-wrapper {
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
-.song-artist {
-  margin-top: 6px;
-  font-size: 0.875rem;
+/* ===== Bottom Controls Area ===== */
+.controls-bottom {
+  flex-shrink: 0;
+  padding: 0 60px 32px;
+  background: transparent;
+}
+
+.bottom-song-info {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.bottom-song-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 4px 0;
+}
+
+.bottom-song-artist {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+}
+
+.bottom-song-artist .artist-link {
   color: rgba(255, 255, 255, 0.45);
-  line-height: 1.4;
-}
-
-.artist-link {
-  color: rgba(255, 255, 255, 0.55);
   text-decoration: none;
   transition: color 0.2s ease;
 }
 
-.artist-link:hover {
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.song-album {
-  margin-top: 2px;
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.28);
-}
-
-.album-link {
-  color: rgba(255, 255, 255, 0.35);
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-.album-link:hover {
-  color: rgba(255, 255, 255, 0.7);
+.bottom-song-artist .artist-link:hover {
+  color: rgba(255, 255, 255, 0.75);
 }
 
 /* ===== Progress Section ===== */
-.progress-section {
-  padding-top: 4px;
+.progress-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.time-current,
+.time-duration {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  font-variant-numeric: tabular-nums;
+  min-width: 40px;
+}
+
+.time-current {
+  text-align: right;
+}
+
+.time-duration {
+  text-align: left;
 }
 
 .progress-track {
   position: relative;
-  width: 100%;
-  height: 4px;
+  flex: 1;
+  height: 3px;
   cursor: pointer;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.08);
@@ -755,7 +983,7 @@ onUnmounted(() => {
 }
 
 .progress-track:hover {
-  height: 6px;
+  height: 4px;
 }
 
 .progress-buffer {
@@ -773,10 +1001,9 @@ onUnmounted(() => {
   top: 0;
   height: 100%;
   border-radius: 2px;
-  background: linear-gradient(90deg, #FF5A5F, #FF7F66);
+  background: #FF5A5F;
   transition: width 0.08s linear;
   pointer-events: none;
-  box-shadow: 0 0 8px rgba(255, 90, 95, 0.3);
 }
 
 .progress-track:active .progress-fill {
@@ -786,11 +1013,11 @@ onUnmounted(() => {
 .progress-thumb {
   position: absolute;
   top: 50%;
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(255, 90, 95, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   transform: translate(-50%, -50%) scale(0);
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   pointer-events: none;
@@ -806,13 +1033,12 @@ onUnmounted(() => {
   top: -32px;
   transform: translateX(-50%);
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: 4px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   color: #fff;
   background: rgba(30, 30, 42, 0.95);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
   white-space: nowrap;
   pointer-events: none;
   z-index: 3;
@@ -820,146 +1046,96 @@ onUnmounted(() => {
 }
 
 .progress-tooltip.dragging {
-  background: rgba(255, 90, 95, 0.9);
-  border-color: transparent;
+  background: rgba(255, 90, 95, 0.95);
 }
 
-.time-labels {
+/* ===== Controls Bar ===== */
+.controls-bar {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.3);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.03em;
 }
 
-/* ===== Controls Row ===== */
-.controls-row {
-  padding-top: 4px;
+.controls-left,
+.controls-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
 }
 
-.ctrl-btn {
+.controls-right {
+  justify-content: flex-end;
+}
+
+.controls-center {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  justify-content: center;
+}
+
+.ctrl-btn-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.ctrl-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  transform: scale(1.06);
-}
-
-.ctrl-btn:active {
-  transform: scale(0.94);
-}
-
-.ctrl-btn-sm {
-  width: 2.25rem;
-  height: 2.25rem;
+.ctrl-btn-icon:hover {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* Main Play Button */
-.play-btn-main {
+.play-btn-large {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 3.75rem;
-  height: 3.75rem;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   border: none;
-  background: linear-gradient(135deg, #FF5A5F 0%, #E0484D 100%);
+  background: #FF5A5F;
   color: #fff;
   cursor: pointer;
-  box-shadow:
-    0 4px 20px rgba(255, 90, 95, 0.4),
-    0 0 0 0 rgba(255, 90, 95, 0);
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 4px 16px rgba(255, 90, 95, 0.3);
+  transition: all 0.2s ease;
 }
 
-.play-btn-main:hover {
-  transform: scale(1.07);
-  box-shadow:
-    0 6px 28px rgba(255, 90, 95, 0.5),
-    0 0 0 4px rgba(255, 90, 95, 0.12);
+.play-btn-large:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(255, 90, 95, 0.4);
 }
 
-.play-btn-main:active {
-  transform: scale(0.96);
+.play-btn-large:active {
+  transform: scale(0.98);
 }
 
 .play-icon,
 .pause-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-  z-index: 2;
-}
-
-/* Pulse ring when playing */
-.pulse-ring {
-  position: absolute;
-  inset: -6px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 90, 95, 0.3);
-  animation: playPulse 2s ease-out infinite;
-  pointer-events: none;
-}
-
-@keyframes playPulse {
-  0% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(1.4); opacity: 0; }
+  width: 20px;
+  height: 20px;
 }
 
 .text-coral {
   color: #FF5A5F;
 }
 
-/* ===== Volume Row ===== */
-.volume-row {
-  padding-top: 2px;
-}
-
-.vol-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.4);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.vol-btn:hover {
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.volume-track {
+/* ===== Volume Control ===== */
+.volume-slider {
   position: relative;
-  width: 100%;
+  width: 100px;
   height: 3px;
   cursor: pointer;
   border-radius: 2px;
-  transition: height 0.2s ease;
-}
-
-.volume-track:hover {
-  height: 5px;
 }
 
 .volume-track-bg {
@@ -975,20 +1151,20 @@ onUnmounted(() => {
   top: 0;
   height: 100%;
   border-radius: 2px;
-  background: linear-gradient(90deg, #FF5A5F, #FF7F66);
+  background: #FF5A5F;
   transition: width 0.05s linear;
   pointer-events: none;
 }
 
-.volume-track:active .volume-fill {
+.volume-slider:active .volume-fill {
   transition: none;
 }
 
 .volume-thumb {
   position: absolute;
   top: 50%;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
@@ -1002,34 +1178,37 @@ onUnmounted(() => {
   transform: translate(-50%, -50%) scale(1);
 }
 
-/* ===== Lyrics Panel ===== */
-.glass-panel {
-  background: rgba(12, 12, 18, 0.65);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+/* Fade transition */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
 }
 
-.lyric-panel {
-  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes slideInRight {
-  from { opacity: 0; transform: translateX(20px); }
-  to { opacity: 1; transform: translateX(0); }
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 /* ===== Responsive: Mobile / Tablet ===== */
 @media (max-width: 900px) {
-  .player-full main {
+  .content-top {
     flex-direction: column;
-    overflow-y: auto;
+    padding: 16px 24px 0;
   }
 
-  .lyric-panel {
-    width: 100% !important;
+  .cover-section,
+  .lyrics-section {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .lyrics-section {
+    margin-top: 20px;
     max-height: 40vh;
-    border-left: none !important;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .controls-bottom {
+    padding: 16px 24px 24px;
   }
 
   .vinyl-disc {
@@ -1046,9 +1225,15 @@ onUnmounted(() => {
     width: 400px;
     height: 400px;
   }
+}
 
-  .song-title {
-    font-size: 1.2rem;
+@media (min-width: 1400px) {
+  .content-top {
+    padding: 32px 80px 0;
+  }
+
+  .controls-bottom {
+    padding: 24px 100px 40px;
   }
 }
 
@@ -1078,13 +1263,19 @@ onUnmounted(() => {
     height: 2.5rem;
   }
 
-  .song-info {
-    padding: 0 1rem;
+  .controls-bottom {
+    padding: 12px 20px 20px;
   }
 
-  .progress-section,
-  .volume-row {
-    padding: 0 1rem;
+  .controls-bar {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .controls-left,
+  .controls-right {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>
