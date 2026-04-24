@@ -155,6 +155,30 @@
 
       <div class="setting-row">
         <div class="setting-info">
+          <p class="setting-label">最小化到托盘</p>
+          <p class="setting-description">关闭窗口时最小化到系统托盘</p>
+        </div>
+        <ToggleSwitch v-model="settingsStore.minimizeToTray" @update:model-value="handleMinimizeToTrayChange" />
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">开机自启</p>
+          <p class="setting-description">系统启动时自动运行 MelodyAir</p>
+        </div>
+        <ToggleSwitch v-model="settingsStore.autoLaunch" @update:model-value="handleAutoLaunchChange" />
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">启用音乐解锁</p>
+          <p class="setting-description">自动获取 VIP 歌曲的播放地址</p>
+        </div>
+        <ToggleSwitch v-model="settingsStore.enableUnblock" />
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
           <p class="setting-label">本地音乐元数据管理</p>
           <p class="setting-description">管理本地歌曲信息、批量整理和导入导出</p>
         </div>

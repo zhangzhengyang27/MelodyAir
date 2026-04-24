@@ -47,7 +47,19 @@ import { usePlayerStore } from '@/stores/player'
 import { useLyricsStore } from '@/stores/lyrics'
 import { formatTime } from '@/utils/format'
 
-const emit = defineEmits<{ close: []; toggle: []; prev: []; next: [] }>()
+/**
+ * Mini Player 组件事件
+ * - close: 关闭迷你播放器
+ * - toggle: 切换播放/暂停
+ * - prev: 播放上一首
+ * - next: 播放下一首
+ */
+const emit = defineEmits<{
+  close: []
+  toggle: []
+  prev: []
+  next: []
+}>()
 const player = usePlayerStore()
 const lyricsStore = useLyricsStore()
 const currentSong = computed(() => player.currentSong)

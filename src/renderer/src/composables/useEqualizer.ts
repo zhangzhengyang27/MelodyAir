@@ -37,15 +37,20 @@ export function useEqualizer() {
   // 监听 enabled 变化，同步到音频引擎
   watch(enabled, (newEnabled) => {
     playerStore.setEqualizerEnabled(newEnabled)
+    if (newEnabled) {
+      const gains = bands.value.map(band => band.value)
+      playerStore.setEqualizerBands(gains)
+    }
     persist()
   })
 
-  // 监听 bands 变化，同步到音频引擎
+  // 监听 bands 变化，同步到音频引擎（仅在 enabled 时）
   watch(bands, (newBands) => {
     if (enabled.value) {
       const gains = newBands.map(band => band.value)
       playerStore.setEqualizerBands(gains)
     }
+    persist()
   }, { deep: true })
 
   function persist() {
@@ -59,7 +64,7 @@ export function useEqualizer() {
     const values = presets[nextPreset]
     bands.value = bands.value.map((band, index) => ({ ...band, value: values[index] ?? 0 }))
 
-    // 立即应用到音频引擎
+    // 立即应用到音频引擎（仅在 enabled 时）
     if (enabled.value) {
       playerStore.setEqualizerBands(values)
     }
@@ -72,19 +77,12 @@ export function useEqualizer() {
     const safeValue = Math.max(-12, Math.min(12, value))
     bands.value[index].value = safeValue
 
-    // 立即应用到音频引擎
+    // 立即应用到音频引擎（仅在 enabled 时）
     if (enabled.value) {
       playerStore.setEqualizerBand(index, safeValue)
     }
 
     persist()
-  }
-
-  // 初始化时应用当前设置到音频引擎
-  if (enabled.value) {
-    const gains = bands.value.map(band => band.value)
-    playerStore.setEqualizerBands(gains)
-    playerStore.setEqualizerEnabled(true)
   }
 
   const activePresetName = computed(() => preset.value)
