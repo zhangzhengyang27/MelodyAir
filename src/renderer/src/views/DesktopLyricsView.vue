@@ -5,8 +5,8 @@
     @mouseenter="showControls = true"
     @mouseleave="showControls = false"
   >
-    <!-- 控制栏 -->
-    <div v-if="showControls && !isLocked" class="controls-bar">
+    <!-- 控制栏：只有锁和关闭按钮 -->
+    <div v-if="showControls" class="controls-bar">
       <div class="controls-left">
         <button class="control-btn" @click="toggleLock" :title="isLocked ? '解锁' : '锁定'">
           <svg v-if="!isLocked" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -16,33 +16,6 @@
           <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
             <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
-          </svg>
-        </button>
-        <button class="control-btn" @click="toggleAlwaysOnTop" :title="alwaysOnTop ? '取消置顶' : '置顶'">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-            <path d="M2 17l10 5 10-5"/>
-            <path d="M2 12l10 5 10-5"/>
-          </svg>
-        </button>
-      </div>
-      <div class="controls-center">
-        <button class="control-btn" @click="playPrev">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
-          </svg>
-        </button>
-        <button class="control-btn play-btn" @click="togglePlay">
-          <svg v-if="!isPlaying" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8 5v14l11-7z"/>
-          </svg>
-          <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6 4h4v16H6zM14 4h4v16h-4z"/>
-          </svg>
-        </button>
-        <button class="control-btn" @click="playNext">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M16 18h2V6h-2zm-11-7l8.5-6v12z"/>
           </svg>
         </button>
       </div>
@@ -75,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { usePlayerStore } from '../stores/player'
 import { useLyricsStore } from '../stores/o3ics'
 import { useSettingsStore } from '../stores/settings'
@@ -87,11 +60,9 @@ const settingsStore = useSettingsStore()
 
 const showControls = ref(false)
 const isLocked = ref(false)
-const alwaysOnTop = ref(true)
 const fontSize = computed(() => settingsStore.o3icFontSize)
 
 const currentSong = computed(() => playerStore.currentSong)
-const isPlaying = computed(() => playerStore.playing)
 const currentLine = computed(() => o3icsStore.currentLine)
 const showTranslation = computed(() => o3icsStore.showTranslation)
 
@@ -102,23 +73,9 @@ useLyricsSync()
 watch(
   () => currentSong.value?.id,
   () => {
-    // 歌曲变化时，重置 currentIndex
     o3icsStore.setCurrentIndex(-1)
   }
 )
-
-// 播放控制
-function togglePlay() {
-  playerStore.togglePlaying()
-}
-
-function playPrev() {
-  playerStore.playPrev()
-}
-
-function playNext() {
-  playerStore.playNext()
-}
 
 // 窗口控制
 async function toggleLock() {
@@ -128,45 +85,11 @@ async function toggleLock() {
   }
 }
 
-async function toggleAlwaysOnTop() {
-  alwaysOnTop.value = !alwaysOnTop.value
-  if (window.electronAPI?.setLyricsWindowAlwaysOnTop) {
-    await window.electronAPI.setLyricsWindowAlwaysOnTop(alwaysOnTop.value)
-  }
-}
-
 async function closeWindow() {
   if (window.electronAPI?.closeLyricsWindow) {
     await window.electronAPI.closeLyricsWindow()
   }
 }
-
-// 监听播放器操作
-let unsubscribePlayerAction: (() => void) | undefined
-
-onMounted(() => {
-  if (window.electronAPI?.onPlayerAction) {
-    unsubscribePlayerAction = window.electronAPI.onPlayerAction((action) => {
-      switch (action) {
-        case 'toggle':
-          togglePlay()
-          break
-        case 'prev':
-          playPrev()
-          break
-        case 'next':
-          playNext()
-          break
-      }
-    })
-  }
-})
-
-onUnmounted(() => {
-  if (unsubscribePlayerAction) {
-    unsubscribePlayerAction()
-  }
-})
 </script>
 
 <style scoped>
@@ -192,23 +115,24 @@ onUnmounted(() => {
 }
 
 .controls-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.5);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   opacity: 0;
   transition: opacity 0.3s ease;
-  -webkit-app-region: drag;
+  z-index: 10;
 }
 
-.show-controls .controls-bar {
+.desktop-o3ics-window:hover .controls-bar {
   opacity: 1;
 }
 
 .controls-left,
-.controls-center,
 .controls-right {
   display: flex;
   gap: 8px;
@@ -221,7 +145,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.5);
   border: none;
   border-radius: 6px;
   color: #fff;
@@ -232,21 +156,10 @@ onUnmounted(() => {
 
 .control-btn:hover {
   background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.05);
 }
 
 .control-btn:active {
   transform: scale(0.95);
-}
-
-.control-btn.play-btn {
-  width: 40px;
-  height: 40px;
-  background: rgba(99, 102, 241, 0.8);
-}
-
-.control-btn.play-btn:hover {
-  background: rgba(99, 102, 241, 1);
 }
 
 .o3ics-content {
@@ -256,6 +169,7 @@ onUnmounted(() => {
   justify-content: center;
   padding: 20px;
   text-align: center;
+  -webkit-app-region: drag;
 }
 
 .no-o3ics {
