@@ -127,6 +127,19 @@ const api = {
     }
   },
 
+  /**
+   * 通用 IPC 事件监听（主进程 -> 渲染进程）
+   */
+  onIpcEvent: (channel: string, callback: (...args: any[]) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, ...args: any[]) => {
+      callback(...args)
+    }
+    ipcRenderer.on(channel, handler)
+    return () => {
+      ipcRenderer.removeListener(channel, handler)
+    }
+  },
+
   // ==================== 应用设置 ====================
 
   /** 设置开机自启动 */

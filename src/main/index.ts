@@ -73,7 +73,7 @@ function safeIpcHandle<T>(
   channel: string,
   handler: (event: Electron.IpcMainInvokeEvent, ...args: any[]) => T | Promise<T>
 ): void {
-  safeIpcHandle(channel, async (event, ...args) => {
+  ipcMain.handle(channel, async (event, ...args) => {
     try {
       return await handler(event, ...args)
     } catch (error) {
@@ -602,6 +602,11 @@ function registerIpcHandlers(): void {
   ipcMain.on("player:updateLyrics", (_event, data: { currentText: string; hasLyrics: boolean }) => {
     if (process.platform === "darwin") {
       updateTouchBarLyrics(data.currentText, data.hasLyrics)
+    }
+
+    // 同步到桌面歌词窗口
+    if (lyricsWindow && !lyricsWindow.isDestroyed()) {
+      lyricsWindow.webContents.send("lyrics:update", data)
     }
   })
 

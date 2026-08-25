@@ -9,6 +9,7 @@ export interface ElectronAPI {
 
   // 播放器通信
   sendIpcEvent: (channel: string, data?: unknown) => void
+  onIpcEvent: (channel: string, callback: (...args: any[]) => void) => () => void
   onPlayerAction: (callback: (action: 'toggle' | 'next' | 'prev' | 'toggleLike') => void) => () => void
 
   // 应用设置

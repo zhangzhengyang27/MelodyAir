@@ -54,6 +54,7 @@ export const usePlayerStore = defineStore('player', () => {
   const playMode = ref<PlayMode>('sequence')
   const currentTime = ref(0)
   const duration = ref(0)
+  const bufferedProgress = ref(0)
   const volume = ref(0.8)
   const muted = ref(false)
   const shuffledList = ref<Song[]>([])
@@ -165,6 +166,9 @@ export const usePlayerStore = defineStore('player', () => {
             }
           }
         },
+        onBuffered: (progress: number) => {
+          bufferedProgress.value = progress
+        },
         onError: (error: Error) => {
           logger.error('player', 'Player error:', error)
           status.value = 'error'
@@ -182,6 +186,10 @@ export const usePlayerStore = defineStore('player', () => {
     playerCache.releaseStaleBlobUrls()
     // 重置 scrobble 追踪
     scrobbleHelper.resetScrobbleState()
+    // 重置播放进度，避免切歌后进度条显示旧值
+    currentTime.value = 0
+    duration.value = 0
+    bufferedProgress.value = 0
 
     try {
       status.value = 'loading'

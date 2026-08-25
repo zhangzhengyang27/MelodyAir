@@ -59,15 +59,19 @@ if (savedTheme) {
 }
 
 // ★ Feature 3: 恢复上次播放状态（异步，不阻塞渲染）
-import('@/stores/player').then(({ usePlayerStore }) => {
-  const playerStore = usePlayerStore()
-  // 先恢复持久化状态（睡眠定时、播放历史）
-  playerStore.loadPersistentState()
-  // 延迟执行播放恢复，确保 store 初始化完成
-  setTimeout(() => {
-    playerStore.restorePlayback()
-  }, 1000)
-})
+// 只在主窗口恢复播放，桌面歌词窗口和迷你窗口跳过，避免重复播放
+const isSecondaryWindow = window.location.hash.includes('/desktop-lyrics') || window.location.hash.includes('/mini-player')
+if (!isSecondaryWindow) {
+  import('@/stores/player').then(({ usePlayerStore }) => {
+    const playerStore = usePlayerStore()
+    // 先恢复持久化状态（睡眠定时、播放历史）
+    playerStore.loadPersistentState()
+    // 延迟执行播放恢复，确保 store 初始化完成
+    setTimeout(() => {
+      playerStore.restorePlayback()
+    }, 1000)
+  })
+}
 
 // 恢复用户登录状态
 import('@/stores/user').then(({ useUserStore }) => {

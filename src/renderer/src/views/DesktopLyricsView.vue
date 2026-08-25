@@ -31,16 +31,13 @@
 
     <!-- 歌词显示区域 -->
     <div class="o3ics-content" :style="{ fontSize: fontSize + 'px' }">
-      <div v-if="!currentLine" class="no-o3ics">
-        <span v-if="currentSong">{{ currentSong.name }}</span>
+      <div v-if="!currentLyricText" class="no-o3ics">
+        <span v-if="currentSongName">{{ currentSongName }}</span>
         <span v-else>暂无播放</span>
       </div>
       <div v-else class="o3ics-lines">
         <div class="o3ic-line current">
-          {{ currentLine.text }}
-        </div>
-        <div v-if="currentLine.translation && showTranslation" class="o3ic-line translation">
-          {{ currentLine.translation }}
+          {{ currentLyricText }}
         </div>
       </div>
     </div>
@@ -48,34 +45,39 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import { usePlayerStore } from '../stores/player'
-import { useLyricsStore } from '../stores/lyrics'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useSettingsStore } from '../stores/settings'
-import { useLyricsSync } from '../composables/useLyricsSync'
 
-const playerStore = usePlayerStore()
-const lyricsStore = useLyricsStore()
 const settingsStore = useSettingsStore()
 
 const showControls = ref(false)
 const isLocked = ref(false)
 const fontSize = computed(() => settingsStore.o3icFontSize)
 
-const currentSong = computed(() => playerStore.currentSong)
-const currentLine = computed(() => lyricsStore.currentLine)
-const showTranslation = computed(() => lyricsStore.showTranslation)
+const currentSongName = ref('')
+const currentLyricText = ref('')
 
-// 初始化歌词同步
-useLyricsSync()
+let removeLyricsListener: (() => void) | null = null
+let removeTrackListener: (() => void) | null = null
 
-// 监听歌曲变化，重置歌词状态
-watch(
-  () => currentSong.value?.id,
-  () => {
-    lyricsStore.setCurrentIndex(-1)
+onMounted(() => {
+  // 监听主窗口同步过来的歌词
+  if (window.electronAPI?.onIpcEvent) {
+    removeLyricsListener = window.electronAPI.onIpcEvent('lyrics:update', (data: any) => {
+      currentLyricText.value = data?.currentText || ''
+    })
+
+    // 监听歌曲信息更新
+    removeTrackListener = window.electronAPI.onIpcEvent('player:trackUpdated', (track: any) => {
+      currentSongName.value = track?.title || ''
+    })
   }
-)
+})
+
+onUnmounted(() => {
+  removeLyricsListener?.()
+  removeTrackListener?.()
+})
 
 // 窗口控制
 async function toggleLock() {

@@ -11,6 +11,7 @@ export interface PlayerOptions {
   onEnd?: () => void
   onPlayStateChange?: (status: PlayerStatus) => void
   onProgress?: (currentTime: number, duration: number) => void
+  onBuffered?: (progress: number) => void
   onError?: (error: Error) => void
 }
 
@@ -49,6 +50,7 @@ export class AudioEngine {
   private onEndCallback?: () => void
   private onPlayStateChangeCallback?: (status: PlayerStatus) => void
   private onProgressCallback?: (currentTime: number, duration: number) => void
+  private onBufferedCallback?: (progress: number) => void
   private onErrorCallback?: (error: Error) => void
 
   // 进度追踪（requestAnimationFrame）
@@ -63,6 +65,7 @@ export class AudioEngine {
     this.onEndCallback = options.onEnd
     this.onPlayStateChangeCallback = options.onPlayStateChange
     this.onProgressCallback = options.onProgress
+    this.onBufferedCallback = options.onBuffered
     this.onErrorCallback = options.onError
 
     Howler.volume(this._volume)
@@ -418,6 +421,17 @@ export class AudioEngine {
             this._howl.seek(),
             this._howl.duration()
           )
+          // 获取缓冲进度（HTML5 模式下访问内部 audio 元素）
+          try {
+            const sound = (this._howl as any)?._sounds?.[0]
+            const audioEl = sound?._node
+            if (audioEl && audioEl.buffered && audioEl.buffered.length > 0 && audioEl.duration > 0) {
+              const bufferedEnd = audioEl.buffered.end(audioEl.buffered.length - 1)
+              this.onBufferedCallback?.(Math.min(1, bufferedEnd / audioEl.duration))
+            }
+          } catch {
+            // 忽略缓冲进度获取失败
+          }
         }
       }
       this.rafId = requestAnimationFrame(tick)

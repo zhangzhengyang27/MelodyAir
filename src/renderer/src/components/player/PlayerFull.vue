@@ -1,7 +1,8 @@
 <template>
   <div
     class="player-full fixed inset-0 z-50 flex flex-col overflow-hidden"
-    :style="{ '--accent-color': accentColor }"
+    :style="{ '--accent-color': accentColor, '--accent-rgb': accentRgb }"
+    @click="showLyricsSettings = false"
   >
     <!-- 动态背景层：封面模糊 + 渐变叠加 -->
     <div class="absolute inset-0 overflow-hidden">
@@ -66,7 +67,15 @@
         <aside class="lyrics-section">
           <!-- 歌曲标题和艺术家 -->
           <div class="lyrics-header">
-            <h1 class="lyrics-song-title">{{ playerStore.currentSong?.name || '未在播放' }}</h1>
+            <div class="lyrics-title-row">
+              <h1 class="lyrics-song-title">{{ playerStore.currentSong?.name || '未在播放' }}</h1>
+              <button class="lyrics-settings-btn" @click.stop="showLyricsSettings = !showLyricsSettings" title="歌词设置">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+            </div>
             <p class="lyrics-song-artist">
               <template v-if="playerStore.currentSong?.artists?.length">
                 <template v-for="(artist, idx) in playerStore.currentSong.artists" :key="artist.id">
@@ -76,6 +85,40 @@
               </template>
               <span v-else>--</span>
             </p>
+
+            <!-- 歌词设置面板 -->
+            <div v-if="showLyricsSettings" class="lyrics-settings-panel" @click.stop>
+              <div class="settings-group">
+                <span class="settings-label">显示模式</span>
+                <div class="settings-btns">
+                  <button v-for="m in ['compact', 'normal', 'expanded']" :key="m"
+                    class="settings-btn" :class="{ active: lyricsStore.displayMode === m }"
+                    @click="lyricsStore.setDisplayMode(m as any)">
+                    {{ m === 'compact' ? '单行' : m === 'normal' ? '三行' : '全部' }}
+                  </button>
+                </div>
+              </div>
+              <div class="settings-group">
+                <span class="settings-label">翻译</span>
+                <button class="settings-toggle" :class="{ active: lyricsStore.showTranslation }" @click="lyricsStore.toggleTranslation()">
+                  {{ lyricsStore.showTranslation ? '开' : '关' }}
+                </button>
+              </div>
+              <div class="settings-group">
+                <span class="settings-label">罗马音</span>
+                <button class="settings-toggle" :class="{ active: lyricsStore.showRomanized }" @click="lyricsStore.toggleRomanized()">
+                  {{ lyricsStore.showRomanized ? '开' : '关' }}
+                </button>
+              </div>
+              <div class="settings-group">
+                <span class="settings-label">字号</span>
+                <div class="font-size-control">
+                  <button class="settings-btn small" @click="lyricsStore.setFontSize(Math.max(12, lyricsStore.fontSize - 2))">A-</button>
+                  <span class="font-size-value">{{ lyricsStore.fontSize }}</span>
+                  <button class="settings-btn small" @click="lyricsStore.setFontSize(Math.min(28, lyricsStore.fontSize + 2))">A+</button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- 歌词显示 -->
@@ -424,6 +467,7 @@ function handleLyricSeek(index: number) {
 
 // UI State
 const showQueue = ref(false)
+const showLyricsSettings = ref(false)
 const wasPlaying = ref(false)
 const prevVolume = ref(0.8)
 
@@ -435,7 +479,6 @@ let dragTime = 0
 const isProgressHovered = ref(false)
 const hoverProgress = ref(0)
 const hoverTime = ref(0)
-const bufferProgress = ref(0)
 const displayProgress = computed(() =>
   isDragging ? dragProgress : playerStore.progress
 )
@@ -443,7 +486,7 @@ const displayProgress = computed(() =>
 // 动态样式（避免模板内联表达式解析问题）
 const progressStyle = computed(() => ({ width: displayProgress.value * 100 + '%' }))
 const progressThumbStyle = computed(() => ({ left: displayProgress.value * 100 + '%' }))
-const bufferStyle = computed(() => ({ width: bufferProgress.value * '%' }))
+const bufferStyle = computed(() => ({ width: playerStore.bufferedProgress * 100 + '%' }))
 const hoverTooltipStyle = computed(() => ({ left: (hoverProgress.value * 100) + '%' }))
 const dragTooltipStyle = computed(() => ({ left: (dragProgress * 100) + '%' }))
 const volumeFillStyle = computed(() => ({ width: (playerStore.volume * 100) + '%' }))
@@ -480,8 +523,69 @@ const playModeLabel = computed(() => {
   return labels[playerStore.playMode]
 })
 
-// Accent color derived from cover (placeholder)
-const accentColor = computed(() => '#FF5A5F')
+// Accent color derived from cover
+const accentColorRef = ref('#FF5A5F')
+const accentRgbRef = ref('255, 90, 95')
+const accentColor = computed(() => accentColorRef.value)
+const accentRgb = computed(() => accentRgbRef.value)
+
+let accentColorImg: HTMLImageElement | null = null
+function extractAccentColor(imgUrl: string) {
+  if (!imgUrl) return
+  const img = new Image()
+  img.crossOrigin = 'anonymous'
+  img.onload = () => {
+    try {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      // 缩小到 20x20 加速计算
+      canvas.width = 20
+      canvas.height = 20
+      ctx.drawImage(img, 0, 0, 20, 20)
+      const data = ctx.getImageData(0, 0, 20, 20).data
+      let r = 0, g = 0, b = 0, count = 0
+      // 采样：跳过过暗和过亮的像素
+      for (let i = 0; i < data.length; i += 4) {
+        const pr = data[i], pg = data[i + 1], pb = data[i + 2]
+        const brightness = (pr + pg + pb) / 3
+        if (brightness < 20 || brightness > 235) continue
+        r += pr; g += pg; b += pb; count++
+      }
+      if (count > 0) {
+        r = Math.round(r / count)
+        g = Math.round(g / count)
+        b = Math.round(b / count)
+        // 增加饱和度，让颜色更鲜明
+        const avg = (r + g + b) / 3
+        r = Math.round(avg + (r - avg) * 1.4)
+        g = Math.round(avg + (g - avg) * 1.4)
+        b = Math.round(avg + (b - avg) * 1.4)
+        r = Math.min(255, Math.max(0, r))
+        g = Math.min(255, Math.max(0, g))
+        b = Math.min(255, Math.max(0, b))
+        accentColorRef.value = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+        accentRgbRef.value = `${r}, ${g}, ${b}`
+      }
+    } catch {
+      // 跨域或其他错误，保持默认色
+    }
+  }
+  img.onerror = () => {}
+  img.src = imgUrl
+  accentColorImg = img
+}
+
+// 切换歌曲时提取主题色
+watch(
+  () => playerStore.currentSong?.album?.picUrl,
+  (picUrl) => {
+    if (picUrl) {
+      extractAccentColor(picUrl + '?param=200y200')
+    }
+  },
+  { immediate: true }
+)
 
 // === Actions ===
 function toggleMute() {
@@ -500,20 +604,27 @@ function handleLike() {
 }
 
 async function toggleDesktopLyrics() {
-  if (window.electronAPI?.openLyricsWindow) {
+  try {
+    if (!window.electronAPI?.openLyricsWindow) {
+      logger.warn('player', 'electronAPI.openLyricsWindow not available')
+      return
+    }
     const isOpen = await window.electronAPI.isLyricsWindowOpen()
+    logger.debug('player', `toggleDesktopLyrics, isOpen=${isOpen}`)
     if (isOpen) {
       await window.electronAPI.closeLyricsWindow()
     } else {
       await window.electronAPI.openLyricsWindow()
     }
+  } catch (e) {
+    logger.error('player', 'toggleDesktopLyrics failed:', e)
   }
 }
 
 function handleRemoveDuplicates() {
   const removedCount = playerStore.removeDuplicates()
   if (removedCount > 0) {
-    console.log(`Removed ${removedCount} duplicate songs`)
+    logger.debug('player', `Removed ${removedCount} duplicate songs`)
   }
 }
 
@@ -540,7 +651,7 @@ async function handleSaveAsPlaylist() {
       alert(`成功创建歌单「${playlistName}」，已添加 ${trackIds.length} 首歌曲`)
     }
   } catch (error) {
-    console.error('Failed to save playlist:', error)
+    logger.error('player', 'Failed to save playlist:', error)
     alert('保存歌单失败，请重试')
   }
 }
@@ -688,7 +799,7 @@ onUnmounted(() => {
   width: 600px;
   height: 600px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 90, 95, 0.08) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(var(--accent-rgb), 0.12) 0%, transparent 70%);
   pointer-events: none;
   transition: opacity 0.6s ease;
   opacity: 0;
@@ -729,7 +840,7 @@ onUnmounted(() => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #FF5A5F;
+  background: var(--accent-color);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -761,7 +872,7 @@ onUnmounted(() => {
   width: 320px;
   height: 320px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 90, 95, 0.15) 0%, rgba(255, 90, 95, 0.05) 40%, transparent 70%);
+  background: radial-gradient(circle, rgba(var(--accent-rgb), 0.15) 0%, rgba(var(--accent-rgb), 0.05) 40%, transparent 70%);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.6s ease;
@@ -787,7 +898,7 @@ onUnmounted(() => {
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.06),
     0 20px 60px rgba(0, 0, 0, 0.5),
-    0 0 120px rgba(255, 90, 95, 0.05);
+    0 0 120px rgba(var(--accent-rgb), 0.05);
   /* 动画始终生效，通过 play-state 控制暂停，避免暂停时 transform 回弹 */
   animation: vinylSpin 20s linear infinite;
   animation-play-state: paused;
@@ -869,7 +980,7 @@ onUnmounted(() => {
   transform: translateX(-50%);
   width: 200px;
   height: 40px;
-  background: radial-gradient(ellipse at center, rgba(255, 90, 95, 0.08), transparent 70%);
+  background: radial-gradient(ellipse at center, rgba(var(--accent-rgb), 0.08), transparent 70%);
   filter: blur(12px);
   pointer-events: none;
   opacity: 0.6;
@@ -879,18 +990,24 @@ onUnmounted(() => {
 .content-top {
   padding: 0;
   gap: 0;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .cover-section {
-  flex: 0 0 45%;
-  padding: 40px 60px;
+  flex: 0 0 42%;
+  padding: 40px 40px 40px 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .lyrics-section {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 60px 80px 40px 40px;
+  padding: 60px 60px 40px 40px;
   position: relative;
 }
 
@@ -922,6 +1039,131 @@ onUnmounted(() => {
 
 .lyrics-song-artist .artist-link:hover {
   color: rgba(255, 255, 255, 0.8);
+}
+
+/* 歌词标题行 */
+.lyrics-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: relative;
+}
+
+.lyrics-settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.lyrics-settings-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 歌词设置面板 */
+.lyrics-settings-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  padding: 16px;
+  background: rgba(20, 20, 30, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  min-width: 220px;
+  text-align: left;
+}
+
+.settings-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.settings-group:last-child {
+  margin-bottom: 0;
+}
+
+.settings-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.settings-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.settings-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.settings-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.settings-btn.active {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: #fff;
+}
+
+.settings-btn.small {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.settings-toggle {
+  padding: 4px 14px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 40px;
+}
+
+.settings-toggle.active {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: #fff;
+}
+
+.font-size-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.font-size-value {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  min-width: 20px;
+  text-align: center;
 }
 
 /* 歌词显示区域 */
@@ -972,6 +1214,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
+  padding: 10px 0;
 }
 
 .time-current,
@@ -1020,7 +1263,7 @@ onUnmounted(() => {
   top: 0;
   height: 100%;
   border-radius: 2px;
-  background: #FF5A5F;
+  background: var(--accent-color);
   transition: width 0.08s linear;
   pointer-events: none;
 }
@@ -1065,7 +1308,7 @@ onUnmounted(() => {
 }
 
 .progress-tooltip.dragging {
-  background: rgba(255, 90, 95, 0.95);
+  background: rgba(var(--accent-rgb), 0.95);
 }
 
 /* ===== Controls Bar ===== */
@@ -1122,16 +1365,16 @@ onUnmounted(() => {
   height: 48px;
   border-radius: 50%;
   border: none;
-  background: #FF5A5F;
+  background: var(--accent-color);
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(255, 90, 95, 0.3);
+  box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.3);
   transition: all 0.2s ease;
 }
 
 .play-btn-large:hover {
   transform: scale(1.05);
-  box-shadow: 0 6px 20px rgba(255, 90, 95, 0.4);
+  box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.4);
 }
 
 .play-btn-large:active {
@@ -1145,7 +1388,7 @@ onUnmounted(() => {
 }
 
 .text-coral {
-  color: #FF5A5F;
+  color: var(--accent-color);
 }
 
 /* ===== Volume Control ===== */
@@ -1170,7 +1413,7 @@ onUnmounted(() => {
   top: 0;
   height: 100%;
   border-radius: 2px;
-  background: #FF5A5F;
+  background: var(--accent-color);
   transition: width 0.05s linear;
   pointer-events: none;
 }
