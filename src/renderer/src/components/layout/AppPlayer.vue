@@ -57,8 +57,8 @@
         <SleepTimerButton />
 
         <div class="flex items-center gap-2">
-          <button class="player-btn" @click="toggleMute" :title="playerStore.volume === 0 ? '取消静音' : '静音'">
-            <svg v-if="playerStore.volume === 0" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <button class="player-btn" @click="toggleMute" :title="playerStore.muted ? '取消静音' : '静音'">
+            <svg v-if="playerStore.muted" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
             </svg>
@@ -194,6 +194,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useAudio } from '@/composables/useAudio'
 import SleepTimerButton from '@/components/player/SleepTimerButton.vue'
 import { formatTime, formatDuration } from '@/utils/format'
+import type { Song } from '@/stores/player'
 
 const playerStore = usePlayerStore()
 const settingsStore = useSettingsStore()
@@ -203,9 +204,9 @@ const showPlaylist = ref(false)
 const showFullPlayer = defineModel<boolean>('showFullPlayer', { default: false })
 const hoverTime = ref<number | null>(null)
 const hoverProgress = ref(0)
-const prevVolume = ref(0.8)
 const showQualityPopup = ref(false)
 const qualityPopupRef = ref<HTMLElement | null>(null)
+const popupPositionTick = ref(0) // 窗口 resize 时递增，触发 computed 重新计算
 
 const qualityShortLabel = computed(() => {
   const map: Record<string, string> = {
@@ -227,6 +228,8 @@ const playModeLabel = computed(() => {
 })
 
 const qualityPopupStyle = computed(() => {
+  // 依赖 popupPositionTick 以在窗口 resize 时重新计算
+  void popupPositionTick.value
   const rect = qualityPopupRef.value?.getBoundingClientRect()
   if (!rect) return { right: '1rem', bottom: '5.75rem' }
   return { left: `${Math.max(16, rect.left - 110)}px`, bottom: '5.75rem' }
@@ -243,12 +246,7 @@ function selectQuality(quality: any) {
 }
 
 function toggleMute() {
-  if (playerStore.volume > 0) {
-    prevVolume.value = playerStore.volume
-    playerStore.setVolume(0)
-  } else {
-    playerStore.setVolume(prevVolume.value)
-  }
+  playerStore.toggleMute()
 }
 
 function handleProgressClick(e: MouseEvent) {
@@ -265,17 +263,23 @@ function handleProgressHover(e: MouseEvent) {
   hoverTime.value = hoverProgress.value * playerStore.duration
 }
 
-function handlePlayFromQueue(idx: number, song: any) {
+function handlePlayFromQueue(idx: number, song: Song) {
   playerStore.currentIndex = idx
   playerStore.playSong(song)
 }
 
+function handleWindowResize() {
+  popupPositionTick.value++
+}
+
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  window.addEventListener('resize', handleWindowResize)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('resize', handleWindowResize)
 })
 </script>
 

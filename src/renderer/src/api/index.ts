@@ -11,28 +11,47 @@ const request = axios.create({
 /**
  * 需要登录才能访问的 API 路径前缀白名单
  * 匹配时只要 URL 以这些前缀开头即视为需要登录
+ *
+ * 注意：新增 API 时请检查是否需要登录，并在此处添加前缀。
+ * 未在此列表中的 API 不会注入 Cookie，也不会在未登录时拦截。
+ *
+ * 分类：
+ * - 推荐/日报：/daily_recommend, /recommend/*
+ * - 喜欢/收藏：/likelist, /like, /song/like, /playlist/subscribe, /playlist/tracks
+ * - 用户相关：/user/*, /playlist/my, /song/order
+ * - 播放记录：/scrobble
+ * - 消息通知：/msg/*
+ * - 相似推荐：/simi/*
+ * - 收藏列表：/mv/sublist, /artist/sub, /album/sublist
  */
 const ACCOUNT_REQUIRED_APIS = [
+  // 推荐与日报
   '/daily_recommend',
-  '/likelist',
-  '/playlist/subscribe',
-  '/playlist/tracks',
-  '/like',
-  '/song/like',
-  '/scrobble',
   '/recommend/songs',
   '/recommend/resource',
+  // 喜欢与收藏操作
+  '/likelist',
+  '/like',
+  '/song/like',
+  '/playlist/subscribe',
+  '/playlist/tracks',
+  // 用户相关
   '/user/cloud',
   '/user/playlist',
   '/playlist/my',
   '/song/order',
+  // 播放记录
+  '/scrobble',
+  // 消息通知
+  '/msg',
+  // 相似推荐
+  '/simi',
+  // 收藏列表
   '/mv/sublist',
   '/artist/sub',
   '/album/sublist',
+  // 排行榜详情（需要登录获取用户收藏状态）
   '/toplist/detail',
-  '/msg',
-  '/simi',
-  '/song/detail',
 ]
 
 /**

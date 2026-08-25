@@ -1,15 +1,15 @@
 import { watch, onBeforeUnmount, type Ref } from 'vue'
 import { usePlayerStore } from '@/stores/player'
-import { useLyricsStore } from '@/stores/o3ics'
+import { useLyricsStore } from '@/stores/lyrics'
 import { LyricsSyncEngine } from '@/utils/o3icsSyncEngine'
-import type { ParsedLyricLine } from '@/types/o3ics'
+import type { ParsedLyricLine } from '@/types/lyrics'
 
 export function useLyricsSync(linesRef?: Ref<ParsedLyricLine[]>) {
   const playerStore = usePlayerStore()
-  const o3icsStore = useLyricsStore()
+  const lyricsStore = useLyricsStore()
 
   const syncEngine = new LyricsSyncEngine({
-    offsetMs: o3icsStore.offsetMs,
+    offsetMs: lyricsStore.offsetMs,
     toleranceMs: 120,
   })
 
@@ -25,21 +25,22 @@ export function useLyricsSync(linesRef?: Ref<ParsedLyricLine[]>) {
   }
 
   function syncNow(time = playerStore.currentTime) {
-    if (!o3icsStore.hasLyrics || o3icsStore.isDraggingProgress || pausedBySeek) return
-    const result = syncEngine.update(time)
+    if (!lyricsStore.hasLyrics || lyricsStore.isDraggingProgress || pausedBySeek) return
+    // playerStore.currentTime 是秒，syncEngine 期望毫秒
+    const result = syncEngine.update(time * 1000)
     if (result.changed) {
-      o3icsStore.setCurrentIndex(result.index)
+      lyricsStore.setCurrentIndex(result.index)
     }
   }
 
   // 监听歌词行变化（切换歌曲时重置状态）
   watch(
-    () => o3icsStore.lines,
+    () => lyricsStore.lines,
     (lines) => {
       syncEngine.setLines(lines)
       syncEngine.reset()
       // 切换歌曲时重置 currentIndex
-      o3icsStore.setCurrentIndex(-1)
+      lyricsStore.setCurrentIndex(-1)
       syncNow(playerStore.currentTime)
     },
     { immediate: true }
@@ -47,7 +48,7 @@ export function useLyricsSync(linesRef?: Ref<ParsedLyricLine[]>) {
 
   // 监听时间偏移变化
   watch(
-    () => o3icsStore.offsetMs,
+    () => lyricsStore.offsetMs,
     (offset) => syncEngine.setOffsetMs(offset)
   )
 
@@ -69,11 +70,11 @@ export function useLyricsSync(linesRef?: Ref<ParsedLyricLine[]>) {
   }
 
   function seekToIndex(index: number) {
-    const line = o3icsStore.lines[index]
+    const line = lyricsStore.lines[index]
     if (!line) return
     setSeekPause()
     playerStore.seek(line.time / 1000)
-    o3icsStore.setCurrentIndex(index)
+    lyricsStore.setCurrentIndex(index)
   }
 
   onBeforeUnmount(() => {

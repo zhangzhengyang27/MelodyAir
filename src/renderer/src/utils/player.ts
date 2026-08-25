@@ -109,14 +109,14 @@ export class AudioEngine {
    */
   play(src: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      // ★ 关键：先卸载全局旧实例（YPM 模式）
+      // ★ 关键：先停止并卸载旧实例（stop 内部已调用 howl.unload()）
       this.stop()
 
       this.emitStateChange('loading')
 
       const format = this.guessFormat(src)
 
-      Howler.unload()
+      // 重置停止标志，允许新实例的 onend 回调正常触发
       this._isStopping = false
 
       this._howl = new Howl({
@@ -215,8 +215,8 @@ export class AudioEngine {
       this._howl.unload()
       this._howl = null
     }
-    // 延迟重置标志，确保 onend 回调有机会检查
-    setTimeout(() => { this._isStopping = false }, 100)
+    // 注意：_isStopping 标志不在此重置，由下一次 play() 调用时重置
+    // 这样可以确保 stop() 触发的 onend 不会误触发自动切歌
   }
 
   /** 跳转 */

@@ -16,18 +16,31 @@ export function useMediaSession(deps: {
   stopPlayback: () => void
 }) {
   /**
+   * 根据 URL 推断图片 MIME 类型
+   */
+  function inferImageType(url: string): string {
+    const lower = url.toLowerCase().split('?')[0]
+    if (lower.endsWith('.webp')) return 'image/webp'
+    if (lower.endsWith('.png')) return 'image/png'
+    if (lower.endsWith('.gif')) return 'image/gif'
+    return 'image/jpeg'
+  }
+
+  /**
    * 更新 MediaSession 元数据
    */
   function updateMediaSession(song: Song): void {
     if (!('mediaSession' in navigator)) return
 
+    const artwork = song.album.picUrl
+      ? [{ src: song.album.picUrl, sizes: '512x512', type: inferImageType(song.album.picUrl) }]
+      : []
+
     navigator.mediaSession.metadata = new MediaMetadata({
       title: song.name,
       artist: song.artists.map(a => a.name).join(', '),
       album: song.album.name,
-      artwork: song.album.picUrl
-        ? [{ src: song.album.picUrl, sizes: '512x512', type: 'image/jpeg' }]
-        : []
+      artwork,
     })
 
     navigator.mediaSession.setActionHandler('play', () => {

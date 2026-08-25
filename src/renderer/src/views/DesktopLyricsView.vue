@@ -50,12 +50,12 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { usePlayerStore } from '../stores/player'
-import { useLyricsStore } from '../stores/o3ics'
+import { useLyricsStore } from '../stores/lyrics'
 import { useSettingsStore } from '../stores/settings'
 import { useLyricsSync } from '../composables/useLyricsSync'
 
 const playerStore = usePlayerStore()
-const o3icsStore = useLyricsStore()
+const lyricsStore = useLyricsStore()
 const settingsStore = useSettingsStore()
 
 const showControls = ref(false)
@@ -63,8 +63,8 @@ const isLocked = ref(false)
 const fontSize = computed(() => settingsStore.o3icFontSize)
 
 const currentSong = computed(() => playerStore.currentSong)
-const currentLine = computed(() => o3icsStore.currentLine)
-const showTranslation = computed(() => o3icsStore.showTranslation)
+const currentLine = computed(() => lyricsStore.currentLine)
+const showTranslation = computed(() => lyricsStore.showTranslation)
 
 // 初始化歌词同步
 useLyricsSync()
@@ -73,7 +73,7 @@ useLyricsSync()
 watch(
   () => currentSong.value?.id,
   () => {
-    o3icsStore.setCurrentIndex(-1)
+    lyricsStore.setCurrentIndex(-1)
   }
 )
 

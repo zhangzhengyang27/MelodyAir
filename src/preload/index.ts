@@ -2,6 +2,38 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 /**
+ * 扫描进度信息（与主进程 ScanProgress 保持一致）
+ */
+export interface ScanProgress {
+  status: 'scanning' | 'parsing' | 'completed' | 'error'
+  currentFile: string
+  scannedCount: number
+  totalCount: number
+  parsedCount: number
+  errorCount: number
+}
+
+/**
+ * 扫描结果（与主进程 ScanResult 保持一致）
+ */
+export interface ScanResult {
+  files: Array<{
+    filePath: string
+    fileName: string
+    fileSize: number
+    title?: string
+    artist?: string
+    album?: string
+    duration?: number
+    error?: string
+  }>
+  totalFiles: number
+  successCount: number
+  errorCount: number
+  duration: number
+}
+
+/**
  * MelodyAir Electron Preload API
  * 暴露安全的 IPC 通信接口给渲染进程
  *
@@ -33,16 +65,15 @@ const api = {
    * 发送播放器状态更新到主进程（用于更新托盘、任务栏等）
    */
   sendIpcEvent: (channel: string, data?: unknown) => {
-    // 白名单机制：只允许发送特定的频道
-    const allowedChannels = [
-      'player:updateTrack',
-      'player:updatePlayState',
-      'player:updateLikeState',
-      'player:updateProgress',
-      'player:updateLyrics'
-    ]
+    // 白名单机制：允许 player: 命名空间下的所有频道
+    // 新增 player:xxx 频道无需修改此处，非 player: 频道需要显式添加
+    const allowedPrefixes = ['player:']
+    const allowedChannels: string[] = []
 
-    if (allowedChannels.includes(channel)) {
+    const isAllowed = allowedPrefixes.some(prefix => channel.startsWith(prefix)) ||
+                      allowedChannels.includes(channel)
+
+    if (isAllowed) {
       if (data !== undefined) {
         ipcRenderer.send(channel, data)
       } else {
@@ -67,6 +98,32 @@ const api = {
     // 返回取消监听的函数
     return () => {
       ipcRenderer.removeListener('player:action', handler)
+    }
+  },
+
+  /**
+   * 监听当前播放歌曲信息更新（主窗口 -> 其他窗口）
+   */
+  onTrackUpdated: (callback: (track: { title: string; artist: string; album: string; cover?: string; duration: number }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, track: { title: string; artist: string; album: string; cover?: string; duration: number }) => {
+      callback(track)
+    }
+    ipcRenderer.on('player:trackUpdated', handler)
+    return () => {
+      ipcRenderer.removeListener('player:trackUpdated', handler)
+    }
+  },
+
+  /**
+   * 监听播放状态更新（主窗口 -> 其他窗口）
+   */
+  onPlayStateUpdated: (callback: (isPlaying: boolean) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, isPlaying: boolean) => {
+      callback(isPlaying)
+    }
+    ipcRenderer.on('player:playStateUpdated', handler)
+    return () => {
+      ipcRenderer.removeListener('player:playStateUpdated', handler)
     }
   },
 
@@ -146,7 +203,7 @@ const api = {
     ipcRenderer.invoke('scan:selectDirectory'),
 
   /** 开始扫描 */
-  startScan: (dirPath: string): Promise<any> =>
+  startScan: (dirPath: string): Promise<ScanResult> =>
     ipcRenderer.invoke('scan:start', dirPath),
 
   /** 中止扫描 */
@@ -166,8 +223,8 @@ const api = {
     ipcRenderer.invoke('scan:saveCover', coverData, fileName),
 
   /** 监听扫描进度 */
-  onScanProgress: (callback: (progress: any) => void): (() => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, progress: any) => {
+  onScanProgress: (callback: (progress: ScanProgress) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, progress: ScanProgress) => {
       callback(progress)
     }
 

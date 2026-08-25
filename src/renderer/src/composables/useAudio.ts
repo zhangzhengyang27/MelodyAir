@@ -1,4 +1,3 @@
-import { onUnmounted } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 
 /**

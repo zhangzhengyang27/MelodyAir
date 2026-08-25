@@ -23,3 +23,15 @@ export interface LyricsTrackMeta {
   source: LyricsSource
   updatedAt: number
 }
+
+/** 歌词同步引擎配置 */
+export interface LyricsSyncConfig {
+  offsetMs?: number
+  toleranceMs?: number
+}
+
+/** 歌词同步结果 */
+export interface LyricsSyncResult {
+  index: number
+  changed: boolean
+}

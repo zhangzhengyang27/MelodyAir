@@ -20,8 +20,17 @@ export function usePlayerCache(deps: {
 
   /**
    * 预检音频 URL 是否返回有效音频数据（避免代理返回 HTML/错误页面导致 Howl code=4）
+   * 优先 HEAD，失败时降级为 GET Range（部分服务器不支持 HEAD）
    */
   async function validateAudioUrl(url: string): Promise<boolean> {
+    const checkContentType = (ct: string | null): boolean => {
+      if (!ct) return false
+      if (ct.startsWith("audio/") || ct.startsWith("application/octet-stream") || ct.includes("mpeg"))
+        return true
+      if (ct === "application/json" || ct.startsWith("text/")) return false
+      return true
+    }
+
     try {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), 8000)
@@ -31,18 +40,44 @@ export function usePlayerCache(deps: {
         cache: "no-store",
       })
       clearTimeout(timer)
-      const ct = resp.headers.get("content-type") || ""
-      if (!resp.ok) return false
-      if (
-        ct.startsWith("audio/") ||
-        ct.startsWith("application/octet-stream") ||
-        ct.includes("mpeg")
-      )
-        return true
-      if (!ct || ct === "application/json" || ct.startsWith("text/")) return false
-      return true
+      if (resp.ok && checkContentType(resp.headers.get("content-type"))) return true
+      // HEAD 失败（405 等），降级到 GET Range
+      if (resp.status === 405 || !resp.ok) {
+        return await validateAudioUrlGet(url)
+      }
+      return false
     } catch (e) {
-      logger.warn('player', '预检失败', e)
+      logger.warn('player', 'HEAD 预检失败，降级 GET:', e)
+      return await validateAudioUrlGet(url)
+    }
+  }
+
+  /**
+   * 用 GET + Range 头预检（仅请求第一个字节）
+   */
+  async function validateAudioUrlGet(url: string): Promise<boolean> {
+    try {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 8000)
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: { Range: "bytes=0-0" },
+        signal: controller.signal,
+        cache: "no-store",
+      })
+      clearTimeout(timer)
+      // 206 Partial Content 或 200 OK 都算有效
+      if (resp.status === 206 || resp.ok) {
+        const ct = resp.headers.get("content-type")
+        if (!ct) return true // 无 content-type 时乐观处理
+        if (ct.startsWith("audio/") || ct.startsWith("application/octet-stream") || ct.includes("mpeg"))
+          return true
+        if (ct === "application/json" || ct.startsWith("text/")) return false
+        return true
+      }
+      return false
+    } catch (e) {
+      logger.warn('player', 'GET 预检失败', e)
       return false
     }
   }

@@ -12,7 +12,7 @@ import {
 import { join } from "path"
 import { electronApp, optimizer, is } from "@electron-toolkit/utils"
 import { createTouchBar, updateTouchBarLyrics, updateTouchBarPlayState, updateTouchBarLikeState } from "./touchBar"
-// import { registerScanHandlers } from "./scanner"
+import { registerScanHandlers } from "./scanner"
 
 // ==================== 类型定义 ====================
 
@@ -63,6 +63,24 @@ function sendPlayerAction(action: string): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("player:action", action)
   }
+}
+
+/**
+ * 安全注册 IPC handler，自动捕获异常并记录日志
+ * 避免渲染进程 invoke 时因未捕获异常导致进程崩溃
+ */
+function safeIpcHandle<T>(
+  channel: string,
+  handler: (event: Electron.IpcMainInvokeEvent, ...args: any[]) => T | Promise<T>
+): void {
+  safeIpcHandle(channel, async (event, ...args) => {
+    try {
+      return await handler(event, ...args)
+    } catch (error) {
+      console.error(`[IPC] Handler "${channel}" failed:`, error)
+      throw error
+    }
+  })
 }
 
 // ==================== 窗口管理 ====================
@@ -130,9 +148,9 @@ function createMiniWindow(): BrowserWindow {
 
   miniWindow = new BrowserWindow({
     width: 320,
-    height: 120,
+    height: 80,
     minWidth: 320,
-    minHeight: 120,
+    minHeight: 80,
     maxWidth: 400,
     maxHeight: 150,
     show: false,
@@ -188,11 +206,11 @@ function createLyricsWindow(): BrowserWindow {
   }
 
   lyricsWindow = new BrowserWindow({
-    width: 800,
-    height: 120,
-    minWidth: 400,
-    minHeight: 80,
-    maxHeight: 200,
+    width: 600,
+    height: 80,
+    minWidth: 300,
+    minHeight: 60,
+    maxHeight: 120,
     show: false,
     frame: false,
     transparent: true,
@@ -415,12 +433,12 @@ function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle("window:isMaximized", () => mainWindow?.isMaximized() ?? false)
+  safeIpcHandle("window:isMaximized", () => mainWindow?.isMaximized() ?? false)
 
   ipcMain.on("window:focus", () => mainWindow?.focus())
 
   // ========== 应用设置 ==========
-  ipcMain.handle("app:setAutoLaunch", (_event, enable: boolean) => {
+  safeIpcHandle("app:setAutoLaunch", (_event, enable: boolean) => {
     app.setLoginItemSettings({
       openAtLogin: enable,
       path: app.getPath("exe")
@@ -428,12 +446,12 @@ function registerIpcHandlers(): void {
     return true
   })
 
-  ipcMain.handle("app:setMinimizeToTray", (_event, enable: boolean) => {
+  safeIpcHandle("app:setMinimizeToTray", (_event, enable: boolean) => {
     minimizeToTray = enable
     return true
   })
 
-  ipcMain.handle("app:setGlobalShortcuts", (_event, enabled: boolean) => {
+  safeIpcHandle("app:setGlobalShortcuts", (_event, enabled: boolean) => {
     globalShortcutsEnabled = enabled
     if (enabled) {
       registerGlobalShortcuts()
@@ -443,7 +461,7 @@ function registerIpcHandlers(): void {
     return true
   })
 
-  ipcMain.handle("app:setCustomShortcuts", (_event, shortcuts: typeof customShortcuts) => {
+  safeIpcHandle("app:setCustomShortcuts", (_event, shortcuts: typeof customShortcuts) => {
     customShortcuts = { ...customShortcuts, ...shortcuts }
     if (globalShortcutsEnabled) {
       registerGlobalShortcuts()
@@ -451,10 +469,10 @@ function registerIpcHandlers(): void {
     return true
   })
 
-  ipcMain.handle("app:getPlatform", () => process.platform)
+  safeIpcHandle("app:getPlatform", () => process.platform)
 
   // ========== 迷你悬浮窗 ==========
-  ipcMain.handle("miniWindow:open", () => {
+  safeIpcHandle("miniWindow:open", () => {
     if (!miniWindow || miniWindow.isDestroyed()) {
       createMiniWindow()
     } else {
@@ -464,17 +482,17 @@ function registerIpcHandlers(): void {
     return true
   })
 
-  ipcMain.handle("miniWindow:close", () => {
+  safeIpcHandle("miniWindow:close", () => {
     closeMiniWindow()
     return true
   })
 
-  ipcMain.handle("miniWindow:isOpen", () => {
+  safeIpcHandle("miniWindow:isOpen", () => {
     return miniWindow !== null && !miniWindow.isDestroyed() && miniWindow.isVisible()
   })
 
   // ========== 桌面歌词窗口 ==========
-  ipcMain.handle("lyricsWindow:open", () => {
+  safeIpcHandle("lyricsWindow:open", () => {
     if (!lyricsWindow || lyricsWindow.isDestroyed()) {
       createLyricsWindow()
     } else {
@@ -484,16 +502,16 @@ function registerIpcHandlers(): void {
     return true
   })
 
-  ipcMain.handle("lyricsWindow:close", () => {
+  safeIpcHandle("lyricsWindow:close", () => {
     closeLyricsWindow()
     return true
   })
 
-  ipcMain.handle("lyricsWindow:isOpen", () => {
+  safeIpcHandle("lyricsWindow:isOpen", () => {
     return lyricsWindow !== null && !lyricsWindow.isDestroyed() && lyricsWindow.isVisible()
   })
 
-  ipcMain.handle("lyricsWindow:setAlwaysOnTop", (_event, flag: boolean) => {
+  safeIpcHandle("lyricsWindow:setAlwaysOnTop", (_event, flag: boolean) => {
     if (lyricsWindow && !lyricsWindow.isDestroyed()) {
       lyricsWindow.setAlwaysOnTop(flag)
       return true
@@ -501,7 +519,7 @@ function registerIpcHandlers(): void {
     return false
   })
 
-  ipcMain.handle("lyricsWindow:setLocked", (_event, locked: boolean) => {
+  safeIpcHandle("lyricsWindow:setLocked", (_event, locked: boolean) => {
     if (lyricsWindow && !lyricsWindow.isDestroyed()) {
       lyricsWindow.setIgnoreMouseEvents(locked, { forward: true })
       return true
@@ -592,10 +610,10 @@ function registerIpcHandlers(): void {
     nativeTheme.themeSource = isDark ? "dark" : "light"
   })
 
-  ipcMain.handle("theme:shouldUseDarkColors", () => nativeTheme.shouldUseDarkColors)
+  safeIpcHandle("theme:shouldUseDarkColors", () => nativeTheme.shouldUseDarkColors)
 
   // 注册扫描相关处理器
-  // registerScanHandlers(mainWindow)
+  registerScanHandlers(mainWindow)
 
 }
 

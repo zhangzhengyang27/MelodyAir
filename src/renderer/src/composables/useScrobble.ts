@@ -12,6 +12,7 @@ export function useScrobble(deps: {
 }) {
   let scrobbleSubmitted = false
   let scrobblePlayedTime = 0
+  let lastAccumulateTimestamp = 0
 
   /**
    * 重置 scrobble 追踪状态（切歌时调用）
@@ -19,14 +20,23 @@ export function useScrobble(deps: {
   function resetScrobbleState(): void {
     scrobbleSubmitted = false
     scrobblePlayedTime = 0
+    lastAccumulateTimestamp = 0
   }
 
   /**
    * 累加已播放时间（进度回调时调用）
-   * 注意：rAF 模式下约 66ms 一次，这里粗略按 0.066s 累加
+   * 使用实际时间戳差值，避免 rAF 间隔不固定导致的统计偏差
    */
-  function accumulatePlayedTime(deltaMs = 66): void {
-    scrobblePlayedTime += deltaMs / 1000
+  function accumulatePlayedTime(): void {
+    const now = Date.now()
+    if (lastAccumulateTimestamp > 0) {
+      const delta = now - lastAccumulateTimestamp
+      // 异常值保护：间隔超过 10 秒（如标签页切后台）不计入
+      if (delta > 0 && delta <= 10000) {
+        scrobblePlayedTime += delta / 1000
+      }
+    }
+    lastAccumulateTimestamp = now
   }
 
   /**

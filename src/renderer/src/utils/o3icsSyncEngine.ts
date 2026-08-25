@@ -1,4 +1,4 @@
-import type { ParsedLyricLine, LyricsSyncConfig, LyricsSyncResult } from '@/types/o3ics'
+import type { ParsedLyricLine, LyricsSyncConfig, LyricsSyncResult } from '@/types/lyrics'
 
 export class LyricsSyncEngine {
   private lines: ParsedLyricLine[] = []

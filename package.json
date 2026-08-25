@@ -43,6 +43,7 @@
     "electron-vite": "^5.0",
     "eslint": "^9.39.4",
     "eslint-plugin-vue": "^10.8.0",
+    "playwright": "^1.59.1",
     "tailwindcss": "^4.1",
     "typescript": "^5.9",
     "typescript-eslint": "^8.58.1",

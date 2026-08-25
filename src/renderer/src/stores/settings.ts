@@ -27,6 +27,7 @@ export interface SettingsState {
   musicQuality: MusicQuality
   autoPlay: boolean
   fadeDuration: number // 淡入淡出时长(ms)
+  playbackSpeed: number // 播放速率 (0.5 - 2)
 
   // 缓存设置
   enableCache: boolean
@@ -48,6 +49,11 @@ export interface SettingsState {
   minimizeToTray: boolean
   globalShortcut: boolean
   autoLaunch: boolean
+  enableDesktopNotification: boolean
+  customShortcutsEnabled: boolean
+  shortcutPlayPause: string
+  shortcutPrev: string
+  shortcutNext: string
 
   // 网络设置
   apiBase: string

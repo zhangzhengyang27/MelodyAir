@@ -27,7 +27,7 @@ export const useLyricsStore = defineStore('lyrics', () => {
   const lines = ref<ParsedLyricLine[]>([])
   const currentIndex = ref(-1)
 
-  const displayMode = ref<LyricsDisplayMode>(getStorage('lyrics-display-mode', 'compact'))
+  const displayMode = ref<LyricsDisplayMode>(getStorage('lyrics-display-mode', 'expanded'))
   const fontSize = ref(getStorage('lyrics-font-size', 16))
   const lineHeight = ref(getStorage('lyrics-line-height', 1.4))
   const offsetMs = ref(getStorage('lyrics-offset-ms', 0))

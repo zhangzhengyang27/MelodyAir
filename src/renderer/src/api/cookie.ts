@@ -48,7 +48,8 @@ export function removeCookieFromStorage(name: string): void {
  */
 export function parseAndStoreCookies(cookieStr: string): void {
   if (!cookieStr) return
-  const cookies = cookieStr.split(/;;|;(?![a-zA-Z])/)
+  // 按分号分割，兼容 ;; 和 ; 以及分号后有无空格的情况
+  const cookies = cookieStr.split(/;\s*/)
   for (const c of cookies) {
     const trimmed = c.trim()
     if (!trimmed) continue

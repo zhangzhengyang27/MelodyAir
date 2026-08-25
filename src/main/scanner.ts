@@ -1,10 +1,21 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import * as fs from 'fs/promises'
+import { createReadStream } from 'fs'
 import * as path from 'path'
 import * as crypto from 'crypto'
 
 // 支持的音频格式
 const SUPPORTED_FORMATS = ['.mp3', '.flac', '.wav', '.m4a', '.aac', '.ogg', '.wma']
+
+// 并发解析元数据的并发数
+const PARSE_CONCURRENCY = 8
+
+// 简易日志（主进程）
+const log = {
+  error: (msg: string, ...args: unknown[]) => console.error(`[scanner] ${msg}`, ...args),
+  warn: (msg: string, ...args: unknown[]) => console.warn(`[scanner] ${msg}`, ...args),
+  info: (msg: string, ...args: unknown[]) => console.log(`[scanner] ${msg}`, ...args),
+}
 
 export interface ScanProgress {
   status: 'scanning' | 'parsing' | 'completed' | 'error'
@@ -77,7 +88,7 @@ async function scanDirectory(dirPath: string, onProgress?: (file: string) => voi
         }
       }
     } catch (error) {
-      console.error(`Error scanning directory ${dir}:`, error)
+      log.error(`Error scanning directory ${dir}:`, error)
     }
   }
 
@@ -185,36 +196,64 @@ export function registerScanHandlers(mainWindow: BrowserWindow | null): void {
         }
       }
 
-      // 第二阶段：解析元数据
-      const results: AudioFileMetadata[] = []
+      // 第二阶段：并发解析元数据（并发池，避免一次性创建过多 Promise）
+      const results: AudioFileMetadata[] = new Array(audioFiles.length)
       let successCount = 0
       let errorCount = 0
+      let parsedCount = 0
+      let lastProgressSend = 0
 
-      for (let i = 0; i < audioFiles.length; i++) {
-        if (currentScanAborted) break
+      const parseWithPool = async (files: string[]): Promise<void> => {
+        let nextIndex = 0
 
-        const filePath = audioFiles[i]
-        const metadata = await parseAudioFile(filePath)
-        results.push(metadata)
+        const worker = async (): Promise<void> => {
+          while (nextIndex < files.length) {
+            if (currentScanAborted) return
+            const i = nextIndex++
+            const filePath = files[i]
+            try {
+              const metadata = await parseAudioFile(filePath)
+              results[i] = metadata
+              if (metadata.error) {
+                errorCount++
+              } else {
+                successCount++
+              }
+            } catch (e) {
+              results[i] = {
+                filePath,
+                fileName: path.basename(filePath),
+                fileSize: 0,
+                error: e instanceof Error ? e.message : 'Unknown error'
+              }
+              errorCount++
+            }
+            parsedCount++
 
-        if (metadata.error) {
-          errorCount++
-        } else {
-          successCount++
-        }
+            // 每解析 10 个或超过 500ms 发送一次进度
+            const now = Date.now()
+            if (parsedCount % 10 === 0 || now - lastProgressSend > 500 || parsedCount === files.length) {
+              lastProgressSend = now
+              mainWindow?.webContents.send('scan:progress', {
+                status: 'parsing',
+                currentFile: filePath,
+                scannedCount: files.length,
+                totalCount: files.length,
+                parsedCount,
+                errorCount
+              } as ScanProgress)
+            }
+          }
+        };
 
-        // 每解析 10 个文件发送一次进度
-        if (i % 10 === 0 || i === audioFiles.length - 1) {
-          mainWindow?.webContents.send('scan:progress', {
-            status: 'parsing',
-            currentFile: filePath,
-            scannedCount: audioFiles.length,
-            totalCount: audioFiles.length,
-            parsedCount: i + 1,
-            errorCount
-          } as ScanProgress)
-        }
-      }
+        const workers = Array.from(
+          { length: Math.min(PARSE_CONCURRENCY, files.length) },
+          () => worker()
+        )
+        await Promise.all(workers)
+      };
+
+      await parseWithPool(audioFiles)
 
       const scanResult: ScanResult = {
         files: results,
@@ -268,22 +307,28 @@ export function registerScanHandlers(mainWindow: BrowserWindow | null): void {
       }
       return null
     } catch (error) {
-      console.error('Failed to extract cover:', error)
+      log.error('Failed to extract cover:', error)
       return null
     }
   })
 
-  // 计算文件校验和
+  // 计算文件校验和（流式读取，避免大文件内存溢出）
   ipcMain.handle('scan:calculateChecksum', async (_event, filePath: string) => {
-    try {
-      const fileBuffer = await fs.readFile(filePath)
-      const hash = crypto.createHash('md5')
-      hash.update(fileBuffer)
-      return hash.digest('hex')
-    } catch (error) {
-      console.error('Failed to calculate checksum:', error)
-      return null
-    }
+    return new Promise<string | null>((resolve) => {
+      try {
+        const hash = crypto.createHash('md5')
+        const stream = createReadStream(filePath)
+        stream.on('data', (chunk: Buffer) => hash.update(chunk))
+        stream.on('end', () => resolve(hash.digest('hex')))
+        stream.on('error', (error) => {
+          log.error('Failed to calculate checksum:', error)
+          resolve(null)
+        })
+      } catch (error) {
+        log.error('Failed to calculate checksum:', error)
+        resolve(null)
+      }
+    })
   })
 
   // 保存封面图片
@@ -303,7 +348,7 @@ export function registerScanHandlers(mainWindow: BrowserWindow | null): void {
 
       return coverPath
     } catch (error) {
-      console.error('Failed to save cover:', error)
+      log.error('Failed to save cover:', error)
       return null
     }
   })

@@ -8,7 +8,6 @@ import { usePlayerCache } from '../composables/usePlayerCache'
 import { useScrobble } from '../composables/useScrobble'
 import { useMediaSession } from '../composables/useMediaSession'
 import { usePlaybackProgress } from '../composables/usePlaybackProgress'
-import { useDesktopNotification } from '../composables/useDesktopNotification'
 import { getStorage, setStorage } from '../utils/storage'
 import { useSettingsStore } from './settings'
 import { useLyricsStore } from './lyrics'
@@ -76,6 +75,13 @@ export const usePlayerStore = defineStore('player', () => {
   const createdBlobUrls: string[] = []
   const activeBlobUrl = ref<string | null>(null)
 
+  // IPC 发送节流（避免每帧都向主进程发消息）
+  let lastProgressIpcTime = 0
+  let lastLyricsIpcTime = 0
+  let lastLyricText = ''
+  const PROGRESS_IPC_INTERVAL = 300  // 任务栏进度 300ms
+  const LYRICS_IPC_INTERVAL = 500    // Touch Bar 歌词 500ms
+
   // ==================== 计算属性 ====================
   const currentSong = computed(() => {
     if (isPersonalFM.value && personalFMTrack.value) {
@@ -116,11 +122,6 @@ export const usePlayerStore = defineStore('player', () => {
     currentTime,
     playlist,
   })
-  const desktopNotification = useDesktopNotification()
-
-  // 通知节流：避免快速切歌时刷屏
-  let lastNotificationTime = 0
-  const NOTIFICATION_THROTTLE_MS = 2000 // 2秒内最多一次通知
 
   // ==================== 音频引擎 ====================
   function initAudioEngine(): void {
@@ -143,15 +144,25 @@ export const usePlayerStore = defineStore('player', () => {
           scrobbleHelper.checkAndSubmitScrobble()
           mediaSessionHelper.updateMediaSessionPlaybackState()
 
-          // Send progress and lyrics to Touch Bar
+          // Send progress and lyrics to Touch Bar（节流，避免每帧 IPC）
           if (window.electronAPI?.sendIpcEvent) {
-            window.electronAPI.sendIpcEvent('player:updateProgress', time)
+            const now = Date.now()
+            if (now - lastProgressIpcTime >= PROGRESS_IPC_INTERVAL) {
+              lastProgressIpcTime = now
+              window.electronAPI.sendIpcEvent('player:updateProgress', time)
+            }
 
             const lyricsStore = useLyricsStore()
-            window.electronAPI.sendIpcEvent('player:updateLyrics', {
-              currentText: lyricsStore.currentLine?.text || '',
-              hasLyrics: lyricsStore.hasLyrics
-            })
+            const lyricText = lyricsStore.currentLine?.text || ''
+            // 歌词变化时立即发送，否则按间隔节流
+            if (lyricText !== lastLyricText || now - lastLyricsIpcTime >= LYRICS_IPC_INTERVAL) {
+              lastLyricsIpcTime = now
+              lastLyricText = lyricText
+              window.electronAPI.sendIpcEvent('player:updateLyrics', {
+                currentText: lyricText,
+                hasLyrics: lyricsStore.hasLyrics
+              })
+            }
           }
         },
         onError: (error: Error) => {
@@ -222,18 +233,6 @@ export const usePlayerStore = defineStore('player', () => {
         window.electronAPI.sendIpcEvent('player:updateLikeState', isLiked)
       }
 
-      // 桌面通知（带节流）
-      const now = Date.now()
-      if (now - lastNotificationTime >= NOTIFICATION_THROTTLE_MS) {
-        lastNotificationTime = now
-        void desktopNotification.notify({
-          title: '正在播放',
-          body: `${song.name} - ${song.artists.map(a => a.name).join(', ')}`,
-          tag: `track-${song.id}`,
-          icon: song.album.picUrl,
-        })
-      }
-
       // 预缓存下一首
       playerCache.preloadNextTrack({
         playNextList, isPersonalFM, personalFMNextTrack, playlist, currentIndex,
@@ -290,7 +289,10 @@ export const usePlayerStore = defineStore('player', () => {
       sleepTimerTimeoutId.value = window.setTimeout(() => {
         if (sleepTimerDeadline.value) finishSleepTimer()
       }, remaining)
-      sleepTimerTickId.value = window.setInterval(syncSleepTimerState, 1000)
+    } else if (sleepTimerDeadline.value && sleepTimerDeadline.value <= Date.now()) {
+      // 已过期的定时，清除
+      sleepTimerDeadline.value = null
+      setStorage('sleep-timer-deadline', null)
     }
   }
 
@@ -421,10 +423,6 @@ export const usePlayerStore = defineStore('player', () => {
     return removedCount
   }
 
-  function getPlayHistory() {
-    return playHistory.value
-  }
-
   function addToPlayNext(song: Song): void {
     if (!playNextList.value.find((s) => s.id === song.id)) {
       playNextList.value.push(song)
@@ -433,6 +431,10 @@ export const usePlayerStore = defineStore('player', () => {
 
   function insertNext(song: Song): void {
     const existingIndex = playlist.value.findIndex((s) => s.id === song.id)
+
+    // 如果就是当前播放歌曲，无需移动
+    if (existingIndex === currentIndex.value) return
+
     if (existingIndex >= 0 && existingIndex !== currentIndex.value + 1) {
       playlist.value.splice(existingIndex, 1)
       if (existingIndex < currentIndex.value) {
@@ -516,10 +518,19 @@ export const usePlayerStore = defineStore('player', () => {
         break
       case 'loop':
       case 'sequence':
-      default:
+      default: {
+        const isLast = currentIndex.value >= playlist.value.length - 1
+        if (playMode.value === 'sequence' && isLast) {
+          // 顺序播放到最后一首，停止播放
+          stopPlayback()
+          playing.value = false
+          status.value = 'paused'
+          break
+        }
         currentIndex.value = (currentIndex.value + 1) % playlist.value.length
         if (currentSong.value) await playSong(currentSong.value)
         break
+      }
     }
   }
 
@@ -535,15 +546,20 @@ export const usePlayerStore = defineStore('player', () => {
     switch (playMode.value) {
       case 'random':
         if (shuffledList.value.length > 1) {
-          let prevIndex: number
+          const currentSongId = currentSong.value?.id
+          let prevSong: Song | undefined
+          let attempts = 0
           do {
-            prevIndex = Math.floor(Math.random() * shuffledList.value.length)
-          } while (prevIndex === currentIndex.value && shuffledList.value.length > 1)
-          const prevSong = shuffledList.value[prevIndex]
-          const originalIndex = playlist.value.findIndex((s) => s.id === prevSong.id)
-          if (originalIndex >= 0) {
-            currentIndex.value = originalIndex
-            await playSong(prevSong)
+            const prevIndex = Math.floor(Math.random() * shuffledList.value.length)
+            prevSong = shuffledList.value[prevIndex]
+            attempts++
+          } while (prevSong?.id === currentSongId && attempts < 10)
+          if (prevSong) {
+            const originalIndex = playlist.value.findIndex((s) => s.id === prevSong!.id)
+            if (originalIndex >= 0) {
+              currentIndex.value = originalIndex
+              await playSong(prevSong)
+            }
           }
         }
         break
@@ -606,24 +622,6 @@ export const usePlayerStore = defineStore('player', () => {
     if (audioEngine) muted.value = audioEngine.toggleMute()
   }
 
-  function clearSleepTimerHandles(): void {
-    if (sleepTimerTimeoutId.value !== null) {
-      window.clearTimeout(sleepTimerTimeoutId.value)
-      sleepTimerTimeoutId.value = null
-    }
-    if (sleepTimerTickId.value !== null) {
-      window.clearInterval(sleepTimerTickId.value)
-      sleepTimerTickId.value = null
-    }
-  }
-
-  function syncSleepTimerState(): void {
-    if (!sleepTimerDeadline.value) return
-    if (Date.now() >= sleepTimerDeadline.value) {
-      finishSleepTimer()
-    }
-  }
-
   function finishSleepTimer(): void {
     clearSleepTimerHandles()
     sleepTimerDeadline.value = null
@@ -644,8 +642,6 @@ export const usePlayerStore = defineStore('player', () => {
     sleepTimerTimeoutId.value = window.setTimeout(() => {
       if (sleepTimerDeadline.value) finishSleepTimer()
     }, safeMinutes * 60 * 1000)
-
-    sleepTimerTickId.value = window.setInterval(syncSleepTimerState, 1000)
   }
 
   function clearSleepTimer(): void {
@@ -661,9 +657,13 @@ export const usePlayerStore = defineStore('player', () => {
 
   async function handlePlayEnd(): Promise<void> {
     if (sleepTimerDeadline.value && Date.now() >= sleepTimerDeadline.value) {
-      setSleepTimerDeadline(null)
+      clearSleepTimerHandles()
+      sleepTimerDeadline.value = null
+      setStorage('sleep-timer-deadline', null)
       showToast('播放已因睡眠定时暂停', { type: 'info', dedupeKey: 'sleep-timer' })
       stopPlayback()
+      playing.value = false
+      status.value = 'paused'
       return
     }
     await playNext()
@@ -681,9 +681,10 @@ export const usePlayerStore = defineStore('player', () => {
   async function restorePlayback(): Promise<void> {
     if (playlist.value.length === 0 || currentIndex.value < 0) return
 
-    const savedProgress = playbackProgress.getSavedPlaybackProgress()
     const song = playlist.value[currentIndex.value]
     if (!song) return
+
+    const savedProgress = playbackProgress.getSavedPlaybackProgress(song.id)
 
     try {
       initAudioEngine()
@@ -698,15 +699,12 @@ export const usePlayerStore = defineStore('player', () => {
       updateCurrentSongCache(song)
       mediaSessionHelper.updateMediaSession(song)
 
-      if (savedProgress > 0) {
-        setTimeout(() => {
-          if (audioEngine && savedProgress < duration.value) {
-            seek(savedProgress)
-          }
-        }, 500)
+      // 先恢复播放位置，再暂停（避免 pause 后 seek 不生效）
+      if (savedProgress > 0 && savedProgress < audioEngine!.getDuration()) {
+        audioEngine!.seek(savedProgress)
       }
 
-      if (audioEngine) audioEngine.pause()
+      audioEngine!.pause()
 
       if (window.electronAPI?.sendIpcEvent) {
         window.electronAPI.sendIpcEvent('player:updateTrack', {
@@ -717,12 +715,6 @@ export const usePlayerStore = defineStore('player', () => {
           duration: song.duration
         })
       }
-      void desktopNotification.notify({
-        title: '恢复播放',
-        body: `${song.name} - ${song.artists.map(a => a.name).join(', ')}`,
-        tag: `restore-${song.id}`,
-        icon: song.album.picUrl,
-      })
     } catch (e) {
       logger.error('player', 'Failed to restore playback:', e)
     }
