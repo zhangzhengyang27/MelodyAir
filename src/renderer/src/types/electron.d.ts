@@ -12,6 +12,26 @@ export interface ElectronAPI {
   onIpcEvent: (channel: string, callback: (...args: any[]) => void) => () => void
   onPlayerAction: (callback: (action: 'toggle' | 'next' | 'prev' | 'toggleLike') => void) => () => void
 
+  // 音频引擎控制
+  audioPlay: (url: string, songId: string | number) => void
+  audioPause: () => void
+  audioResume: () => void
+  audioToggle: () => void
+  audioSeek: (time: number) => void
+  audioSetVolume: (volume: number) => void
+  audioToggleMute: () => void
+  audioSetPlaybackRate: (rate: number) => void
+  audioSetEqualizerBand: (bandIndex: number, gain: number) => void
+  audioSetEqualizerBands: (gains: number[]) => void
+  audioSetEqualizerEnabled: (enabled: boolean) => void
+  audioStop: () => void
+  onAudioTimeUpdate: (callback: (data: { currentTime: number; duration: number }) => void) => () => void
+  onAudioStateChange: (callback: (data: { status: string }) => void) => () => void
+  onAudioEnded: (callback: () => void) => () => void
+  onAudioError: (callback: (data: { message: string }) => void) => () => void
+  onAudioBuffered: (callback: (data: { progress: number }) => void) => () => void
+  onAudioReady: (callback: () => void) => () => void
+
   // 应用设置
   setAutoLaunch: (enable: boolean) => Promise<boolean>
   setMinimizeToTray: (enable: boolean) => Promise<boolean>
@@ -30,6 +50,7 @@ export interface ElectronAPI {
   isLyricsWindowOpen: () => Promise<boolean>
   setLyricsWindowAlwaysOnTop: (flag: boolean) => Promise<boolean>
   setLyricsWindowLocked: (locked: boolean) => Promise<boolean>
+  setLyricsWindowIgnoreMouse: (ignore: boolean) => Promise<boolean>
 
   // 主题同步
   setDarkMode: (isDark: boolean) => void

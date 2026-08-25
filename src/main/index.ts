@@ -7,7 +7,8 @@ import {
   Menu,
   nativeImage,
   globalShortcut,
-  nativeTheme
+  nativeTheme,
+  screen
 } from "electron"
 import { join } from "path"
 import { electronApp, optimizer, is } from "@electron-toolkit/utils"
@@ -37,6 +38,7 @@ interface TrayState {
 let mainWindow: BrowserWindow | null = null
 let miniWindow: BrowserWindow | null = null
 let lyricsWindow: BrowserWindow | null = null
+let audioEngineWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let minimizeToTray = true
 let globalShortcutsEnabled = true
@@ -227,9 +229,26 @@ function createLyricsWindow(): BrowserWindow {
     }
   })
 
+  // 设置默认位置：屏幕下方居中（任务栏/Dock 上方）
+  const display = screen.getPrimaryDisplay()
+  const workArea = display.workAreaSize
+  const windowWidth = 600
+  const windowHeight = 80
+  const x = Math.floor((workArea.width - windowWidth) / 2)
+  const y = workArea.height - windowHeight // 紧贴底部
+  lyricsWindow.setPosition(x, y)
+
   // 窗口准备好后显示
   lyricsWindow.on("ready-to-show", () => {
     lyricsWindow!.show()
+  })
+
+  // 窗口加载完成后，主动推送当前歌曲和播放状态（解决后打开窗口收不到历史事件的问题）
+  lyricsWindow.webContents.on("did-finish-load", () => {
+    if (trayState.currentTrack) {
+      lyricsWindow!.webContents.send("player:trackUpdated", trayState.currentTrack)
+    }
+    lyricsWindow!.webContents.send("player:playStateUpdated", trayState.isPlaying)
   })
 
   // 加载桌面歌词窗口页面
@@ -252,6 +271,37 @@ function closeLyricsWindow(): void {
     lyricsWindow.close()
     lyricsWindow = null
   }
+}
+
+/**
+ * 创建隐藏的音频引擎窗口
+ * 全局唯一的音频播放引擎，所有窗口通过 IPC 共享
+ */
+function createAudioEngineWindow(): void {
+  if (audioEngineWindow && !audioEngineWindow.isDestroyed()) {
+    return
+  }
+
+  audioEngineWindow = new BrowserWindow({
+    width: 1,
+    height: 1,
+    show: false,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      webSecurity: false
+    }
+  })
+
+  // 加载音频引擎页面
+  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+    audioEngineWindow.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/audio-engine.html`)
+  } else {
+    audioEngineWindow.loadFile(join(__dirname, "../renderer/audio-engine.html"))
+  }
+
+  console.log("[AudioEngine] Window created")
 }
 
 // ==================== 系统托盘 ====================
@@ -414,6 +464,40 @@ function quitApp(): void {
  * 借鉴 YesPlayMusic 的 IPC 设计模式
  */
 function registerIpcHandlers(): void {
+  // ========== 音频引擎 IPC 中转 ==========
+  // 渲染进程 -> 音频引擎窗口 的命令转发
+  const audioCommands = [
+    'audio:play', 'audio:pause', 'audio:resume', 'audio:toggle',
+    'audio:seek', 'audio:setVolume', 'audio:toggleMute',
+    'audio:setPlaybackRate', 'audio:setEqualizerBand',
+    'audio:setEqualizerBands', 'audio:setEqualizerEnabled', 'audio:stop'
+  ]
+
+  audioCommands.forEach((channel) => {
+    ipcMain.on(channel, (_event, params) => {
+      if (audioEngineWindow && !audioEngineWindow.isDestroyed()) {
+        audioEngineWindow.webContents.send(channel, params)
+      }
+    })
+  })
+
+  // 音频引擎窗口 -> 所有窗口 的状态广播
+  const audioStateEvents = [
+    'audio:ready', 'audio:timeUpdate', 'audio:stateChange',
+    'audio:ended', 'audio:error', 'audio:buffered'
+  ]
+
+  audioStateEvents.forEach((channel) => {
+    ipcMain.on(channel, (_event, data) => {
+      // 广播到所有窗口（除了音频引擎窗口自己）
+      BrowserWindow.getAllWindows().forEach((win) => {
+        if (win !== audioEngineWindow && !win.isDestroyed()) {
+          win.webContents.send(channel, data)
+        }
+      })
+    })
+  })
+
   // ========== 窗口控制 ==========
   ipcMain.on("window:minimize", () => mainWindow?.minimize())
 
@@ -522,6 +606,19 @@ function registerIpcHandlers(): void {
   safeIpcHandle("lyricsWindow:setLocked", (_event, locked: boolean) => {
     if (lyricsWindow && !lyricsWindow.isDestroyed()) {
       lyricsWindow.setIgnoreMouseEvents(locked, { forward: true })
+      return true
+    }
+    return false
+  })
+
+  // 临时设置是否忽略鼠标事件（用于锁定状态下控制栏交互）
+  safeIpcHandle("lyricsWindow:setIgnoreMouse", (_event, ignore: boolean) => {
+    if (lyricsWindow && !lyricsWindow.isDestroyed()) {
+      if (ignore) {
+        lyricsWindow.setIgnoreMouseEvents(true, { forward: true })
+      } else {
+        lyricsWindow.setIgnoreMouseEvents(false)
+      }
       return true
     }
     return false
@@ -655,6 +752,7 @@ app.whenReady().then(() => {
   })
 
   // 初始化核心模块
+  createAudioEngineWindow()
   registerIpcHandlers()
   createWindow()
   createTray()

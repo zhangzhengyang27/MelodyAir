@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
-import { AudioEngine, type PlayMode, type PlayerStatus } from '../utils/player'
+import type { PlayMode, PlayerStatus } from '../utils/player'
 import { showToast } from '../composables/useToast'
 import { logger } from '../utils/logger'
 import { playerDefaults, migrateWithDefaults } from './defaults'
@@ -12,6 +12,7 @@ import { getStorage, setStorage } from '../utils/storage'
 import { useSettingsStore } from './settings'
 import { useLyricsStore } from './lyrics'
 import { useUserStore } from './user'
+import { LyricsSyncEngine } from '../utils/o3icsSyncEngine'
 
 export interface Song {
   id: number
@@ -69,9 +70,6 @@ export const usePlayerStore = defineStore('player', () => {
   const sleepTimerTickId = ref<number | null>(null)
   const playHistory = ref<Array<{ song: Song; playedAt: number; playCount: number }>>([])
 
-  // 音频引擎实例
-  let audioEngine: AudioEngine | null = null
-
   // Blob URL 内存管理
   const createdBlobUrls: string[] = []
   const activeBlobUrl = ref<string | null>(null)
@@ -82,6 +80,20 @@ export const usePlayerStore = defineStore('player', () => {
   let lastLyricText = ''
   const PROGRESS_IPC_INTERVAL = 300  // 任务栏进度 300ms
   const LYRICS_IPC_INTERVAL = 500    // Touch Bar 歌词 500ms
+
+  // 音频事件监听器清理函数
+  let audioTimeUpdateCleanup: (() => void) | null = null
+  let audioStateChangeCleanup: (() => void) | null = null
+  let audioEndedCleanup: (() => void) | null = null
+  let audioErrorCleanup: (() => void) | null = null
+  let audioBufferedCleanup: (() => void) | null = null
+
+  // 歌词同步引擎（全局，不依赖组件生命周期）
+  const lyricsSyncEngine = new LyricsSyncEngine({
+    offsetMs: 0,
+    toleranceMs: 120,
+  })
+  let lyricsLinesWatcher: (() => void) | null = null
 
   // ==================== 计算属性 ====================
   const currentSong = computed(() => {
@@ -124,64 +136,92 @@ export const usePlayerStore = defineStore('player', () => {
     playlist,
   })
 
-  // ==================== 音频引擎 ====================
-  function initAudioEngine(): void {
-    if (!audioEngine) {
-      audioEngine = new AudioEngine({
-        volume: volume.value,
-        fadeDuration: 200,
-        playbackRate: settingsStore.playbackSpeed,
-        autoNext: true,
-        onEnd: () => handlePlayEnd(),
-        onPlayStateChange: (newStatus: PlayerStatus) => {
-          status.value = newStatus
-          playing.value = newStatus === 'playing'
-        },
-        onProgress: (time: number, dur: number) => {
-          currentTime.value = time
-          duration.value = dur
-          playbackProgress.savePlaybackProgress()
-          scrobbleHelper.accumulatePlayedTime()
-          scrobbleHelper.checkAndSubmitScrobble()
-          mediaSessionHelper.updateMediaSessionPlaybackState()
+  // ==================== 音频引擎事件监听 ====================
+  function initAudioEventListeners(): void {
+    if (!window.electronAPI) return
 
-          // Send progress and lyrics to Touch Bar（节流，避免每帧 IPC）
-          if (window.electronAPI?.sendIpcEvent) {
-            const now = Date.now()
-            if (now - lastProgressIpcTime >= PROGRESS_IPC_INTERVAL) {
-              lastProgressIpcTime = now
-              window.electronAPI.sendIpcEvent('player:updateProgress', time)
-            }
+    // 时间更新
+    audioTimeUpdateCleanup = window.electronAPI.onAudioTimeUpdate((data) => {
+      currentTime.value = data.currentTime
+      duration.value = data.duration
 
-            const lyricsStore = useLyricsStore()
-            const lyricText = lyricsStore.currentLine?.text || ''
-            // 歌词变化时立即发送，否则按间隔节流
-            if (lyricText !== lastLyricText || now - lastLyricsIpcTime >= LYRICS_IPC_INTERVAL) {
-              lastLyricsIpcTime = now
-              lastLyricText = lyricText
-              window.electronAPI.sendIpcEvent('player:updateLyrics', {
-                currentText: lyricText,
-                hasLyrics: lyricsStore.hasLyrics
-              })
-            }
-          }
-        },
-        onBuffered: (progress: number) => {
-          bufferedProgress.value = progress
-        },
-        onError: (error: Error) => {
-          logger.error('player', 'Player error:', error)
-          status.value = 'error'
-          playing.value = false
+      // 全局歌词同步（不依赖组件，所有页面都生效）
+      const lyricsStore = useLyricsStore()
+      if (lyricsStore.hasLyrics && !lyricsStore.isDraggingProgress) {
+        const result = lyricsSyncEngine.update(data.currentTime * 1000)
+        if (result.changed) {
+          lyricsStore.setCurrentIndex(result.index)
         }
-      })
-    }
+      }
+
+      playbackProgress.savePlaybackProgress()
+      scrobbleHelper.accumulatePlayedTime()
+      scrobbleHelper.checkAndSubmitScrobble()
+      mediaSessionHelper.updateMediaSessionPlaybackState()
+
+      // Send progress and lyrics to Touch Bar（节流，避免每帧 IPC）
+      if (window.electronAPI?.sendIpcEvent) {
+        const now = Date.now()
+        if (now - lastProgressIpcTime >= PROGRESS_IPC_INTERVAL) {
+          lastProgressIpcTime = now
+          window.electronAPI.sendIpcEvent('player:updateProgress', data.currentTime)
+        }
+
+        const lyricText = lyricsStore.currentLine?.text || ''
+        // 歌词变化时立即发送，否则按间隔节流
+        if (lyricText !== lastLyricText || now - lastLyricsIpcTime >= LYRICS_IPC_INTERVAL) {
+          lastLyricsIpcTime = now
+          lastLyricText = lyricText
+          window.electronAPI.sendIpcEvent('player:updateLyrics', {
+            currentText: lyricText,
+            hasLyrics: lyricsStore.hasLyrics
+          })
+        }
+      }
+    })
+
+    // 监听歌词行变化（切换歌曲时更新同步引擎）
+    const lyricsStoreForWatch = useLyricsStore()
+    lyricsLinesWatcher = watch(
+      () => lyricsStoreForWatch.lines,
+      (lines) => {
+        lyricsSyncEngine.setLines(lines)
+        lyricsSyncEngine.reset()
+        lyricsStoreForWatch.setCurrentIndex(-1)
+      }
+    )
+
+    // 状态变化
+    audioStateChangeCleanup = window.electronAPI.onAudioStateChange((data) => {
+      status.value = data.status as PlayerStatus
+      playing.value = data.status === 'playing'
+    })
+
+    // 播放结束
+    audioEndedCleanup = window.electronAPI.onAudioEnded(() => {
+      handlePlayEnd()
+    })
+
+    // 错误
+    audioErrorCleanup = window.electronAPI.onAudioError((data) => {
+      logger.error('player', 'Player error:', data.message)
+      status.value = 'error'
+      playing.value = false
+    })
+
+    // 缓冲进度
+    audioBufferedCleanup = window.electronAPI.onAudioBuffered((data) => {
+      bufferedProgress.value = data.progress
+    })
+
+    logger.info('player', 'Audio event listeners initialized')
   }
+
+  // 初始化音频事件监听（store 创建时执行）
+  initAudioEventListeners()
 
   // ==================== 核心播放逻辑 ====================
   async function playSong(song: Song): Promise<void> {
-    initAudioEngine()
-
     // 切歌时释放旧 Blob URL
     playerCache.releaseStaleBlobUrls()
     // 重置 scrobble 追踪
@@ -206,7 +246,8 @@ export const usePlayerStore = defineStore('player', () => {
       }
 
       logger.info('player', `开始播放: "${song.name}", url=${url.slice(0, 100)}...`)
-      await audioEngine!.play(url)
+      // 通过 IPC 调用隐藏窗口的音频引擎播放
+      window.electronAPI?.audioPlay(url, song.id)
       activeBlobUrl.value = url.startsWith('blob:') ? url : null
       updateCurrentSongCache(song)
 
@@ -583,13 +624,8 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function togglePlaying(): void {
-    initAudioEngine()
-    if (!audioEngine || !currentSong.value) return
-    if (playing.value) {
-      audioEngine.pause()
-    } else {
-      audioEngine.resume()
-    }
+    if (!currentSong.value) return
+    window.electronAPI?.audioToggle()
   }
 
   function togglePlayMode(): void {
@@ -601,33 +637,31 @@ export const usePlayerStore = defineStore('player', () => {
 
   function setVolume(v: number): void {
     volume.value = Math.max(0, Math.min(1, v))
-    if (audioEngine) audioEngine.setVolume(volume.value)
+    window.electronAPI?.audioSetVolume(volume.value)
   }
 
   function setPlaybackSpeed(rate: number): void {
     const safeRate = Math.max(0.5, Math.min(2, rate))
     settingsStore.playbackSpeed = safeRate
-    if (audioEngine) audioEngine.setPlaybackRate(safeRate)
+    window.electronAPI?.audioSetPlaybackRate(safeRate)
   }
 
   function setEqualizerBand(bandIndex: number, gain: number): void {
-    initAudioEngine()
-    if (audioEngine) audioEngine.setEqualizerBand(bandIndex, gain)
+    window.electronAPI?.audioSetEqualizerBand(bandIndex, gain)
   }
 
   function setEqualizerBands(gains: number[]): void {
-    initAudioEngine()
-    if (audioEngine) audioEngine.setEqualizerBands(gains)
+    window.electronAPI?.audioSetEqualizerBands(gains)
   }
 
   function setEqualizerEnabled(enabled: boolean): void {
-    initAudioEngine()
-    if (audioEngine) audioEngine.setEqualizerEnabled(enabled)
+    window.electronAPI?.audioSetEqualizerEnabled(enabled)
   }
 
   function toggleMute(): void {
-    initAudioEngine()
-    if (audioEngine) muted.value = audioEngine.toggleMute()
+    window.electronAPI?.audioToggleMute()
+    // 静音状态通过状态变化事件更新，这里先乐观更新
+    muted.value = !muted.value
   }
 
   function finishSleepTimer(): void {
@@ -660,7 +694,7 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function seek(time: number): void {
-    if (audioEngine) audioEngine.seek(time)
+    window.electronAPI?.audioSeek(time)
   }
 
   async function handlePlayEnd(): Promise<void> {
@@ -695,7 +729,6 @@ export const usePlayerStore = defineStore('player', () => {
     const savedProgress = playbackProgress.getSavedPlaybackProgress(song.id)
 
     try {
-      initAudioEngine()
       status.value = 'loading'
       const url = await playerCache.getAudioSource(song.id, true, song._localTrackId)
       if (!url) {
@@ -703,16 +736,17 @@ export const usePlayerStore = defineStore('player', () => {
         return
       }
 
-      await audioEngine!.play(url)
+      window.electronAPI?.audioPlay(url, song.id)
       updateCurrentSongCache(song)
       mediaSessionHelper.updateMediaSession(song)
 
-      // 先恢复播放位置，再暂停（避免 pause 后 seek 不生效）
-      if (savedProgress > 0 && savedProgress < audioEngine!.getDuration()) {
-        audioEngine!.seek(savedProgress)
-      }
-
-      audioEngine!.pause()
+      // 等待音频加载后恢复播放位置并暂停
+      setTimeout(() => {
+        if (savedProgress > 0) {
+          window.electronAPI?.audioSeek(savedProgress)
+        }
+        window.electronAPI?.audioPause()
+      }, 500)
 
       if (window.electronAPI?.sendIpcEvent) {
         window.electronAPI.sendIpcEvent('player:updateTrack', {
@@ -730,7 +764,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   // ==================== 停止/销毁 ====================
   function stopPlayback(): void {
-    if (audioEngine) audioEngine.stop()
+    window.electronAPI?.audioStop()
   }
 
   function setCurrentTime(time: number): void {
@@ -766,10 +800,14 @@ export const usePlayerStore = defineStore('player', () => {
   function destroy(): void {
     clearSleepTimerHandles()
     playerCache.releaseAllBlobUrls()
-    if (audioEngine) {
-      audioEngine.destroy()
-      audioEngine = null
-    }
+    // 清理音频事件监听器
+    audioTimeUpdateCleanup?.()
+    audioStateChangeCleanup?.()
+    audioEndedCleanup?.()
+    audioErrorCleanup?.()
+    audioBufferedCleanup?.()
+    // 清理歌词行监听器
+    lyricsLinesWatcher?.()
   }
 
   // Watch playing state and send to main process for Touch Bar
@@ -783,7 +821,7 @@ export const usePlayerStore = defineStore('player', () => {
     playlist, currentIndex, playing, playMode, currentTime, duration,
     volume, muted, shuffledList, playNextList, isPersonalFM,
     personalFMTrack, personalFMNextTrack, status, currentSongCache,
-    sleepTimerDeadline, playHistory, currentSong, progress,
+    sleepTimerDeadline, playHistory, currentSong, progress, bufferedProgress,
     setPlaylist, addToPlaylist, playSong, removeFromPlaylist, clearPlaylist,
     reorderPlaylist, removeDuplicates,
     addToPlayNext, insertNext, removeQueueItem, playNext, playPrev, togglePlaying, togglePlayMode,

@@ -60,11 +60,14 @@ import AppPlayer from './AppPlayer.vue'
 import PlayerFull from '@/components/player/PlayerFull.vue'
 import ToastContainer from '@/components/common/ToastContainer.vue'
 import { useLyricsSync } from '@/composables/useLyricsSync'
+import { useAutoLoadLyrics } from '@/composables/useAutoLoadLyrics'
 
 const showFullPlayer = ref(false)
 
 // Initialize global lyrics sync for Touch Bar
 useLyricsSync()
+// 全局自动加载歌词（确保所有页面都能加载歌词，桌面歌词/Touch Bar 才能同步）
+useAutoLoadLyrics()
 
 function handleClose() {
   window.electronAPI?.windowClose?.()

@@ -140,6 +140,70 @@ const api = {
     }
   },
 
+  // ==================== 音频引擎控制 ====================
+
+  /** 播放音频 */
+  audioPlay: (url: string, songId: string | number) => ipcRenderer.send('audio:play', { url, songId }),
+  /** 暂停 */
+  audioPause: () => ipcRenderer.send('audio:pause'),
+  /** 继续播放 */
+  audioResume: () => ipcRenderer.send('audio:resume'),
+  /** 切换播放/暂停 */
+  audioToggle: () => ipcRenderer.send('audio:toggle'),
+  /** 跳转 */
+  audioSeek: (time: number) => ipcRenderer.send('audio:seek', { time }),
+  /** 设置音量 */
+  audioSetVolume: (volume: number) => ipcRenderer.send('audio:setVolume', { volume }),
+  /** 切换静音 */
+  audioToggleMute: () => ipcRenderer.send('audio:toggleMute'),
+  /** 设置播放速率 */
+  audioSetPlaybackRate: (rate: number) => ipcRenderer.send('audio:setPlaybackRate', { rate }),
+  /** 设置均衡器单频段 */
+  audioSetEqualizerBand: (bandIndex: number, gain: number) => ipcRenderer.send('audio:setEqualizerBand', { bandIndex, gain }),
+  /** 批量设置均衡器 */
+  audioSetEqualizerBands: (gains: number[]) => ipcRenderer.send('audio:setEqualizerBands', { gains }),
+  /** 启用/禁用均衡器 */
+  audioSetEqualizerEnabled: (enabled: boolean) => ipcRenderer.send('audio:setEqualizerEnabled', { enabled }),
+  /** 停止播放 */
+  audioStop: () => ipcRenderer.send('audio:stop'),
+
+  /** 监听音频时间更新 */
+  onAudioTimeUpdate: (callback: (data: { currentTime: number; duration: number }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { currentTime: number; duration: number }) => callback(data)
+    ipcRenderer.on('audio:timeUpdate', handler)
+    return () => ipcRenderer.removeListener('audio:timeUpdate', handler)
+  },
+  /** 监听音频状态变化 */
+  onAudioStateChange: (callback: (data: { status: string }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { status: string }) => callback(data)
+    ipcRenderer.on('audio:stateChange', handler)
+    return () => ipcRenderer.removeListener('audio:stateChange', handler)
+  },
+  /** 监听音频播放结束 */
+  onAudioEnded: (callback: () => void): (() => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('audio:ended', handler)
+    return () => ipcRenderer.removeListener('audio:ended', handler)
+  },
+  /** 监听音频错误 */
+  onAudioError: (callback: (data: { message: string }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { message: string }) => callback(data)
+    ipcRenderer.on('audio:error', handler)
+    return () => ipcRenderer.removeListener('audio:error', handler)
+  },
+  /** 监听缓冲进度更新 */
+  onAudioBuffered: (callback: (data: { progress: number }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { progress: number }) => callback(data)
+    ipcRenderer.on('audio:buffered', handler)
+    return () => ipcRenderer.removeListener('audio:buffered', handler)
+  },
+  /** 监听音频引擎就绪 */
+  onAudioReady: (callback: () => void): (() => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('audio:ready', handler)
+    return () => ipcRenderer.removeListener('audio:ready', handler)
+  },
+
   // ==================== 应用设置 ====================
 
   /** 设置开机自启动 */
@@ -197,6 +261,10 @@ const api = {
   /** 设置桌面歌词窗口锁定（鼠标穿透） */
   setLyricsWindowLocked: (locked: boolean): Promise<boolean> =>
     ipcRenderer.invoke('lyricsWindow:setLocked', locked),
+
+  /** 临时设置桌面歌词窗口是否忽略鼠标事件（用于锁定状态下控制栏交互） */
+  setLyricsWindowIgnoreMouse: (ignore: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('lyricsWindow:setIgnoreMouse', ignore),
 
   // ==================== 主题同步 ====================
 

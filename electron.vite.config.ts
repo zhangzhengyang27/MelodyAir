@@ -16,6 +16,14 @@ export default defineConfig({
         '@': resolve('src/renderer/src')
       }
     },
-    plugins: [vue(), tailwindcss()]
+    plugins: [vue(), tailwindcss()],
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve(__dirname, 'src/renderer/index.html'),
+          'audio-engine': resolve(__dirname, 'src/renderer/audio-engine.html')
+        }
+      }
+    }
   }
 })

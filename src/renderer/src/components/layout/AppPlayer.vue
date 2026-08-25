@@ -144,6 +144,11 @@
         </Teleport>
       </div>
 
+      <button class="player-btn" title="桌面歌词" @click="toggleDesktopLyrics">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+        </svg>
+      </button>
       <button class="player-btn" title="播放列表" @click="showPlaylist = !showPlaylist">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h10m-10 4h6" />
@@ -247,6 +252,20 @@ function selectQuality(quality: any) {
 
 function toggleMute() {
   playerStore.toggleMute()
+}
+
+async function toggleDesktopLyrics() {
+  try {
+    if (!window.electronAPI?.openLyricsWindow) return
+    const isOpen = await window.electronAPI.isLyricsWindowOpen()
+    if (isOpen) {
+      await window.electronAPI.closeLyricsWindow()
+    } else {
+      await window.electronAPI.openLyricsWindow()
+    }
+  } catch (e) {
+    console.error('toggleDesktopLyrics failed:', e)
+  }
 }
 
 function handleProgressClick(e: MouseEvent) {
