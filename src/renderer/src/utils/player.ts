@@ -46,6 +46,10 @@ export class AudioEngine {
   private equalizerFilters: BiquadFilterNode[] = []
   private equalizerEnabled: boolean = false
 
+  // 音频可视化 AnalyserNode（旁路连接，不影响音频输出）
+  private analyserNode: AnalyserNode | null = null
+  private frequencyDataArray: Uint8Array | null = null
+
   // 回调函数
   private onEndCallback?: () => void
   private onPlayStateChangeCallback?: (status: PlayerStatus) => void
@@ -87,6 +91,12 @@ export class AudioEngine {
 
       this.audioContext = ctx
 
+      // 创建音频可视化 AnalyserNode（旁路连接）
+      this.analyserNode = ctx.createAnalyser()
+      this.analyserNode.fftSize = 256 // 128 个频率数据点
+      this.analyserNode.smoothingTimeConstant = 0.8
+      this.frequencyDataArray = new Uint8Array(this.analyserNode.frequencyBinCount)
+
       // 定义 5 个频段（与 useEqualizer 对应）
       const frequencies = [60, 230, 910, 3600, 14000]
 
@@ -117,25 +127,35 @@ export class AudioEngine {
 
       this.emitStateChange('loading')
 
+      // 确保 AudioContext 处于运行状态（浏览器中需要用户交互才能 resume）
+      try {
+        const ctx = (Howler as any).ctx as AudioContext
+        if (ctx && ctx.state === 'suspended') {
+          ctx.resume()
+        }
+      } catch (e) {
+        logger.warn('player', '[AudioEngine] Failed to resume AudioContext:', e)
+      }
+
       const format = this.guessFormat(src)
 
       // 重置停止标志，允许新实例的 onend 回调正常触发
       this._isStopping = false
 
+      // 使用 Web Audio API 模式（非 HTML5），以便音频经过 masterGain，
+      // 均衡器和 AnalyserNode（音频可视化）才能正常工作
       this._howl = new Howl({
         src: [src],
-        html5: true,
+        html5: false,
         format: [format],
-        // ★ 修复：不再初始化 volume=0（HTML5 模式下 fade 不可靠会导致永久静音）
-        // 淡入效果改为 onplay 后手动处理
         volume: this._muted ? 0 : this._volume,
         onplay: () => {
-          // 确保音量正确（HTML5 模式下 fade 不可靠）
+          // 确保音量和播放速率正确
           if (this._howl) {
             this._howl.volume(this._muted ? 0 : this._volume)
             this._howl.rate(this._playbackRate)
           }
-          // 连接均衡器
+          // 连接均衡器和 AnalyserNode
           this.connectEqualizer()
           this.emitStateChange('playing')
           this.startProgressTracking()
@@ -330,12 +350,36 @@ export class AudioEngine {
   }
 
   /**
+   * 获取音频频率数据（用于可视化）
+   * 返回 Uint8Array，每个值 0-255
+   */
+  getFrequencyData(): Uint8Array {
+    if (this.analyserNode && this.frequencyDataArray) {
+      this.analyserNode.getByteFrequencyData(this.frequencyDataArray)
+      return this.frequencyDataArray
+    }
+    // 返回空数组
+    return new Uint8Array(128)
+  }
+
+  /**
    * 连接均衡器到音频链路
    * 在 Howl 实例创建后调用
    */
   private connectEqualizer(): void {
-    if (!this.audioContext || this.equalizerFilters.length === 0) {
-      return
+    // 检查 AudioContext 是否有效（未关闭且与 Howler.ctx 相同）
+    const howlerCtx = (Howler as any).ctx as AudioContext
+    const ctxInvalid = !this.audioContext ||
+      this.audioContext.state === 'closed' ||
+      this.audioContext !== howlerCtx
+
+    // 如果 AudioContext 无效或均衡器未初始化，重新初始化
+    if (ctxInvalid || this.equalizerFilters.length === 0) {
+      this.initializeEqualizer()
+      // 如果初始化后仍然不可用，直接返回
+      if (!this.audioContext || this.equalizerFilters.length === 0) {
+        return
+      }
     }
 
     try {
@@ -346,21 +390,44 @@ export class AudioEngine {
         return
       }
 
-      // 断开现有连接
-      masterGain.disconnect()
+      // ★ 重要：不要调用 masterGain.disconnect()（无参数）！
+      // 这会断开所有输出连接，破坏 Howler.js 的内部音频路由，导致音频流不再经过 masterGain。
+      // 只断开 masterGain 到 destination 的连接，然后插入均衡器链。
+      try {
+        masterGain.disconnect(this.audioContext.destination)
+      } catch (e) {
+        // 可能没有连接到 destination，忽略
+      }
 
       // 连接均衡器链：masterGain -> filter1 -> filter2 -> ... -> destination
       let previousNode: AudioNode = masterGain
 
       for (const filter of this.equalizerFilters) {
-        previousNode.connect(filter)
-        previousNode = filter
+        try {
+          previousNode.connect(filter)
+          previousNode = filter
+        } catch (e) {
+          // 可能已经连接，忽略
+        }
       }
 
       // 最后连接到输出
-      previousNode.connect(this.audioContext.destination)
+      try {
+        previousNode.connect(this.audioContext.destination)
+      } catch (e) {
+        // 可能已经连接，忽略
+      }
 
-      logger.info('player', '[AudioEngine] Equalizer connected to audio chain')
+      // 旁路连接 AnalyserNode（不影响音频输出，用于可视化）
+      if (this.analyserNode) {
+        try {
+          masterGain.connect(this.analyserNode)
+        } catch (e) {
+          // 可能已经连接，忽略错误
+        }
+      }
+
+      logger.info('player', '[AudioEngine] Equalizer and AnalyserNode connected')
     } catch (error) {
       logger.error('player', '[AudioEngine] Failed to connect equalizer:', error)
     }

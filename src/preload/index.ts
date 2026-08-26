@@ -203,6 +203,12 @@ const api = {
     ipcRenderer.on('audio:ready', handler)
     return () => ipcRenderer.removeListener('audio:ready', handler)
   },
+  /** 监听音频频率数据（用于可视化） */
+  onAudioFrequencyData: (callback: (data: { frequencyData: number[] }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { frequencyData: number[] }) => callback(data)
+    ipcRenderer.on('audio:frequencyData', handler)
+    return () => ipcRenderer.removeListener('audio:frequencyData', handler)
+  },
 
   // ==================== 应用设置 ====================
 

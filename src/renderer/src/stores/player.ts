@@ -13,6 +13,7 @@ import { useSettingsStore } from './settings'
 import { useLyricsStore } from './lyrics'
 import { useUserStore } from './user'
 import { LyricsSyncEngine } from '../utils/o3icsSyncEngine'
+import { getAudioAdapter } from '../utils/audioAdapter'
 
 export interface Song {
   id: number
@@ -95,6 +96,12 @@ export const usePlayerStore = defineStore('player', () => {
   })
   let lyricsLinesWatcher: (() => void) | null = null
 
+  // 统一音频适配器（Electron IPC / 浏览器本地 AudioEngine 降级）
+  const audioAdapter = getAudioAdapter()
+
+  // 音频可视化频率数据（从音频引擎获取）
+  const frequencyData = ref<Uint8Array>(new Uint8Array(128))
+
   // ==================== 计算属性 ====================
   const currentSong = computed(() => {
     if (isPersonalFM.value && personalFMTrack.value) {
@@ -138,10 +145,8 @@ export const usePlayerStore = defineStore('player', () => {
 
   // ==================== 音频引擎事件监听 ====================
   function initAudioEventListeners(): void {
-    if (!window.electronAPI) return
-
     // 时间更新
-    audioTimeUpdateCleanup = window.electronAPI.onAudioTimeUpdate((data) => {
+    audioTimeUpdateCleanup = audioAdapter.on('timeUpdate', (data) => {
       currentTime.value = data.currentTime
       duration.value = data.duration
 
@@ -192,29 +197,34 @@ export const usePlayerStore = defineStore('player', () => {
     )
 
     // 状态变化
-    audioStateChangeCleanup = window.electronAPI.onAudioStateChange((data) => {
+    audioStateChangeCleanup = audioAdapter.on('stateChange', (data) => {
       status.value = data.status as PlayerStatus
       playing.value = data.status === 'playing'
     })
 
     // 播放结束
-    audioEndedCleanup = window.electronAPI.onAudioEnded(() => {
+    audioEndedCleanup = audioAdapter.on('ended', () => {
       handlePlayEnd()
     })
 
     // 错误
-    audioErrorCleanup = window.electronAPI.onAudioError((data) => {
+    audioErrorCleanup = audioAdapter.on('error', (data) => {
       logger.error('player', 'Player error:', data.message)
       status.value = 'error'
       playing.value = false
     })
 
     // 缓冲进度
-    audioBufferedCleanup = window.electronAPI.onAudioBuffered((data) => {
+    audioBufferedCleanup = audioAdapter.on('buffered', (data) => {
       bufferedProgress.value = data.progress
     })
 
-    logger.info('player', 'Audio event listeners initialized')
+    // 音频可视化频率数据
+    audioAdapter.on('frequencyData', (data: Uint8Array) => {
+      frequencyData.value = data
+    })
+
+    logger.info('player', 'Audio event listeners initialized (via audioAdapter)')
   }
 
   // 初始化音频事件监听（store 创建时执行）
@@ -246,8 +256,8 @@ export const usePlayerStore = defineStore('player', () => {
       }
 
       logger.info('player', `开始播放: "${song.name}", url=${url.slice(0, 100)}...`)
-      // 通过 IPC 调用隐藏窗口的音频引擎播放
-      window.electronAPI?.audioPlay(url, song.id)
+      // 通过统一音频适配器播放（Electron IPC / 浏览器本地 AudioEngine 降级）
+      audioAdapter.play(url, song.id)
       activeBlobUrl.value = url.startsWith('blob:') ? url : null
       updateCurrentSongCache(song)
 
@@ -625,7 +635,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   function togglePlaying(): void {
     if (!currentSong.value) return
-    window.electronAPI?.audioToggle()
+    audioAdapter.toggle()
   }
 
   function togglePlayMode(): void {
@@ -637,29 +647,29 @@ export const usePlayerStore = defineStore('player', () => {
 
   function setVolume(v: number): void {
     volume.value = Math.max(0, Math.min(1, v))
-    window.electronAPI?.audioSetVolume(volume.value)
+    audioAdapter.setVolume(volume.value)
   }
 
   function setPlaybackSpeed(rate: number): void {
     const safeRate = Math.max(0.5, Math.min(2, rate))
     settingsStore.playbackSpeed = safeRate
-    window.electronAPI?.audioSetPlaybackRate(safeRate)
+    audioAdapter.setPlaybackRate(safeRate)
   }
 
   function setEqualizerBand(bandIndex: number, gain: number): void {
-    window.electronAPI?.audioSetEqualizerBand(bandIndex, gain)
+    audioAdapter.setEqualizerBand(bandIndex, gain)
   }
 
   function setEqualizerBands(gains: number[]): void {
-    window.electronAPI?.audioSetEqualizerBands(gains)
+    audioAdapter.setEqualizerBands(gains)
   }
 
   function setEqualizerEnabled(enabled: boolean): void {
-    window.electronAPI?.audioSetEqualizerEnabled(enabled)
+    audioAdapter.setEqualizerEnabled(enabled)
   }
 
   function toggleMute(): void {
-    window.electronAPI?.audioToggleMute()
+    audioAdapter.toggleMute()
     // 静音状态通过状态变化事件更新，这里先乐观更新
     muted.value = !muted.value
   }
@@ -694,7 +704,7 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function seek(time: number): void {
-    window.electronAPI?.audioSeek(time)
+    audioAdapter.seek(time)
   }
 
   async function handlePlayEnd(): Promise<void> {
@@ -764,7 +774,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   // ==================== 停止/销毁 ====================
   function stopPlayback(): void {
-    window.electronAPI?.audioStop()
+    audioAdapter.stop()
   }
 
   function setCurrentTime(time: number): void {
@@ -822,6 +832,7 @@ export const usePlayerStore = defineStore('player', () => {
     volume, muted, shuffledList, playNextList, isPersonalFM,
     personalFMTrack, personalFMNextTrack, status, currentSongCache,
     sleepTimerDeadline, playHistory, currentSong, progress, bufferedProgress,
+    frequencyData,
     setPlaylist, addToPlaylist, playSong, removeFromPlaylist, clearPlaylist,
     reorderPlaylist, removeDuplicates,
     addToPlayNext, insertNext, removeQueueItem, playNext, playPrev, togglePlaying, togglePlayMode,

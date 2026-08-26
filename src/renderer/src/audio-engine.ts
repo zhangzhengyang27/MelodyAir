@@ -15,6 +15,34 @@ let audioEngine: AudioEngine | null = null
 // 当前播放的歌曲 ID（用于避免重复播放）
 let currentSongId: string | number | null = null
 
+// 频率数据发送（用于音频可视化）
+let frequencyRafId: number | null = null
+let lastFrequencySendTime = 0
+const FREQUENCY_SEND_INTERVAL = 33 // ~30fps
+
+/**
+ * 启动频率数据采集和发送
+ */
+function startFrequencyCollection() {
+  if (frequencyRafId !== null) return
+
+  const collect = () => {
+    if (audioEngine) {
+      const now = Date.now()
+      if (now - lastFrequencySendTime >= FREQUENCY_SEND_INTERVAL) {
+        lastFrequencySendTime = now
+        const freqData = audioEngine.getFrequencyData()
+        // 转换为普通数组通过 IPC 发送
+        ipcRenderer.send('audio:frequencyData', { frequencyData: Array.from(freqData) })
+      }
+    }
+    frequencyRafId = requestAnimationFrame(collect)
+  }
+
+  frequencyRafId = requestAnimationFrame(collect)
+  console.log('[AudioEngine] Frequency collection started')
+}
+
 /**
  * 初始化音频引擎
  */
@@ -39,6 +67,9 @@ function initAudioEngine() {
   })
 
   console.log('[AudioEngine] Initialized')
+
+  // 启动频率数据采集（用于音频可视化）
+  startFrequencyCollection()
 }
 
 /**

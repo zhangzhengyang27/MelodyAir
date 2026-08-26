@@ -32,14 +32,57 @@
         <span class="playing-dot" :class="{ active: playerStore.playing }" />
         <span class="text-xs font-medium tracking-wider text-white/60 uppercase">Now Playing</span>
       </div>
+      <!-- 功能按钮组 -->
+      <div class="flex items-center gap-1" style="-webkit-app-region: no-drag;">
+        <!-- 显示模式切换 -->
+        <div class="flex items-center rounded-full bg-white/10 p-0.5">
+          <button
+            v-for="mode in displayModes"
+            :key="mode.value"
+            class="display-mode-btn"
+            :class="{ active: displayMode === mode.value }"
+            :title="mode.label"
+            @click="displayMode = mode.value"
+          >
+            <component :is="mode.icon" class="h-4 w-4" />
+          </button>
+        </div>
+        <!-- 音频可视化 -->
+        <button class="header-icon-btn" :class="{ active: showVisualizer }" title="音频可视化" @click="showVisualizer = !showVisualizer">
+          <Activity class="h-4 w-4" />
+        </button>
+        <!-- 均衡器 -->
+        <button class="header-icon-btn" :class="{ active: eqEnabled }" title="均衡器/音效" @click="showEqualizer = !showEqualizer">
+          <SlidersHorizontal class="h-4 w-4" />
+        </button>
+        <!-- 睡眠定时 -->
+        <button class="header-icon-btn relative" :class="{ active: sleepTimerEnabled }" :title="sleepTimerEnabled ? `睡眠定时：${sleepTimerLabel}` : '睡眠定时'" @click="showSleepTimer = !showSleepTimer">
+          <Timer class="h-4 w-4" />
+          <span v-if="sleepTimerEnabled" class="timer-dot" />
+        </button>
+        <!-- 歌曲详情 -->
+        <button class="header-icon-btn" title="歌曲详情" @click="showSongDetail = !showSongDetail">
+          <Info class="h-4 w-4" />
+        </button>
+        <!-- 分享 -->
+        <button class="header-icon-btn" title="分享" @click="handleShare">
+          <Share2 class="h-4 w-4" />
+        </button>
+      </div>
     </header>
 
     <!-- Main Content - 网易云布局：上下结构 -->
-    <main class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+    <main class="relative flex min-h-0 flex-1 flex-col overflow-hidden" :class="`mode-${displayMode}`">
       <!-- 上半部分：左右布局 -->
-      <div class="content-top flex flex-1 min-h-0">
-        <!-- 左侧：唱片封面 -->
-        <section class="cover-section flex items-center justify-center">
+      <div class="content-top relative flex flex-1 min-h-0">
+        <!-- 音频可视化 Canvas -->
+        <canvas
+          v-if="showVisualizer"
+          ref="visualizerCanvas"
+          class="visualizer-canvas"
+        />
+        <!-- 左侧：唱片封面（纯歌词模式隐藏） -->
+        <section v-if="displayMode !== 'lyrics'" class="cover-section flex items-center justify-center" :class="{ 'cover-only': displayMode === 'cover' }">
           <div class="vinyl-container">
             <div class="vinyl-glow" :class="{ active: playerStore.playing }" />
             <div class="vinyl-disc" :class="{ spinning: playerStore.playing }">
@@ -64,7 +107,7 @@
         </section>
 
         <!-- 右侧：歌词面板 -->
-        <aside class="lyrics-section">
+        <aside class="lyrics-section" :class="{ 'lyrics-only': displayMode === 'lyrics' }">
           <!-- 歌曲标题和艺术家 -->
           <div class="lyrics-header">
             <div class="lyrics-title-row">
@@ -260,6 +303,156 @@
       </div>
     </main>
 
+    <!-- 均衡器弹窗 -->
+    <Transition name="slide-up">
+      <div v-if="showEqualizer" class="equalizer-panel" @click.self="showEqualizer = false">
+        <div class="equalizer-content">
+          <div class="panel-header">
+            <h3 class="panel-title">均衡器 / 音效</h3>
+            <button class="panel-close" @click="showEqualizer = false">
+              <X class="h-5 w-5" />
+            </button>
+          </div>
+          <div class="equalizer-body">
+            <!-- 预设选择 -->
+            <div class="eq-section">
+              <span class="eq-section-label">预设</span>
+              <div class="eq-presets">
+                <button
+                  v-for="key in eqPresetKeys"
+                  :key="key"
+                  class="eq-preset-btn"
+                  :class="{ active: eqPreset === key }"
+                  @click="eqApplyPreset(key)"
+                >
+                  {{ eqPresetLabels[key] }}
+                </button>
+              </div>
+            </div>
+            <!-- 频段滑块 -->
+            <div class="eq-bands">
+              <div v-for="(band, index) in eqBands" :key="band.id" class="eq-band">
+                <span class="eq-band-value">{{ band.value > 0 ? '+' : '' }}{{ band.value }}</span>
+                <input
+                  type="range"
+                  min="-12"
+                  max="12"
+                  step="1"
+                  :value="band.value"
+                  class="eq-slider"
+                  @input="onEqBandInput(index, $event)"
+                />
+                <span class="eq-band-label">{{ band.label }}</span>
+              </div>
+            </div>
+            <!-- 开关 -->
+            <div class="eq-toggle-row">
+              <span class="eq-toggle-label">{{ eqEnabled ? '音效已开启' : '音效已关闭' }}</span>
+              <button
+                class="eq-toggle"
+                :class="{ active: eqEnabled }"
+                @click="eqEnabled = !eqEnabled"
+              >
+                <span class="eq-toggle-knob" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 睡眠定时器弹窗 -->
+    <Transition name="slide-up">
+      <div v-if="showSleepTimer" class="sleep-timer-panel" @click.self="showSleepTimer = false">
+        <div class="sleep-timer-content">
+          <div class="panel-header">
+            <h3 class="panel-title">睡眠定时</h3>
+            <button class="panel-close" @click="showSleepTimer = false">
+              <X class="h-5 w-5" />
+            </button>
+          </div>
+          <div class="sleep-timer-body">
+            <div v-if="sleepTimerEnabled" class="timer-countdown">
+              <Timer class="h-8 w-8 text-[#FF5A5F]" />
+              <span class="timer-countdown-text">{{ sleepTimerLabel }}后停止播放</span>
+            </div>
+            <div class="timer-presets">
+              <button class="timer-preset-btn" @click="startSleepTimer(15)">15 分钟</button>
+              <button class="timer-preset-btn" @click="startSleepTimer(30)">30 分钟</button>
+              <button class="timer-preset-btn" @click="startSleepTimer(60)">60 分钟</button>
+              <button class="timer-preset-btn" @click="startSleepTimer(90)">90 分钟</button>
+            </div>
+            <div class="timer-custom">
+              <input
+                v-model.number="customSleepMinutes"
+                type="number"
+                min="1"
+                max="720"
+                placeholder="自定义分钟数"
+                class="timer-custom-input"
+              />
+              <button class="timer-custom-btn" @click="startCustomSleepTimer">开始</button>
+            </div>
+            <button
+              v-if="sleepTimerEnabled"
+              class="timer-cancel-btn"
+              @click="cancelSleepTimer"
+            >
+              取消定时
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 歌曲详情弹窗 -->
+    <Transition name="slide-up">
+      <div v-if="showSongDetail" class="song-detail-panel" @click.self="showSongDetail = false">
+        <div class="song-detail-content">
+          <div class="detail-header">
+            <h3 class="detail-title">歌曲详情</h3>
+            <button class="detail-close" @click="showSongDetail = false">
+              <X class="h-5 w-5" />
+            </button>
+          </div>
+          <div v-if="songDetailLoading" class="detail-loading">
+            <LoadingSpinner />
+          </div>
+          <div v-else-if="songDetail" class="detail-body">
+            <div class="detail-cover">
+              <img :src="songDetail.album?.picUrl + '?param=300y300'" alt="" class="detail-cover-img" />
+            </div>
+            <div class="detail-info">
+              <div class="detail-row">
+                <span class="detail-label">歌曲名称</span>
+                <span class="detail-value">{{ songDetail.name }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">歌手</span>
+                <span class="detail-value">{{ songDetail.ar?.map((a: any) => a.name).join(' / ') }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">专辑</span>
+                <span class="detail-value">{{ songDetail.al?.name }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">发行时间</span>
+                <span class="detail-value">{{ formatPublishTime(songDetail.publishTime) }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">歌曲时长</span>
+                <span class="detail-value">{{ formatTime(songDetail.dt / 1000) }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">歌曲 ID</span>
+                <span class="detail-value">{{ songDetail.id }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- 播放队列弹窗 -->
     <PlayQueue
       v-if="showQueue"
@@ -280,21 +473,24 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted } from 'vue'
+import { computed, ref, watch, onUnmounted, nextTick } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { useLyricsStore } from '@/stores/lyrics'
 import { useUserStore } from '@/stores/user'
 import { useAudio } from '@/composables/useAudio'
 import { formatTime } from '@/utils/format'
 import { parseLrc } from '@/utils/lyricsParser'
-import { getLyric, getLyricV1 } from '@/api/song'
+import { getLyric, getLyricV1, getSongDetail } from '@/api/song'
 import { getLocalLyrics } from '@/api/local'
 import { cacheManager } from '@/utils/db'
 import { useSettingsStore } from '@/stores/settings'
 import { logger } from '@/utils/logger'
 import LyricsDisplay from '@/components/lyrics/LyricsDisplay.vue'
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import PlayQueue from './PlayQueue.vue'
 import { useLyricsSync } from '@/composables/useLyricsSync'
+import { Disc3, AlignLeft, Image, Activity, Info, Share2, X, SlidersHorizontal, Timer } from 'lucide-vue-next'
+import { useEqualizer, type EqualizerPreset } from '@/composables/useEqualizer'
 
 defineEmits<{
   close: []
@@ -471,6 +667,79 @@ const showLyricsSettings = ref(false)
 const wasPlaying = ref(false)
 const prevVolume = ref(0.8)
 
+// === 高优先级功能新增 ===
+// 显示模式：vinyl(黑胶) / lyrics(纯歌词) / cover(封面)
+type DisplayMode = 'vinyl' | 'lyrics' | 'cover'
+const displayMode = ref<DisplayMode>('vinyl')
+const displayModes = [
+  { value: 'vinyl' as const, label: '黑胶模式', icon: Disc3 },
+  { value: 'lyrics' as const, label: '纯歌词模式', icon: AlignLeft },
+  { value: 'cover' as const, label: '封面模式', icon: Image },
+]
+
+// 音频可视化
+const showVisualizer = ref(false)
+const visualizerCanvas = ref<HTMLCanvasElement>()
+let visualizerAnimId: number | null = null
+let audioAnalyserData: Uint8Array | null = null
+
+// 歌曲详情
+const showSongDetail = ref(false)
+const songDetail = ref<any>(null)
+const songDetailLoading = ref(false)
+
+// 分享提示
+const shareToast = ref(false)
+
+// === 均衡器 ===
+const showEqualizer = ref(false)
+const {
+  enabled: eqEnabled,
+  preset: eqPreset,
+  bands: eqBands,
+  applyPreset: eqApplyPreset,
+  setBand: eqSetBand,
+} = useEqualizer()
+const eqPresetKeys: EqualizerPreset[] = ['flat', 'pop', 'rock', 'classical', 'vocal', 'bass']
+const eqPresetLabels: Record<EqualizerPreset, string> = {
+  flat: '平坦', pop: '流行', rock: '摇滚', classical: '古典', vocal: '人声', bass: '重低音'
+}
+
+function onEqBandInput(index: number, event: Event) {
+  const target = event.target as HTMLInputElement
+  eqSetBand(index, Number(target.value))
+}
+
+// === 睡眠定时器 ===
+const showSleepTimer = ref(false)
+const customSleepMinutes = ref<number | null>(30)
+
+const sleepTimerEnabled = computed(() => playerStore.sleepTimerDeadline !== null)
+const sleepTimerLabel = computed(() => {
+  const deadline = playerStore.sleepTimerDeadline
+  if (!deadline) return '未开启'
+  const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+  const minutes = Math.floor(remaining / 60)
+  const seconds = remaining % 60
+  return minutes > 0 ? `${minutes}分${String(seconds).padStart(2, '0')}秒` : `${seconds}秒`
+})
+
+function startSleepTimer(minutes: number) {
+  playerStore.setSleepTimer(minutes)
+  showSleepTimer.value = false
+}
+
+function startCustomSleepTimer() {
+  const minutes = Number(customSleepMinutes.value)
+  if (!Number.isFinite(minutes) || minutes <= 0) return
+  startSleepTimer(minutes)
+}
+
+function cancelSleepTimer() {
+  playerStore.clearSleepTimer()
+  showSleepTimer.value = false
+}
+
 // Progress Bar State
 const progressBarEl = ref<HTMLElement>()
 let isDragging = false
@@ -602,6 +871,194 @@ function handleLike() {
     userStore.toggleLike(playerStore.currentSong.id)
   }
 }
+
+// === 高优先级功能方法 ===
+
+// 获取歌曲详情
+async function fetchSongDetail() {
+  if (!playerStore.currentSong) return
+  songDetailLoading.value = true
+  try {
+    const res: any = await getSongDetail(playerStore.currentSong.id)
+    if (res?.songs?.length > 0) {
+      songDetail.value = res.songs[0]
+    }
+  } catch (e) {
+    logger.error('player', 'Failed to fetch song detail:', e)
+  } finally {
+    songDetailLoading.value = false
+  }
+}
+
+// 监听歌曲详情弹窗显示
+watch(showSongDetail, (val) => {
+  if (val && !songDetail.value) {
+    fetchSongDetail()
+  }
+})
+
+// 切换歌曲时重置歌曲详情
+watch(
+  () => playerStore.currentSong?.id,
+  () => {
+    songDetail.value = null
+  }
+)
+
+// 格式化发布时间
+function formatPublishTime(timestamp: number): string {
+  if (!timestamp) return '--'
+  const date = new Date(timestamp)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+// 分享功能
+async function handleShare() {
+  if (!playerStore.currentSong) return
+  const song = playerStore.currentSong
+  const shareText = `🎵 ${song.name} - ${song.artists?.map((a: any) => a.name).join(' / ')}`
+  const shareUrl = `https://music.163.com/song?id=${song.id}`
+
+  try {
+    // 优先使用系统分享（如果支持）
+    if (navigator.share) {
+      await navigator.share({
+        title: song.name,
+        text: shareText,
+        url: shareUrl,
+      })
+      return
+    }
+  } catch (e) {
+    // 用户取消分享，不处理
+  }
+
+  // 复制到剪贴板
+  try {
+    await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`)
+    showShareToast('分享链接已复制到剪贴板')
+  } catch (e) {
+    // 降级方案：使用 textarea
+    const textarea = document.createElement('textarea')
+    textarea.value = `${shareText}\n${shareUrl}`
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    showShareToast('分享链接已复制到剪贴板')
+  }
+}
+
+function showShareToast(msg: string) {
+  // 简单的 toast 提示
+  const toast = document.createElement('div')
+  toast.className = 'share-toast'
+  toast.textContent = msg
+  toast.style.cssText = `
+    position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.8); color: white; padding: 10px 20px;
+    border-radius: 8px; font-size: 14px; z-index: 9999;
+    transition: opacity 0.3s;
+  `
+  document.body.appendChild(toast)
+  setTimeout(() => {
+    toast.style.opacity = '0'
+    setTimeout(() => document.body.removeChild(toast), 300)
+  }, 2000)
+}
+
+// === 音频可视化 ===
+// 音频可视化：使用从音频引擎获取的真实频率数据
+let visualizerResize: (() => void) | null = null
+
+function startVisualizer() {
+  if (!visualizerCanvas.value) return
+  const canvas = visualizerCanvas.value
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  visualizerResize = () => {
+    canvas.width = canvas.offsetWidth * window.devicePixelRatio
+    canvas.height = canvas.offsetHeight * window.devicePixelRatio
+  }
+  visualizerResize()
+  window.addEventListener('resize', visualizerResize)
+
+  const bars = 64
+  const barWidth = canvas.width / bars
+
+  const draw = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    // 获取真实频率数据（从音频引擎通过 IPC 传递）
+    const freqData = playerStore.frequencyData
+    const hasRealData = freqData && freqData.length > 0 && playerStore.playing
+
+    if (hasRealData) {
+      // 使用真实频率数据
+      // 频率数据是 Uint8Array(128)，值 0-255，我们采样前 64 个点
+      for (let i = 0; i < bars; i++) {
+        // 从 128 个频率点中采样 64 个（取偶数索引）
+        const freqIndex = Math.floor(i * (freqData.length / bars))
+        const value = freqData[freqIndex] ?? 0
+        // 归一化到 0-1，增加一点灵敏度
+        const normalized = Math.min(1, value / 200)
+        const height = Math.max(canvas.height * 0.03, normalized * canvas.height * 0.85)
+
+        const x = i * barWidth
+        const y = canvas.height - height
+
+        // 渐变颜色
+        const gradient = ctx.createLinearGradient(0, y, 0, canvas.height)
+        gradient.addColorStop(0, `rgba(${accentRgb.value}, 0.9)`)
+        gradient.addColorStop(1, `rgba(${accentRgb.value}, 0.2)`)
+
+        ctx.fillStyle = gradient
+        ctx.beginPath()
+        ctx.roundRect(x + 2, y, barWidth - 4, height, 3)
+        ctx.fill()
+      }
+    } else {
+      // 暂停或无数据时显示静态低条
+      for (let i = 0; i < bars; i++) {
+        const height = canvas.height * 0.05
+        const x = i * barWidth
+        const y = canvas.height - height
+        ctx.fillStyle = `rgba(${accentRgb.value}, 0.3)`
+        ctx.beginPath()
+        ctx.roundRect(x + 2, y, barWidth - 4, height, 3)
+        ctx.fill()
+      }
+    }
+
+    visualizerAnimId = requestAnimationFrame(draw)
+  }
+
+  draw()
+}
+
+function stopVisualizer() {
+  if (visualizerAnimId) {
+    cancelAnimationFrame(visualizerAnimId)
+    visualizerAnimId = null
+  }
+  if (visualizerResize) {
+    window.removeEventListener('resize', visualizerResize)
+    visualizerResize = null
+  }
+}
+
+watch(showVisualizer, (val) => {
+  if (val) {
+    nextTick(() => startVisualizer())
+  } else {
+    stopVisualizer()
+  }
+})
+
+onUnmounted(() => {
+  stopVisualizer()
+})
 
 async function toggleDesktopLyrics() {
   try {
@@ -853,6 +1310,538 @@ onUnmounted(() => {
 @keyframes dotBlink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
+}
+
+/* ===== Header 功能按钮 ===== */
+.header-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.header-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.header-icon-btn.active {
+  color: var(--accent-color);
+  background: rgba(var(--accent-rgb), 0.15);
+}
+
+/* 显示模式切换 */
+.display-mode-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.display-mode-btn:hover {
+  color: #fff;
+}
+
+.display-mode-btn.active {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* ===== 音频可视化 ===== */
+.visualizer-canvas {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* ===== 显示模式布局 ===== */
+.mode-lyrics .cover-section {
+  display: none;
+}
+
+.mode-lyrics .lyrics-section {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.mode-cover .cover-section {
+  flex: 1;
+}
+
+.mode-cover .lyrics-section {
+  width: 320px;
+  flex-shrink: 0;
+}
+
+.cover-only .vinyl-container {
+  transform: scale(1.3);
+}
+
+.lyrics-only .lyrics-display-wrapper {
+  max-height: calc(100vh - 280px);
+}
+
+/* ===== 歌曲详情弹窗 ===== */
+.song-detail-panel {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.song-detail-content {
+  background: rgba(30, 30, 45, 0.95);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.detail-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.detail-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.detail-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.detail-body {
+  padding: 20px;
+  display: flex;
+  gap: 20px;
+}
+
+.detail-cover {
+  flex-shrink: 0;
+}
+
+.detail-cover-img {
+  width: 140px;
+  height: 140px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.detail-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.detail-row {
+  display: flex;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  width: 70px;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+}
+
+.detail-value {
+  flex: 1;
+  color: #fff;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.detail-loading {
+  padding: 40px;
+  display: flex;
+  justify-content: center;
+}
+
+/* ===== 通用弹窗面板 ===== */
+.equalizer-panel,
+.sleep-timer-panel {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.equalizer-content,
+.sleep-timer-content {
+  background: rgba(30, 30, 45, 0.95);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 480px;
+  max-height: 85vh;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.panel-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.panel-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* ===== 均衡器 ===== */
+.equalizer-body {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.eq-section {
+  margin-bottom: 20px;
+}
+
+.eq-section-label {
+  display: block;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.eq-presets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.eq-preset-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.eq-preset-btn:hover {
+  border-color: rgba(255, 90, 95, 0.5);
+  color: #fff;
+}
+
+.eq-preset-btn.active {
+  border-color: #FF5A5F;
+  background: rgba(255, 90, 95, 0.15);
+  color: #FF5A5F;
+}
+
+.eq-bands {
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 16px 0;
+}
+
+.eq-band {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.eq-band-value {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  min-height: 14px;
+}
+
+.eq-slider {
+  -webkit-appearance: slider-vertical;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 24px;
+  height: 120px;
+  cursor: pointer;
+  accent-color: #FF5A5F;
+}
+
+.eq-band-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.eq-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.eq-toggle-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.eq-toggle {
+  width: 44px;
+  height: 24px;
+  border-radius: 9999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.eq-toggle.active {
+  background: #FF5A5F;
+}
+
+.eq-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+}
+
+.eq-toggle.active .eq-toggle-knob {
+  transform: translateX(20px);
+}
+
+/* ===== 睡眠定时器 ===== */
+.timer-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #FF5A5F;
+}
+
+.sleep-timer-body {
+  padding: 20px;
+}
+
+.timer-countdown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+  background: rgba(255, 90, 95, 0.1);
+  border-radius: 12px;
+}
+
+.timer-countdown-text {
+  font-size: 15px;
+  font-weight: 500;
+  color: #fff;
+}
+
+.timer-presets {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.timer-preset-btn {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.timer-preset-btn:hover {
+  border-color: #FF5A5F;
+  background: rgba(255, 90, 95, 0.1);
+  color: #FF5A5F;
+}
+
+.timer-custom {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.timer-custom-input {
+  flex: 1;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.timer-custom-input:focus {
+  border-color: #FF5A5F;
+}
+
+.timer-custom-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.timer-custom-btn {
+  padding: 0 20px;
+  height: 40px;
+  border-radius: 10px;
+  border: none;
+  background: #FF5A5F;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.timer-custom-btn:hover {
+  background: #E0484D;
+}
+
+.timer-cancel-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.timer-cancel-btn:hover {
+  border-color: rgba(255, 90, 95, 0.5);
+  color: #FF5A5F;
+}
+
+/* ===== 过渡动画 ===== */
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.slide-up-enter-active .song-detail-content,
+.slide-up-leave-active .song-detail-content,
+.slide-up-enter-active .equalizer-content,
+.slide-up-leave-active .equalizer-content,
+.slide-up-enter-active .sleep-timer-content,
+.slide-up-leave-active .sleep-timer-content {
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-from .song-detail-content,
+.slide-up-leave-to .song-detail-content,
+.slide-up-enter-from .equalizer-content,
+.slide-up-leave-to .equalizer-content,
+.slide-up-enter-from .sleep-timer-content,
+.slide-up-leave-to .sleep-timer-content {
+  transform: translateY(20px);
+  opacity: 0;
 }
 
 /* ===== Vinyl Container ===== */

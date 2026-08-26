@@ -484,7 +484,7 @@ function registerIpcHandlers(): void {
   // 音频引擎窗口 -> 所有窗口 的状态广播
   const audioStateEvents = [
     'audio:ready', 'audio:timeUpdate', 'audio:stateChange',
-    'audio:ended', 'audio:error', 'audio:buffered'
+    'audio:ended', 'audio:error', 'audio:buffered', 'audio:frequencyData'
   ]
 
   audioStateEvents.forEach((channel) => {
