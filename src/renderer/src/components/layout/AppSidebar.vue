@@ -1,7 +1,7 @@
 <template>
   <aside class="flex w-56 shrink-0 flex-col border-r border-neutral-200 bg-white dark:border-white/10 dark:bg-[#0F0F14]">
-    <!-- Logo -->
-    <div class="flex items-center gap-2 px-5 py-4">
+    <!-- Logo（顶部留出空间给 macOS 原生红绿灯） -->
+    <div class="flex items-center gap-2 px-5 pt-8 pb-4">
       <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FF5A5F] text-white shadow-[0_2px_8px_rgba(255,90,95,0.3)]">
         <Music class="h-4 w-4" />
       </div>
@@ -9,68 +9,97 @@
     </div>
 
     <!-- Navigation -->
-    <nav class="flex-1 space-y-0.5 px-3 py-2 overflow-y-auto sidebar-scroll">
+    <nav class="flex-1 space-y-0.5 overflow-y-auto px-3 py-2 sidebar-scroll">
+      <!-- 发现组 -->
       <div class="mb-1.5 px-2 text-xs font-medium uppercase tracking-wider text-neutral-400">发现</div>
       <RouterLink
         v-for="item in discoverItems"
         :key="item.to"
         :to="item.to"
-        :active-match-options="{ strict: item.to === '/' }"
         class="nav-item"
-        active-class="nav-item-active"
+        exact-active-class="nav-item-active"
       >
         <span class="nav-indicator" />
         <component :is="item.icon" class="h-[18px] w-[18px] shrink-0" />
         <span class="truncate">{{ item.label }}</span>
       </RouterLink>
 
+      <!-- 我喜欢的音乐（一等公民，置顶） -->
       <div class="mb-1.5 mt-4 px-2 text-xs font-medium uppercase tracking-wider text-neutral-400">我的</div>
       <RouterLink
-        v-for="item in myItems"
-        :key="item.to"
-        :to="item.to"
+        to="/library"
         class="nav-item"
-        active-class="nav-item-active"
+        exact-active-class="nav-item-active"
       >
         <span class="nav-indicator" />
-        <component :is="item.icon" class="h-[18px] w-[18px] shrink-0" />
-        <span class="truncate">{{ item.label }}</span>
+        <Heart class="h-[18px] w-[18px] shrink-0 text-[#FF5A5F]" :fill="'currentColor'" />
+        <span class="truncate font-medium">我喜欢的音乐</span>
       </RouterLink>
 
-      <!-- 用户歌单列表 -->
+      <!-- 我的音乐（可展开分组） -->
+      <div class="mt-0.5">
+        <button
+          class="nav-item w-full"
+          @click="myMusicExpanded = !myMusicExpanded"
+        >
+          <span class="nav-indicator" />
+          <Library class="h-[18px] w-[18px] shrink-0" />
+          <span class="flex-1 truncate text-left">我的音乐</span>
+          <ChevronDown v-if="myMusicExpanded" class="h-3.5 w-3.5 text-neutral-400" />
+          <ChevronRight v-else class="h-3.5 w-3.5 text-neutral-400" />
+        </button>
+
+        <Transition name="expand">
+          <div v-if="myMusicExpanded" class="ml-4 space-y-0.5 border-l border-neutral-100 pl-2 dark:border-white/5">
+            <RouterLink
+              v-for="item in myMusicItems"
+              :key="item.label"
+              :to="item.to"
+              class="nav-item nav-item-compact"
+              exact-active-class="nav-item-active"
+            >
+              <component :is="item.icon" class="h-4 w-4 shrink-0" />
+              <span class="truncate text-[13px]">{{ item.label }}</span>
+            </RouterLink>
+          </div>
+        </Transition>
+      </div>
+
+      <!-- 用户歌单列表（可展开） -->
       <template v-if="userStore.isAccountLoggedIn && userPlaylists.length > 0">
         <div class="mb-1.5 mt-4 flex items-center justify-between px-2">
-          <span class="text-xs font-medium uppercase tracking-wider text-neutral-400">我的歌单</span>
-          <button class="text-neutral-400 hover:text-[#FF5A5F] transition-colors" title="新建歌单" @click="showCreateDialog = true">
+          <button class="flex items-center gap-1 text-xs font-medium uppercase tracking-wider text-neutral-400 hover:text-neutral-600 dark:hover:text-[#E9E9F2]" @click="playlistsExpanded = !playlistsExpanded">
+            <span>我的歌单</span>
+            <ChevronDown v-if="playlistsExpanded" class="h-3 w-3" />
+            <ChevronRight v-else class="h-3 w-3" />
+          </button>
+          <button class="text-neutral-400 transition-colors hover:text-[#FF5A5F]" title="新建歌单" @click="showCreateDialog = true">
             <Plus class="h-3.5 w-3.5" />
           </button>
         </div>
-        <div class="space-y-0.5">
+        <div v-if="playlistsExpanded" class="space-y-0.5">
           <RouterLink
-            v-for="playlist in userPlaylists"
+            v-for="playlist in visiblePlaylists"
             :key="playlist.id"
             :to="`/playlist/${playlist.id}`"
             class="nav-item nav-item-compact"
             active-class="nav-item-active"
           >
-            <span class="nav-indicator" />
             <div class="h-5 w-5 shrink-0 overflow-hidden rounded bg-neutral-200 dark:bg-[#1F1F2E]">
               <img v-if="playlist.coverImgUrl" :src="playlist.coverImgUrl + '?param=50y50'" alt="" class="h-full w-full object-cover" />
             </div>
             <span class="truncate text-[13px]">{{ playlist.name }}</span>
           </RouterLink>
+          <button
+            v-if="userPlaylists.length > PLAYLIST_PREVIEW_COUNT"
+            class="nav-item nav-item-compact w-full text-[13px] text-neutral-400 hover:text-[#FF5A5F]"
+            @click="showAllPlaylists = !showAllPlaylists"
+          >
+            {{ showAllPlaylists ? '收起' : `展开全部 (${userPlaylists.length})` }}
+          </button>
         </div>
       </template>
     </nav>
-
-    <!-- Settings -->
-    <div class="border-t border-neutral-200 p-3 dark:border-neutral-700">
-      <RouterLink to="/settings" class="nav-item" active-class="nav-item-active">
-        <span class="nav-indicator" />
-        <Settings class="h-[18px] w-[18px] shrink-0" />
-        <span>设置</span>
-      </RouterLink>
-    </div>
 
     <!-- 新建歌单对话框 -->
     <Teleport to="body">
@@ -102,14 +131,26 @@
 import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
-  Home, Trophy, ListMusic, Mic, Film, Disc3, Radio, CalendarDays,
-  Library, HardDrive, Cloud, Settings, Plus
+  Home, Trophy, ListMusic, Mic, Film, Disc3, Radio,
+  Library, HardDrive, Cloud, Plus, Heart, Music,
+  ChevronDown, ChevronRight, Headphones, Clock
 } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
+import { usePlatform } from '@/composables/usePlatform'
 import { showToast } from '@/composables/useToast'
 
 const userStore = useUserStore()
+const { hasLocalScan } = usePlatform()
 
+/** 歌单列表默认预览数量 */
+const PLAYLIST_PREVIEW_COUNT = 10
+
+// 展开状态
+const myMusicExpanded = ref(true)
+const playlistsExpanded = ref(true)
+const showAllPlaylists = ref(false)
+
+// 发现组（7 项，已移除每日推荐）
 const discoverItems = [
   { to: '/', icon: Home, label: '发现' },
   { to: '/toplist', icon: Trophy, label: '排行榜' },
@@ -117,28 +158,38 @@ const discoverItems = [
   { to: '/artists', icon: Mic, label: '歌手' },
   { to: '/mv-browse', icon: Film, label: 'MV' },
   { to: '/albums', icon: Disc3, label: '新碟' },
-  { to: '/dj', icon: Radio, label: '播客' },
-  { to: '/daily', icon: CalendarDays, label: '每日推荐' }
+  { to: '/dj', icon: Radio, label: '播客' }
 ]
 
-const myItems = [
-  { to: '/library', icon: Library, label: '我的音乐' },
-  { to: '/local', icon: HardDrive, label: '本地音乐' },
-  { to: '/fm', icon: Radio, label: '私人FM' },
-  { to: '/cloud', icon: Cloud, label: '云盘' }
-]
+// 我的音乐分组（本地音乐按平台隐藏）
+const myMusicItems = computed(() => {
+  const items = [
+    { to: { path: '/library', query: { tab: 'recent' } }, icon: Clock, label: '最近播放' },
+    { to: '/fm', icon: Headphones, label: '私人FM' },
+    { to: '/cloud', icon: Cloud, label: '云盘' }
+  ]
+  if (hasLocalScan) {
+    items.splice(1, 0, { to: '/local', icon: HardDrive, label: '本地音乐' })
+  }
+  return items
+})
 
 const showCreateDialog = ref(false)
 const newPlaylistName = ref('')
 const creating = ref(false)
 
-// 用户歌单列表（排除我喜欢的音乐，只显示用户创建和收藏的）
+// 用户歌单列表（排除我喜欢的音乐）
 const userPlaylists = computed(() => {
-  return userStore.playlists.filter((p: any) => p.id !== userStore.likedSongPlaylistId).slice(0, 20)
+  return userStore.playlists.filter((p: any) => p.id !== userStore.likedSongPlaylistId)
+})
+
+// 可见歌单（预览 or 全部）
+const visiblePlaylists = computed(() => {
+  if (showAllPlaylists.value) return userPlaylists.value
+  return userPlaylists.value.slice(0, PLAYLIST_PREVIEW_COUNT)
 })
 
 onMounted(async () => {
-  // 如果已登录但歌单为空，尝试获取
   if (userStore.isAccountLoggedIn && userStore.playlists.length === 0) {
     await userStore.fetchLikedPlaylist()
   }
@@ -244,6 +295,24 @@ async function handleCreatePlaylist() {
 
 .dark .sidebar-scroll::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
+}
+
+/* 展开动画 */
+.expand-enter-active,
+.expand-leave-active {
+  transition: opacity 0.2s ease, max-height 0.25s ease;
+  overflow: hidden;
+}
+
+.expand-enter-from,
+.expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+
+.expand-enter-to,
+.expand-leave-from {
+  max-height: 500px;
 }
 
 /* 对话框过渡 */

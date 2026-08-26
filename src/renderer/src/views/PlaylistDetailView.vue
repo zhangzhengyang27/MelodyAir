@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-6">
-    <div v-if="loading" class="py-8"><LoadingSpinner /></div>
+    <SkeletonDetail v-if="loading" :rows="8" />
 
     <template v-else-if="playlist">
       <!-- Header -->
@@ -65,7 +65,7 @@ import CoralButton from '@/components/common/CoralButton.vue'
 import CoverImage from '@/components/common/CoverImage.vue'
 import SectionHeader from '@/components/common/SectionHeader.vue'
 import CommentSection from '@/components/common/CommentSection.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonDetail from '@/components/common/skeleton/SkeletonDetail.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import { useUserStore } from '@/stores/user'
 import { showToast } from '@/composables/useToast'

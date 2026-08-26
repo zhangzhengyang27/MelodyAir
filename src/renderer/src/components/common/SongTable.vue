@@ -19,13 +19,14 @@
       @play="handlePlay"
     />
 
-    <LoadingSpinner v-if="loading" />
+    <!-- Loading skeleton -->
+    <SkeletonSongTable v-if="loading" :rows="6" />
   </div>
 </template>
 
 <script setup lang="ts">
 import SongRow from './SongRow.vue'
-import LoadingSpinner from './LoadingSpinner.vue'
+import SkeletonSongTable from './skeleton/SkeletonSongTable.vue'
 import type { Song } from '@/stores/player'
 
 defineProps<{

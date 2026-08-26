@@ -7,7 +7,9 @@
   >
     <!-- Index / Playing indicator -->
     <div class="w-8 shrink-0 text-center text-sm text-neutral-400">
-      <span v-if="isActive && playerStore.playing" class="text-coral-500">♫</span>
+      <span v-if="isActive && playerStore.playing" class="eq mx-auto text-[#FF5A5F]">
+        <span class="eq-bar" /><span class="eq-bar" /><span class="eq-bar" />
+      </span>
       <span v-else>{{ index + 1 }}</span>
     </div>
 

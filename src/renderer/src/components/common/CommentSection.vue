@@ -39,8 +39,14 @@
     </div>
 
     <!-- Comments list -->
-    <div v-if="loading" class="flex justify-center py-8">
-      <LoadingSpinner />
+    <div v-if="loading" class="space-y-4 py-2">
+      <div v-for="i in 4" :key="i" class="flex gap-3">
+        <Skeleton class="h-9 w-9 shrink-0 rounded-full" />
+        <div class="flex-1 space-y-2 pt-1">
+          <Skeleton class="h-3 w-24 rounded" />
+          <Skeleton class="h-3 w-3/4 rounded" />
+        </div>
+      </div>
     </div>
     <div v-else-if="comments.length === 0" class="py-8 text-center text-sm text-neutral-400">
       暂无评论，快来抢沙发~
@@ -79,8 +85,7 @@ import { ref, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getCommentHot, getCommentNew, sendComment, likeComment } from '@/api/comment'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
-
+import Skeleton from '@/components/common/skeleton/Skeleton.vue'
 interface CommentUser {
   userId: number
   nickname: string

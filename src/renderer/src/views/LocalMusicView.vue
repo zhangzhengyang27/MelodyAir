@@ -77,7 +77,7 @@
 
     <!-- 歌手列表 -->
     <section v-if="activeTab === 'artists'">
-      <div v-if="localStore.loading" class="py-8"><LoadingSpinner /></div>
+      <SkeletonCardGrid v-if="localStore.loading" :count="12" grid-class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5" />
       <div v-else-if="localStore.artists.length === 0" class="py-12 text-center text-neutral-400">
         <p>暂无歌手数据</p>
       </div>
@@ -105,7 +105,7 @@
 
     <!-- 专辑列表 -->
     <section v-if="activeTab === 'albums'">
-      <div v-if="localStore.loading" class="py-8"><LoadingSpinner /></div>
+      <SkeletonCardGrid v-if="localStore.loading" :count="12" grid-class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5" />
       <div v-else-if="localStore.albums.length === 0" class="py-12 text-center text-neutral-400">
         <p>暂无专辑数据</p>
       </div>
@@ -133,7 +133,7 @@
 
     <!-- 歌曲列表 -->
     <section v-if="activeTab === 'songs'">
-      <div v-if="localStore.loading" class="py-8"><LoadingSpinner /></div>
+      <SkeletonSongTable v-if="localStore.loading" :rows="8" />
       <div v-else-if="localStore.songs.length === 0" class="py-12 text-center text-neutral-400">
         <p>暂无歌曲数据</p>
       </div>
@@ -210,7 +210,8 @@ import { useSettingsStore } from '@/stores/settings'
 import { uploadFile, getOssUrl } from '@/api/local'
 import SongTable from '@/components/common/SongTable.vue'
 import CoralButton from '@/components/common/CoralButton.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonCardGrid from '@/components/common/skeleton/SkeletonCardGrid.vue'
+import SkeletonSongTable from '@/components/common/skeleton/SkeletonSongTable.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import { showToast } from '@/composables/useToast'
 import type { Song } from '@/stores/player'

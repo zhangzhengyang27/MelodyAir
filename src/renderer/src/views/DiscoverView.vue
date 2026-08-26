@@ -43,15 +43,52 @@
         </div>
       </div>
     </section>
+    <SkeletonBanner v-else-if="loading" />
+
+    <!-- 每日推荐强卡片 -->
+    <section>
+      <LoginPrompt
+        v-if="!userStore.isAccountLoggedIn"
+        :icon="Sparkles"
+        title="登录后查看每日推荐"
+        description="根据你的听歌口味，每天为你精选 20 首好歌"
+        buttonText="登录查看每日推荐"
+      />
+      <div
+        v-else
+        class="group relative flex items-center justify-between overflow-hidden rounded-2xl bg-gradient-to-r from-[#FF5A5F] to-[#FF7F66] p-6 text-white shadow-[0_4px_20px_rgba(255,90,95,0.30)] transition-transform hover:scale-[1.01]"
+        @click="$router.push('/daily')"
+      >
+        <div class="absolute right-0 top-0 h-full w-1/3 opacity-10">
+          <Music class="h-full w-full" />
+        </div>
+        <div class="relative z-10">
+          <div class="flex items-center gap-2">
+            <CalendarDays class="h-5 w-5" />
+            <span class="text-sm font-medium opacity-90">{{ todayLabel }}</span>
+          </div>
+          <h2 class="mt-2 text-2xl font-bold tracking-tight">每日推荐</h2>
+          <p class="mt-1 text-sm opacity-80">根据你的口味，为你精选 20 首好歌</p>
+        </div>
+        <div class="relative z-10 flex items-center gap-2 rounded-full bg-white/20 px-5 py-2.5 text-sm font-medium backdrop-blur-sm transition-colors group-hover:bg-white/30">
+          <Play class="h-4 w-4 fill-current" />
+          立即试听
+        </div>
+      </div>
+    </section>
 
     <!-- Recommended playlists -->
     <section>
       <SectionHeader title="推荐歌单" />
-      <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+      <div v-if="loading && playlists.length === 0">
+        <SkeletonCardGrid :count="12" />
+      </div>
+      <div v-else class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         <div
-          v-for="item in playlists"
+          v-for="(item, idx) in playlists"
           :key="item.id"
-          class="group cursor-pointer"
+          class="group cursor-pointer animate-fade-in-up"
+          :style="{ '--stagger-delay': `${(idx % 12) * 45}ms` }"
           @click="$router.push(`/playlist/${item.id}`)"
         >
           <CoverImage :src="item.picUrl" :alt="item.name" size="md" playable @play="$router.push(`/playlist/${item.id}`)" />
@@ -72,9 +109,10 @@
       <SectionHeader title="推荐MV" />
       <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
         <div
-          v-for="item in mvs"
+          v-for="(item, idx) in mvs"
           :key="item.id"
-          class="group cursor-pointer"
+          class="group cursor-pointer animate-fade-in-up"
+          :style="{ '--stagger-delay': `${(idx % 8) * 45}ms` }"
           @click="$router.push(`/mv/${item.id}`)"
         >
           <div class="relative overflow-hidden rounded-lg">
@@ -85,15 +123,20 @@
         </div>
       </div>
     </section>
+    <section v-else-if="loading && mvs.length === 0">
+      <SectionHeader title="推荐MV" />
+      <SkeletonCardGrid :count="8" grid-class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4" />
+    </section>
 
     <!-- Recommended DJ -->
     <section v-if="djPrograms.length > 0">
       <SectionHeader title="推荐电台" />
       <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         <div
-          v-for="item in djPrograms"
+          v-for="(item, idx) in djPrograms"
           :key="item.id"
-          class="group cursor-pointer"
+          class="group cursor-pointer animate-fade-in-up"
+          :style="{ '--stagger-delay': `${(idx % 12) * 45}ms` }"
           @click="$router.push(`/dj/${item.id}`)"
         >
           <CoverImage :src="item.picUrl" :alt="item.name" size="md" playable />
@@ -101,24 +144,30 @@
         </div>
       </div>
     </section>
-
-    <LoadingSpinner v-if="loading" />
+    <section v-else-if="loading && djPrograms.length === 0">
+      <SectionHeader title="推荐电台" />
+      <SkeletonCardGrid :count="6" />
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { ChevronLeft, ChevronRight, Play } from 'lucide-vue-next'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useUserStore } from '@/stores/user'
+import LoginPrompt from '@/components/common/LoginPrompt.vue'
+import { ChevronLeft, ChevronRight, Play, CalendarDays, Music, Sparkles } from 'lucide-vue-next'
 import { getBanner, getPersonalized, getPersonalizedNewSong, getPersonalizedMv, getPersonalizedDjprogram } from '@/api/personalized'
 import CoverImage from '@/components/common/CoverImage.vue'
 import SectionHeader from '@/components/common/SectionHeader.vue'
 import SongTable from '@/components/common/SongTable.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonBanner from '@/components/common/skeleton/SkeletonBanner.vue'
+import SkeletonCardGrid from '@/components/common/skeleton/SkeletonCardGrid.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import { formatPlayCount } from '@/utils/format'
 import type { Song } from '@/stores/player'
 
 const { playSongList } = usePlayer()
+const userStore = useUserStore()
 
 const loading = ref(false)
 const banners = ref<any[]>([])
@@ -128,6 +177,13 @@ const mvs = ref<any[]>([])
 const djPrograms = ref<any[]>([])
 const currentBanner = ref(0)
 let bannerTimer: ReturnType<typeof setInterval> | null = null
+
+/** 今日日期标签，如「8月26日 周三」 */
+const todayLabel = computed(() => {
+  const now = new Date()
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  return `${now.getMonth() + 1}月${now.getDate()}日 ${weekdays[now.getDay()]}`
+})
 
 onMounted(async () => {
   loading.value = true

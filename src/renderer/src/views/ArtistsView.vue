@@ -50,7 +50,7 @@
     </div>
 
     <!-- 歌手网格 -->
-    <div v-if="loading && artists.length === 0" class="py-8"><LoadingSpinner /></div>
+    <SkeletonArtistGrid v-if="loading && artists.length === 0" :count="16" />
     <div v-else class="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
       <div
         v-for="item in artists"
@@ -81,7 +81,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { getArtistList } from '@/api/artist'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonArtistGrid from '@/components/common/skeleton/SkeletonArtistGrid.vue'
 
 const areaList = [
   { label: '全部', value: -1 },

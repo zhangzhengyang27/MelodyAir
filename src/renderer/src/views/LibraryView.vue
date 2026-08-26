@@ -101,7 +101,7 @@
 
       <!-- Subscribed albums -->
       <section v-if="activeTab === 'albums'">
-        <div v-if="subLoading" class="py-8"><LoadingSpinner /></div>
+        <SkeletonCardGrid v-if="subLoading" :count="12" />
         <div v-else-if="subAlbums.length === 0" class="py-8 text-center text-neutral-400">暂无收藏的专辑</div>
         <div v-else class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           <div
@@ -119,7 +119,7 @@
 
       <!-- Subscribed artists -->
       <section v-if="activeTab === 'artists'">
-        <div v-if="subLoading" class="py-8"><LoadingSpinner /></div>
+        <SkeletonArtistGrid v-if="subLoading" :count="16" />
         <div v-else-if="subArtists.length === 0" class="py-8 text-center text-neutral-400">暂无关注的歌手</div>
         <div v-else class="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
           <div
@@ -138,7 +138,11 @@
 
       <!-- Subscribed MVs -->
       <section v-if="activeTab === 'mvs'">
-        <div v-if="subLoading" class="py-8"><LoadingSpinner /></div>
+        <SkeletonCardGrid
+          v-if="subLoading"
+          :count="8"
+          grid-class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4"
+        />
         <div v-else-if="subMvs.length === 0" class="py-8 text-center text-neutral-400">暂无收藏的MV</div>
         <div v-else class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
           <div
@@ -183,7 +187,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { usePlayerStore } from '@/stores/player'
 import { getUserPlaylist, getLikeList } from '@/api/user'
@@ -192,7 +197,8 @@ import { getRecentSong } from '@/api/record'
 import SongTable from '@/components/common/SongTable.vue'
 import PlayHistoryList from '@/components/common/PlayHistoryList.vue'
 import CoverImage from '@/components/common/CoverImage.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonCardGrid from '@/components/common/skeleton/SkeletonCardGrid.vue'
+import SkeletonArtistGrid from '@/components/common/skeleton/SkeletonArtistGrid.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import { showToast } from '@/composables/useToast'
 import type { Song } from '@/stores/player'
@@ -200,6 +206,9 @@ import type { Song } from '@/stores/player'
 const userStore = useUserStore()
 const playerStore = usePlayerStore()
 const { playSongList } = usePlayer()
+const route = useRoute()
+
+const VALID_TABS = ['liked', 'playlists', 'history', 'recent', 'albums', 'artists', 'mvs']
 
 const loading = ref(false)
 const subLoading = ref(false)
@@ -230,6 +239,13 @@ async function switchTab(tab: string) {
   if (tab === 'artists' && subArtists.value.length === 0) await fetchSubArtists()
   if (tab === 'mvs' && subMvs.value.length === 0) await fetchSubMvs()
 }
+
+// 支持通过 ?tab=xxx 直接跳转到指定 Tab
+watch(() => route.query.tab, (tab) => {
+  if (typeof tab === 'string' && VALID_TABS.includes(tab)) {
+    switchTab(tab)
+  }
+}, { immediate: true })
 
 async function fetchSubAlbums() {
   subLoading.value = true

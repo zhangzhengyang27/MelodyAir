@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-6">
-    <div v-if="loading" class="py-8"><LoadingSpinner /></div>
+    <SkeletonDetail v-if="loading" :rows="8" />
     <template v-else-if="album">
       <div class="flex gap-6">
         <div class="h-48 w-48 shrink-0 overflow-hidden rounded-2xl bg-neutral-100 shadow-[0_2px_16px_rgba(0,0,0,0.08)] dark:bg-[#1F1F2E] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40)]">
@@ -33,7 +33,7 @@ import { useLocalStore } from '@/stores/local'
 import { useSettingsStore } from '@/stores/settings'
 import SongTable from '@/components/common/SongTable.vue'
 import CoralButton from '@/components/common/CoralButton.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonDetail from '@/components/common/skeleton/SkeletonDetail.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import type { Song } from '@/stores/player'
 import type { LocalAlbum } from '@/types/local'

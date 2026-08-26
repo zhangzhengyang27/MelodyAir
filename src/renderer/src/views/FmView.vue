@@ -5,7 +5,7 @@
       <CoralButton @click="fetchFmSongs">换一批</CoralButton>
     </div>
 
-    <div v-if="loading" class="py-8"><LoadingSpinner /></div>
+    <SkeletonSongTable v-if="loading" :rows="8" />
 
     <div v-else-if="songs.length === 0" class="flex min-h-[30vh] items-center justify-center">
       <div class="text-center">
@@ -23,7 +23,7 @@ import { ref } from 'vue'
 import { getPersonalFm, fmTrash } from '@/api/fm'
 import SongTable from '@/components/common/SongTable.vue'
 import CoralButton from '@/components/common/CoralButton.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonSongTable from '@/components/common/skeleton/SkeletonSongTable.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import type { Song } from '@/stores/player'
 

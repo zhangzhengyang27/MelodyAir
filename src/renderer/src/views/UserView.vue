@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-6">
-    <div v-if="loading" class="py-8"><LoadingSpinner /></div>
+    <SkeletonDetail v-if="loading" :rows="8" />
     <template v-else-if="user">
       <!-- 用户信息 -->
       <div class="flex items-center gap-4">
@@ -52,7 +52,7 @@ import { useUserStore } from '@/stores/user'
 import { getUserDetail, getUserPlaylist, followUser } from '@/api/user'
 import SectionHeader from '@/components/common/SectionHeader.vue'
 import CoverImage from '@/components/common/CoverImage.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonDetail from '@/components/common/skeleton/SkeletonDetail.vue'
 import { showToast } from '@/composables/useToast'
 
 const route = useRoute()

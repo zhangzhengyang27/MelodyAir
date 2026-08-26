@@ -16,7 +16,7 @@
     </div>
 
     <!-- 专辑网格 -->
-    <div v-if="loading && albums.length === 0" class="py-8"><LoadingSpinner /></div>
+    <SkeletonCardGrid v-if="loading && albums.length === 0" :count="12" />
     <div v-else class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
       <div
         v-for="item in albums"
@@ -46,7 +46,7 @@
 import { ref, onMounted } from 'vue'
 import { getTopAlbum } from '@/api/album'
 import CoverImage from '@/components/common/CoverImage.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonCardGrid from '@/components/common/skeleton/SkeletonCardGrid.vue'
 import { formatDate } from '@/utils/format'
 
 const areaOptions = [

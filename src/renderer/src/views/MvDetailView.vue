@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-6">
-    <div v-if="loading" class="py-8"><LoadingSpinner /></div>
+    <SkeletonDetail v-if="loading" :rows="8" />
 
     <template v-else-if="mv">
       <!-- Header -->
@@ -47,7 +47,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { getMvDetail, getMvUrl } from '@/api/mv'
 import CommentSection from '@/components/common/CommentSection.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonDetail from '@/components/common/skeleton/SkeletonDetail.vue'
 import { useUserStore } from '@/stores/user'
 import { showToast } from '@/composables/useToast'
 import { formatPlayCount } from '@/utils/format'

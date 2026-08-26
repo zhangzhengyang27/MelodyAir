@@ -29,7 +29,7 @@
     </div>
 
     <!-- 歌单网格 -->
-    <div v-if="loading && playlists.length === 0" class="py-8"><LoadingSpinner /></div>
+    <SkeletonCardGrid v-if="loading && playlists.length === 0" :count="12" />
     <div v-else class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
       <div
         v-for="item in playlists"
@@ -60,7 +60,7 @@
 import { ref, onMounted } from 'vue'
 import { getTopPlaylist, getPlaylistCatlist, getPlaylistHot, getTopPlaylistHighquality } from '@/api/playlist'
 import CoverImage from '@/components/common/CoverImage.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonCardGrid from '@/components/common/skeleton/SkeletonCardGrid.vue'
 import { formatPlayCount } from '@/utils/format'
 
 const tabs = [

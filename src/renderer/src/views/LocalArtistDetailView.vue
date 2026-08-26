@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-6">
-    <div v-if="loading" class="py-8"><LoadingSpinner /></div>
+    <SkeletonDetail v-if="loading" :rows="8" />
     <template v-else-if="artist">
       <!-- Header -->
       <div class="flex items-center gap-6">
@@ -56,7 +56,7 @@ import { useLocalStore } from '@/stores/local'
 import { useSettingsStore } from '@/stores/settings'
 import SongTable from '@/components/common/SongTable.vue'
 import CoralButton from '@/components/common/CoralButton.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonDetail from '@/components/common/skeleton/SkeletonDetail.vue'
 import SectionHeader from '@/components/common/SectionHeader.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import type { Song } from '@/stores/player'

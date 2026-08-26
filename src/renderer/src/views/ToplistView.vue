@@ -17,7 +17,11 @@
 
     <!-- 歌曲榜单 -->
     <div v-if="activeTopTab === 'songs'">
-      <div v-if="loading" class="py-8"><LoadingSpinner /></div>
+      <SkeletonCardGrid
+        v-if="loading"
+        :count="9"
+        grid-class="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+      />
 
       <div v-else-if="toplists.length > 0" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div
@@ -50,7 +54,7 @@
 
     <!-- 歌手榜 -->
     <div v-if="activeTopTab === 'artists'">
-      <div v-if="artistLoading" class="py-8"><LoadingSpinner /></div>
+      <SkeletonArtistGrid v-if="artistLoading" :count="16" />
       <div v-else-if="artistList.length > 0" class="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
         <div
           v-for="(item, idx) in artistList"
@@ -72,7 +76,7 @@
 
     <!-- 新歌速递 -->
     <div v-if="activeTopTab === 'new'">
-      <div v-if="newSongLoading" class="py-8"><LoadingSpinner /></div>
+      <SkeletonSongTable v-if="newSongLoading" :rows="8" />
       <SongTable v-else :songs="newSongs" @play="handlePlayNewSong" />
     </div>
 
@@ -106,7 +110,9 @@ import { ref, onMounted, watch } from 'vue'
 import { getToplist, getToplistArtist, getTopSong } from '@/api/top'
 import { getPlaylistDetail } from '@/api/playlist'
 import SongTable from '@/components/common/SongTable.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonCardGrid from '@/components/common/skeleton/SkeletonCardGrid.vue'
+import SkeletonArtistGrid from '@/components/common/skeleton/SkeletonArtistGrid.vue'
+import SkeletonSongTable from '@/components/common/skeleton/SkeletonSongTable.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import type { Song } from '@/stores/player'
 

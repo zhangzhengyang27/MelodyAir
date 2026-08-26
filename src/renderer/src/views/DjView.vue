@@ -2,7 +2,10 @@
   <div class="space-y-6">
     <h1 class="text-title">播客</h1>
 
-    <div v-if="loading" class="py-8"><LoadingSpinner /></div>
+    <div v-if="loading" class="space-y-8">
+      <Skeleton class="h-48 w-full rounded-2xl" />
+      <SkeletonCardGrid :count="12" />
+    </div>
 
     <template v-else>
       <!-- Banner -->
@@ -164,7 +167,8 @@ import {
 } from '@/api/dj'
 import CoverImage from '@/components/common/CoverImage.vue'
 import SectionHeader from '@/components/common/SectionHeader.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import Skeleton from '@/components/common/skeleton/Skeleton.vue'
+import SkeletonCardGrid from '@/components/common/skeleton/SkeletonCardGrid.vue'
 import { formatPlayCount, formatDuration } from '@/utils/format'
 
 const loading = ref(false)

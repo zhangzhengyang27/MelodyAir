@@ -38,7 +38,11 @@
     </div>
 
     <!-- MV 网格 -->
-    <div v-if="loading && mvs.length === 0" class="py-8"><LoadingSpinner /></div>
+    <SkeletonCardGrid
+      v-if="loading && mvs.length === 0"
+      :count="8"
+      grid-class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4"
+    />
     <div v-else class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
       <div
         v-for="item in mvs"
@@ -68,7 +72,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { getMvAll, getMvFirst, getMvExclusiveRcmd, getTopMv } from '@/api/mv'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonCardGrid from '@/components/common/skeleton/SkeletonCardGrid.vue'
 
 const tabs = [
   { label: '全部MV', value: 'all' },

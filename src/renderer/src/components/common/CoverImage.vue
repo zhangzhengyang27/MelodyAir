@@ -1,12 +1,22 @@
 <template>
   <div class="group relative overflow-hidden rounded-lg" :class="sizeClass">
-    <img
-      v-if="src"
-      :src="src + '?param=' + imgSize + 'y' + imgSize"
-      :alt="alt"
-      class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-      loading="lazy"
-    />
+    <div v-if="src" class="relative h-full w-full">
+      <!-- 加载中的骨架屏占位 -->
+      <div v-if="!imgLoaded" class="skeleton absolute inset-0" />
+      <img
+        v-if="!imgError"
+        :src="src + '?param=' + imgSize + 'y' + imgSize"
+        :alt="alt"
+        class="h-full w-full object-cover transition-[opacity,transform] duration-300"
+        :class="imgLoaded ? 'opacity-100 group-hover:scale-105' : 'opacity-0'"
+        loading="lazy"
+        @load="imgLoaded = true"
+        @error="handleImgError"
+      />
+      <div v-else class="flex h-full w-full items-center justify-center bg-neutral-200 dark:bg-[#1F1F2E]">
+        <Music class="h-8 w-8 text-neutral-400" />
+      </div>
+    </div>
     <div v-else class="flex h-full w-full items-center justify-center bg-neutral-200 dark:bg-[#1F1F2E]">
       <Music class="h-8 w-8 text-neutral-400" />
     </div>
@@ -16,7 +26,7 @@
       class="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/20"
       @click.stop="$emit('play')"
     >
-      <div class="flex h-10 w-10 scale-0 items-center justify-center rounded-full bg-[#FF5A5F] text-white shadow-lg transition-transform group-hover:scale-100">
+      <div class="flex h-10 w-10 scale-0 items-center justify-center rounded-full bg-[#FF5A5F] text-white shadow-lg transition-transform duration-200 group-hover:scale-100">
         <Play class="h-5 w-5 translate-x-0.5" fill="currentColor" />
       </div>
     </div>
@@ -24,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Music, Play } from 'lucide-vue-next'
 
 const props = withDefaults(defineProps<{
@@ -51,4 +61,18 @@ const imgSize = computed(() => {
   const map = { sm: 200, md: 300, lg: 400 }
   return map[props.size]
 })
+
+// 图片加载状态：src 变化时重置，加载完成后淡入
+const imgLoaded = ref(false)
+const imgError = ref(false)
+watch(() => props.src, () => {
+  imgLoaded.value = false
+  imgError.value = false
+})
+
+// 加载失败：隐藏骨架屏，回退到占位图标
+function handleImgError() {
+  imgLoaded.value = true
+  imgError.value = true
+}
 </script>

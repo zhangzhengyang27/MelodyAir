@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-6">
-    <div v-if="loading" class="py-8"><LoadingSpinner /></div>
+    <SkeletonDetail v-if="loading" :rows="8" />
 
     <template v-else-if="radio">
       <!-- 返回 -->
@@ -39,7 +39,16 @@
       <!-- 节目列表 -->
       <section>
         <SectionHeader title="节目列表" />
-        <div v-if="programsLoading" class="py-4"><LoadingSpinner /></div>
+        <div v-if="programsLoading" class="space-y-2">
+          <div v-for="i in 6" :key="i" class="flex items-center gap-4 rounded-xl p-3">
+            <Skeleton class="h-8 w-8 shrink-0 rounded-full" />
+            <div class="min-w-0 flex-1 space-y-1.5">
+              <Skeleton class="h-3.5 w-1/2 rounded" />
+              <Skeleton class="h-2.5 w-1/4 rounded" />
+            </div>
+            <Skeleton class="h-3 w-10 shrink-0 rounded" />
+          </div>
+        </div>
         <div v-else-if="programs.length > 0" class="space-y-2">
           <div
             v-for="prog in programs"
@@ -89,7 +98,8 @@ import { getDjDetail, getDjProgram, subDj } from '@/api/dj'
 import SectionHeader from '@/components/common/SectionHeader.vue'
 import CoralButton from '@/components/common/CoralButton.vue'
 import CommentSection from '@/components/common/CommentSection.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonDetail from '@/components/common/skeleton/SkeletonDetail.vue'
+import Skeleton from '@/components/common/skeleton/Skeleton.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import { formatPlayCount, formatDuration, formatDate } from '@/utils/format'
 import type { Song } from '@/stores/player'

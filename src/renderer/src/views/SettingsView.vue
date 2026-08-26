@@ -109,7 +109,7 @@
         <ToggleSwitch v-model="settingsStore.enableEnhancedLyric" />
       </div>
 
-      <div class="setting-row">
+      <div v-if="hasMiniPlayer" class="setting-row">
         <div class="setting-info">
           <p class="setting-label">迷你悬浮窗</p>
           <p class="setting-description">显示轻量悬浮播放面板</p>
@@ -117,7 +117,7 @@
         <button class="primary-button" @click="handleOpenMiniWindow">打开悬浮窗</button>
       </div>
 
-      <div class="setting-row">
+      <div v-if="hasDesktopLyrics" class="setting-row">
         <div class="setting-info">
           <p class="setting-label">桌面歌词</p>
           <p class="setting-description">在桌面显示歌词窗口，支持置顶和锁定</p>
@@ -139,51 +139,60 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <p class="setting-label">全局快捷键</p>
-          <p class="setting-description">在任何界面控制播放器</p>
-        </div>
-        <ToggleSwitch v-model="settingsStore.globalShortcut" @update:model-value="handleGlobalShortcutChange" />
-      </div>
-
-      <div v-if="settingsStore.globalShortcut" class="setting-row">
-        <div class="setting-info">
-          <p class="setting-label">自定义快捷键</p>
-          <p class="setting-description">自定义播放控制快捷键</p>
-        </div>
-        <button class="primary-button" @click="showShortcutManager = true">管理快捷键</button>
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-info">
-          <p class="setting-label">最小化到托盘</p>
-          <p class="setting-description">关闭窗口时最小化到系统托盘</p>
-        </div>
-        <ToggleSwitch v-model="settingsStore.minimizeToTray" @update:model-value="handleMinimizeToTrayChange" />
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-info">
-          <p class="setting-label">开机自启</p>
-          <p class="setting-description">系统启动时自动运行 MelodyAir</p>
-        </div>
-        <ToggleSwitch v-model="settingsStore.autoLaunch" @update:model-value="handleAutoLaunchChange" />
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-info">
           <p class="setting-label">启用音乐解锁</p>
           <p class="setting-description">自动获取 VIP 歌曲的播放地址</p>
         </div>
         <ToggleSwitch v-model="settingsStore.enableUnblock" />
       </div>
 
-      <div class="setting-row">
-        <div class="setting-info">
-          <p class="setting-label">本地音乐元数据管理</p>
-          <p class="setting-description">管理本地歌曲信息、批量整理和导入导出</p>
+      <!-- 桌面端专属设置（Web 端自动隐藏） -->
+      <template v-if="hasGlobalShortcut || hasTray || hasAutoLaunch || hasLocalScan">
+        <div class="my-2 flex items-center gap-2 px-1">
+          <Monitor class="h-3.5 w-3.5 text-[#FF5A5F]" />
+          <span class="text-xs font-medium tracking-wide text-[#FF5A5F]">桌面端专属</span>
+          <div class="h-px flex-1 bg-neutral-100 dark:bg-white/5" />
         </div>
-        <button class="primary-button" @click="goToMetadata">打开管理页</button>
-      </div>
+
+        <div v-if="hasGlobalShortcut" class="setting-row">
+          <div class="setting-info">
+            <p class="setting-label">全局快捷键</p>
+            <p class="setting-description">在任何界面控制播放器</p>
+          </div>
+          <ToggleSwitch v-model="settingsStore.globalShortcut" @update:model-value="handleGlobalShortcutChange" />
+        </div>
+
+        <div v-if="hasGlobalShortcut && settingsStore.globalShortcut" class="setting-row">
+          <div class="setting-info">
+            <p class="setting-label">自定义快捷键</p>
+            <p class="setting-description">自定义播放控制快捷键</p>
+          </div>
+          <button class="primary-button" @click="showShortcutManager = true">管理快捷键</button>
+        </div>
+
+        <div v-if="hasTray" class="setting-row">
+          <div class="setting-info">
+            <p class="setting-label">最小化到托盘</p>
+            <p class="setting-description">关闭窗口时最小化到系统托盘</p>
+          </div>
+          <ToggleSwitch v-model="settingsStore.minimizeToTray" @update:model-value="handleMinimizeToTrayChange" />
+        </div>
+
+        <div v-if="hasAutoLaunch" class="setting-row">
+          <div class="setting-info">
+            <p class="setting-label">开机自启</p>
+            <p class="setting-description">系统启动时自动运行 MelodyAir</p>
+          </div>
+          <ToggleSwitch v-model="settingsStore.autoLaunch" @update:model-value="handleAutoLaunchChange" />
+        </div>
+
+        <div v-if="hasLocalScan" class="setting-row">
+          <div class="setting-info">
+            <p class="setting-label">本地音乐元数据管理</p>
+            <p class="setting-description">管理本地歌曲信息、批量整理和导入导出</p>
+          </div>
+          <button class="primary-button" @click="goToMetadata">打开管理页</button>
+        </div>
+      </template>
     </section>
 
     <MiniFloatingPlayer
@@ -346,7 +355,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, onBeforeUnmount, defineComponent } from 'vue'
-import { Music, Settings } from 'lucide-vue-next'
+import { Music, Settings, Monitor } from 'lucide-vue-next'
 import { useSettingsStore } from '@/stores/settings'
 import { usePlayerStore } from '@/stores/player'
 import { logger } from '@/utils/logger'
@@ -354,6 +363,7 @@ import { cacheManager } from '@/utils/db'
 import { useUserStore } from '@/stores/user'
 import { useShortcutRecorder } from '@/composables/useShortcutRecorder'
 import { useEqualizer } from '@/composables/useEqualizer'
+import { usePlatform } from '@/composables/usePlatform'
 import MiniFloatingPlayer from '@/components/player/MiniFloatingPlayer.vue'
 import { useRouter } from 'vue-router'
 
@@ -386,6 +396,7 @@ const equalizerEnabled = equalizer.enabled
 const equalizerBands = equalizer.bands
 const activePresetName = equalizer.activePresetName
 const presetKeys = Object.keys(equalizer.presets)
+const { hasMiniPlayer, hasDesktopLyrics, hasGlobalShortcut, hasTray, hasAutoLaunch, hasLocalScan } = usePlatform()
 
 const showMiniPlayer = ref(false)
 const showEqualizer = ref(false)

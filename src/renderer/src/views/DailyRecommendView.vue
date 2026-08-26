@@ -36,7 +36,7 @@
       <!-- 推荐歌曲 -->
       <section>
         <SectionHeader title="推荐歌曲" />
-        <div v-if="loading" class="py-8"><LoadingSpinner /></div>
+        <SkeletonSongTable v-if="loading" :rows="8" />
         <SongTable v-else :songs="songs" @play="handlePlaySong" />
       </section>
     </template>
@@ -50,7 +50,7 @@ import { getRecommendSongs, getRecommendResource } from '@/api/personalized'
 import SectionHeader from '@/components/common/SectionHeader.vue'
 import CoverImage from '@/components/common/CoverImage.vue'
 import SongTable from '@/components/common/SongTable.vue'
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SkeletonSongTable from '@/components/common/skeleton/SkeletonSongTable.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import type { Song } from '@/stores/player'
 

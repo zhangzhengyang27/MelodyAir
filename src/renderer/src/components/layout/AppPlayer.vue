@@ -149,11 +149,6 @@
         </Teleport>
       </div>
 
-      <button class="player-btn" title="桌面歌词" @click="toggleDesktopLyrics">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-        </svg>
-      </button>
       <button class="player-btn" title="播放列表" @click="showPlaylist = !showPlaylist">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h10m-10 4h6" />
@@ -164,57 +159,71 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
         </svg>
       </button>
+
+      <!-- 更多菜单（平台专属能力：桌面歌词/迷你播放器） -->
+      <div v-if="showMoreButton" class="relative" ref="moreMenuRef">
+        <button class="player-btn" title="更多" @click.stop="showMoreMenu = !showMoreMenu">
+          <MoreHorizontal class="h-5 w-5" />
+        </button>
+        <Teleport to="body">
+          <Transition name="fade-scale">
+            <div
+              v-if="showMoreMenu"
+              class="fixed bottom-[5.75rem] z-50 w-44 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg dark:border-white/10 dark:bg-[#171722] dark:shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
+              :style="moreMenuStyle"
+            >
+              <div class="border-b border-neutral-100 px-3 py-2 dark:border-white/6">
+                <span class="text-xs font-semibold tracking-wide text-neutral-500">桌面工具</span>
+              </div>
+              <div class="py-0.5">
+                <button
+                  v-if="hasDesktopLyrics"
+                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] transition-colors hover:bg-neutral-50 dark:hover:bg-white/5"
+                  @click="toggleDesktopLyrics(); showMoreMenu = false"
+                >
+                  <MonitorPlay class="h-4 w-4 text-neutral-400" />
+                  <span>桌面歌词</span>
+                </button>
+                <button
+                  v-if="hasMiniPlayer"
+                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] transition-colors hover:bg-neutral-50 dark:hover:bg-white/5"
+                  @click="toggleMiniPlayer(); showMoreMenu = false"
+                >
+                  <AppWindow class="h-4 w-4 text-neutral-400" />
+                  <span>迷你播放器</span>
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </Teleport>
+      </div>
     </div>
   </footer>
 
-  <Teleport to="body">
-    <Transition name="slide-up">
-      <div
-        v-if="showPlaylist"
-        class="fixed bottom-20 right-4 z-50 max-h-96 w-80 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#171722] dark:shadow-[0_16px_48px_rgba(0,0,0,0.6),0_0_1px_rgba(255,255,255,0.09)]"
-      >
-        <div class="flex items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-white/6">
-          <span class="text-sm font-medium">播放列表 ({{ playerStore.playlist.length }})</span>
-          <button class="text-xs text-neutral-400 hover:text-[#FF5A5F]" @click="playerStore.clearPlaylist?.()">清空</button>
-        </div>
-        <div class="max-h-72 overflow-y-auto">
-          <div
-            v-for="(song, idx) in playerStore.playlist"
-            :key="song.id"
-            class="flex cursor-pointer items-center gap-3 px-4 py-2 transition-colors hover:bg-neutral-50 dark:hover:bg-[rgba(255,255,255,0.05)]"
-            :class="{ 'bg-[#FFF5F3] dark:bg-[rgba(196,58,63,0.2)]': idx === playerStore.currentIndex }"
-            @click="handlePlayFromQueue(idx, song)"
-          >
-            <span class="w-5 flex justify-center">
-              <Play v-if="idx === playerStore.currentIndex" class="h-3 w-3 text-[#FF5A5F]" />
-              <span v-else class="text-xs text-neutral-400">{{ idx + 1 }}</span>
-            </span>
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm" :class="{ 'text-[#FF5A5F]': idx === playerStore.currentIndex }">{{ song.name }}</p>
-            </div>
-            <span class="text-xs text-neutral-400">{{ formatDuration(song.duration) }}</span>
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+  <!-- 播放队列滑出面板 -->
+  <PlayQueuePanel v-model:visible="showPlaylist" />
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { Shuffle, Repeat, Repeat1, ListOrdered, Play, Volume2, VolumeX, Heart } from 'lucide-vue-next'
+import { Shuffle, Repeat, Repeat1, ListOrdered, Volume2, VolumeX, Heart, MoreHorizontal, MonitorPlay, AppWindow } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 import { useSettingsStore } from '@/stores/settings'
 import { useUserStore } from '@/stores/user'
 import { useAudio } from '@/composables/useAudio'
+import { usePlatform } from '@/composables/usePlatform'
 import SleepTimerButton from '@/components/player/SleepTimerButton.vue'
-import { formatTime, formatDuration } from '@/utils/format'
-import type { Song } from '@/stores/player'
+import PlayQueuePanel from '@/components/player/PlayQueuePanel.vue'
+import { formatTime } from '@/utils/format'
 
 const playerStore = usePlayerStore()
 const settingsStore = useSettingsStore()
 const userStore = useUserStore()
 const { seekByProgress } = useAudio()
+const { hasDesktopLyrics, hasMiniPlayer } = usePlatform()
+
+/** 是否显示「更多」按钮（仅当有平台专属能力时） */
+const showMoreButton = hasDesktopLyrics || hasMiniPlayer
 
 // 当前歌曲是否喜欢
 const isCurrentSongLiked = computed(() => {
@@ -232,6 +241,8 @@ const showFullPlayer = defineModel<boolean>('showFullPlayer', { default: false }
 const hoverTime = ref<number | null>(null)
 const hoverProgress = ref(0)
 const showQualityPopup = ref(false)
+const showMoreMenu = ref(false)
+const moreMenuRef = ref<HTMLElement | null>(null)
 const qualityPopupRef = ref<HTMLElement | null>(null)
 const popupPositionTick = ref(0) // 窗口 resize 时递增，触发 computed 重新计算
 
@@ -262,9 +273,17 @@ const qualityPopupStyle = computed(() => {
   return { left: `${Math.max(16, rect.left - 110)}px`, bottom: '5.75rem' }
 })
 
+const moreMenuStyle = computed(() => {
+  void popupPositionTick.value
+  const rect = moreMenuRef.value?.getBoundingClientRect()
+  if (!rect) return { right: '1rem', bottom: '5.75rem' }
+  return { left: `${Math.max(16, rect.left - 110)}px`, bottom: '5.75rem' }
+})
+
 function handleClickOutside(e: MouseEvent) {
   const target = e.target as Node
   if (qualityPopupRef.value && !qualityPopupRef.value.contains(target)) showQualityPopup.value = false
+  if (moreMenuRef.value && !moreMenuRef.value.contains(target)) showMoreMenu.value = false
 }
 
 function selectQuality(quality: any) {
@@ -290,6 +309,20 @@ async function toggleDesktopLyrics() {
   }
 }
 
+async function toggleMiniPlayer() {
+  try {
+    if (!window.electronAPI?.openMiniWindow) return
+    const isOpen = await window.electronAPI.isMiniWindowOpen()
+    if (isOpen) {
+      await window.electronAPI.closeMiniWindow()
+    } else {
+      await window.electronAPI.openMiniWindow()
+    }
+  } catch (e) {
+    console.error('toggleMiniPlayer failed:', e)
+  }
+}
+
 function handleProgressClick(e: MouseEvent) {
   const el = e.currentTarget as HTMLElement
   const rect = el.getBoundingClientRect()
@@ -302,11 +335,6 @@ function handleProgressHover(e: MouseEvent) {
   const rect = el.getBoundingClientRect()
   hoverProgress.value = (e.clientX - rect.left) / rect.width
   hoverTime.value = hoverProgress.value * playerStore.duration
-}
-
-function handlePlayFromQueue(idx: number, song: Song) {
-  playerStore.currentIndex = idx
-  playerStore.playSong(song)
 }
 
 function handleWindowResize() {
@@ -425,6 +453,22 @@ onUnmounted(() => {
 
 .like-btn.liked {
   color: #FF5A5F;
+}
+
+.like-btn.liked svg {
+  animation: like-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes like-pop {
+  0% {
+    transform: scale(0.6);
+  }
+  50% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .dark .like-btn {
