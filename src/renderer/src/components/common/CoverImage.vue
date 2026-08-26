@@ -8,18 +8,16 @@
       loading="lazy"
     />
     <div v-else class="flex h-full w-full items-center justify-center bg-neutral-200 dark:bg-[#1F1F2E]">
-      <span class="text-2xl text-neutral-400">🎵</span>
+      <Music class="h-8 w-8 text-neutral-400" />
     </div>
     <!-- Play overlay -->
     <div
       v-if="playable"
       class="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/20"
-      @click="$emit('play')"
+      @click.stop="$emit('play')"
     >
       <div class="flex h-10 w-10 scale-0 items-center justify-center rounded-full bg-[#FF5A5F] text-white shadow-lg transition-transform group-hover:scale-100">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M8 5v14l11-7z"/>
-        </svg>
+        <Play class="h-5 w-5 translate-x-0.5" fill="currentColor" />
       </div>
     </div>
   </div>
@@ -27,6 +25,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Music, Play } from 'lucide-vue-next'
 
 const props = withDefaults(defineProps<{
   src?: string

@@ -19,10 +19,20 @@
           </svg>
         </div>
       </div>
-      <div v-if="playerStore.currentSong" class="min-w-0">
+      <div v-if="playerStore.currentSong" class="min-w-0 flex-1">
         <p class="truncate text-sm font-medium">{{ playerStore.currentSong.name }}</p>
         <p class="truncate text-xs text-neutral-500">{{ playerStore.currentSong.artists?.map(a => a.name).join(' / ') }}</p>
       </div>
+      <!-- 喜欢按钮 -->
+      <button
+        v-if="playerStore.currentSong"
+        class="like-btn shrink-0"
+        :class="{ 'liked': isCurrentSongLiked }"
+        :title="isCurrentSongLiked ? '取消喜欢' : '喜欢'"
+        @click="toggleLike"
+      >
+        <Heart class="h-[18px] w-[18px]" :fill="isCurrentSongLiked ? 'currentColor' : 'none'" />
+      </button>
       <p v-else class="text-sm text-neutral-400">未在播放</p>
     </div>
 
@@ -30,7 +40,7 @@
     <div class="flex flex-1 flex-col items-center gap-1">
       <div class="flex items-center gap-4">
         <button class="player-btn" @click="playerStore.togglePlayMode" :title="playModeLabel">
-          <span class="text-base">{{ playModeIcon }}</span>
+          <component :is="playModeIcon" class="h-[18px] w-[18px]" />
         </button>
         <button class="player-btn" @click="playerStore.playPrev">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -56,15 +66,10 @@
 
         <SleepTimerButton />
 
-        <div class="flex items-center gap-2">
+        <div class="volume-group flex items-center">
           <button class="player-btn" @click="toggleMute" :title="playerStore.muted ? '取消静音' : '静音'">
-            <svg v-if="playerStore.muted" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-            </svg>
-            <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M18.364 5.636a9 9 0 010 12.728M12 6l-4 4H4v4h4l4 4V6z" />
-            </svg>
+            <VolumeX v-if="playerStore.muted" class="h-[18px] w-[18px]" />
+            <Volume2 v-else class="h-[18px] w-[18px]" />
           </button>
           <input
             type="range"
@@ -180,7 +185,10 @@
             :class="{ 'bg-[#FFF5F3] dark:bg-[rgba(196,58,63,0.2)]': idx === playerStore.currentIndex }"
             @click="handlePlayFromQueue(idx, song)"
           >
-            <span class="w-5 text-xs text-neutral-400">{{ idx === playerStore.currentIndex ? '▶' : idx + 1 }}</span>
+            <span class="w-5 flex justify-center">
+              <Play v-if="idx === playerStore.currentIndex" class="h-3 w-3 text-[#FF5A5F]" />
+              <span v-else class="text-xs text-neutral-400">{{ idx + 1 }}</span>
+            </span>
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm" :class="{ 'text-[#FF5A5F]': idx === playerStore.currentIndex }">{{ song.name }}</p>
             </div>
@@ -194,8 +202,10 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { Shuffle, Repeat, Repeat1, ListOrdered, Play, Volume2, VolumeX, Heart } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 import { useSettingsStore } from '@/stores/settings'
+import { useUserStore } from '@/stores/user'
 import { useAudio } from '@/composables/useAudio'
 import SleepTimerButton from '@/components/player/SleepTimerButton.vue'
 import { formatTime, formatDuration } from '@/utils/format'
@@ -203,7 +213,19 @@ import type { Song } from '@/stores/player'
 
 const playerStore = usePlayerStore()
 const settingsStore = useSettingsStore()
+const userStore = useUserStore()
 const { seekByProgress } = useAudio()
+
+// 当前歌曲是否喜欢
+const isCurrentSongLiked = computed(() => {
+  if (!playerStore.currentSong) return false
+  return userStore.isLiked(playerStore.currentSong.id)
+})
+
+function toggleLike() {
+  if (!playerStore.currentSong) return
+  userStore.toggleLike(playerStore.currentSong.id)
+}
 
 const showPlaylist = ref(false)
 const showFullPlayer = defineModel<boolean>('showFullPlayer', { default: false })
@@ -223,8 +245,8 @@ const qualityShortLabel = computed(() => {
 })
 
 const playModeIcon = computed(() => {
-  const icons: Record<string, string> = { sequence: '🔀', loop: '🔁', random: '🎲', loopOne: '🔂' }
-  return icons[playerStore.playMode] || '🔀'
+  const icons: Record<string, any> = { sequence: ListOrdered, loop: Repeat, random: Shuffle, loopOne: Repeat1 }
+  return icons[playerStore.playMode] || ListOrdered
 })
 
 const playModeLabel = computed(() => {
@@ -356,12 +378,20 @@ onUnmounted(() => {
 
 .volume-slider {
   height: 0.25rem;
-  width: 5rem;
+  width: 0;
   cursor: pointer;
   appearance: none;
   border-radius: 9999px;
   background-color: var(--color-neutral-200);
   outline: none;
+  opacity: 0;
+  transition: width 0.25s ease, opacity 0.2s ease;
+}
+
+.volume-group:hover .volume-slider {
+  width: 5rem;
+  opacity: 1;
+  margin-left: 0.25rem;
 }
 
 .dark .volume-slider {
@@ -374,6 +404,40 @@ onUnmounted(() => {
   appearance: none;
   border-radius: 9999px;
   background-color: #FF5A5F;
+}
+
+/* 喜欢按钮 */
+.like-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2rem;
+  width: 2rem;
+  border-radius: 9999px;
+  color: var(--color-neutral-400);
+  transition: all 0.15s ease;
+}
+
+.like-btn:hover {
+  color: #FF5A5F;
+  background-color: rgba(255, 90, 95, 0.1);
+}
+
+.like-btn.liked {
+  color: #FF5A5F;
+}
+
+.dark .like-btn {
+  color: #A1A1B5;
+}
+
+.dark .like-btn:hover {
+  color: #FF7F66;
+  background-color: rgba(255, 90, 95, 0.15);
+}
+
+.dark .like-btn.liked {
+  color: #FF7F66;
 }
 
 .slide-up-enter-active,

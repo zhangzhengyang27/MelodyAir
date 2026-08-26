@@ -3,7 +3,7 @@
     <h1 class="text-title">设置</h1>
 
     <section class="settings-card">
-      <h2 class="card-title">🎵 播放设置</h2>
+      <h2 class="card-title"><Music class="h-5 w-5 text-[#FF5A5F]" /> 播放设置</h2>
 
       <div class="setting-row">
         <div class="setting-info">
@@ -135,7 +135,7 @@
     </section>
 
     <section class="settings-card">
-      <h2 class="card-title">⚙️ 系统设置</h2>
+      <h2 class="card-title"><Settings class="h-5 w-5 text-[#FF5A5F]" /> 系统设置</h2>
 
       <div class="setting-row">
         <div class="setting-info">
@@ -346,6 +346,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, onBeforeUnmount, defineComponent } from 'vue'
+import { Music, Settings } from 'lucide-vue-next'
 import { useSettingsStore } from '@/stores/settings'
 import { usePlayerStore } from '@/stores/player'
 import { logger } from '@/utils/logger'

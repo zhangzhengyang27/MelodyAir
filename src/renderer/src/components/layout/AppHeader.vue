@@ -41,7 +41,8 @@
         :title="isDark ? '切换亮色' : '切换暗色'"
         @click="toggleTheme"
       >
-        {{ isDark ? '☀️' : '🌙' }}
+        <Sun v-if="isDark" class="h-[18px] w-[18px]" />
+        <Moon v-else class="h-[18px] w-[18px]" />
       </button>
       <RouterLink
         v-if="!userStore.isAccountLoggedIn"
@@ -50,41 +51,98 @@
       >
         登录
       </RouterLink>
-      <RouterLink v-else to="/library" class="flex items-center gap-2">
-        <img
-          v-if="userStore.profile?.avatarUrl"
-          :src="userStore.profile.avatarUrl"
-          alt="avatar"
-          class="h-8 w-8 rounded-full object-cover ring-2 ring-[#FFE8E3] dark:ring-[rgba(255,90,95,0.3)]"
-        />
-        <div
-          v-else
-          class="flex h-8 w-8 items-center justify-center rounded-full bg-[#FF5A5F] text-sm font-bold text-white ring-2 ring-[#FFE8E3] dark:ring-[rgba(255,90,95,0.3)]"
+      <div v-else class="relative" ref="userMenuRef">
+        <button
+          class="flex items-center gap-2 rounded-full transition-transform hover:scale-105"
+          @click.stop="showUserMenu = !showUserMenu"
         >
-          {{ (userStore.profile?.nickname || 'U').charAt(0).toUpperCase() }}
-        </div>
-      </RouterLink>
+          <img
+            v-if="userStore.profile?.avatarUrl"
+            :src="userStore.profile.avatarUrl"
+            alt="avatar"
+            class="h-8 w-8 rounded-full object-cover ring-2 ring-[#FFE8E3] dark:ring-[rgba(255,90,95,0.3)]"
+          />
+          <div
+            v-else
+            class="flex h-8 w-8 items-center justify-center rounded-full bg-[#FF5A5F] text-sm font-bold text-white ring-2 ring-[#FFE8E3] dark:ring-[rgba(255,90,95,0.3)]"
+          >
+            {{ (userStore.profile?.nickname || 'U').charAt(0).toUpperCase() }}
+          </div>
+        </button>
+
+        <!-- 用户下拉菜单 -->
+        <Teleport to="body">
+          <Transition name="dropdown">
+            <div
+              v-if="showUserMenu"
+              class="user-dropdown fixed z-50 w-48 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl dark:border-white/10 dark:bg-[#171722] dark:shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
+              :style="userMenuStyle"
+            >
+              <!-- 用户信息 -->
+              <div class="border-b border-neutral-100 px-4 py-3 dark:border-white/6">
+                <p class="truncate text-sm font-medium">{{ userStore.profile?.nickname }}</p>
+                <p class="truncate text-xs text-neutral-400">等级 Lv.{{ userStore.profile?.level || 0 }}</p>
+              </div>
+              <!-- 菜单项 -->
+              <div class="py-1">
+                <button class="user-menu-item" @click="navigateTo('/library')">
+                  <Library class="h-4 w-4" />
+                  <span>我的音乐</span>
+                </button>
+                <button class="user-menu-item" @click="navigateTo('/cloud')">
+                  <Cloud class="h-4 w-4" />
+                  <span>我的云盘</span>
+                </button>
+                <button class="user-menu-item" @click="navigateTo('/settings')">
+                  <Settings class="h-4 w-4" />
+                  <span>设置</span>
+                </button>
+              </div>
+              <div class="border-t border-neutral-100 py-1 dark:border-white/6">
+                <button class="user-menu-item text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10" @click="handleLogout">
+                  <LogOut class="h-4 w-4" />
+                  <span>退出登录</span>
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </Teleport>
+      </div>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
+import { Sun, Moon, Library, Cloud, Settings, LogOut } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
 import { useSettingsStore } from '@/stores/settings'
+import { showToast } from '@/composables/useToast'
 
 const router = useRouter()
 const userStore = useUserStore()
 const settingsStore = useSettingsStore()
 
 const searchQuery = ref('')
+const showUserMenu = ref(false)
+const userMenuRef = ref<HTMLElement | null>(null)
 
 const isDark = computed(() => {
   if (settingsStore.theme === 'system') {
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   }
   return settingsStore.theme === 'dark'
+})
+
+// 用户菜单定位
+const userMenuStyle = computed(() => {
+  if (!userMenuRef.value) return { top: '0px', right: '0px' }
+  const rect = userMenuRef.value.getBoundingClientRect()
+  return {
+    top: `${rect.bottom + 8}px`,
+    right: `${window.innerWidth - rect.right}px`
+  }
 })
 
 function handleSearch() {
@@ -102,4 +160,73 @@ function toggleTheme() {
     document.documentElement.classList.add('dark')
   }
 }
+
+function navigateTo(path: string) {
+  showUserMenu.value = false
+  router.push(path)
+}
+
+async function handleLogout() {
+  showUserMenu.value = false
+  try {
+    await userStore.logout()
+    showToast('已退出登录')
+    router.push('/')
+  } catch {
+    showToast('退出失败', { type: 'error' })
+  }
+}
+
+function handleClickOutside(e: MouseEvent) {
+  if (userMenuRef.value && !userMenuRef.value.contains(e.target as Node)) {
+    showUserMenu.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>
+
+<style scoped>
+/* 用户下拉菜单 */
+.user-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  color: var(--color-neutral-700);
+  transition: background-color 0.15s ease;
+  text-align: left;
+}
+
+.user-menu-item:hover {
+  background-color: var(--color-neutral-50);
+}
+
+.dark .user-menu-item {
+  color: #E9E9F2;
+}
+
+.dark .user-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* 下拉菜单过渡 */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.18s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.97);
+}
+</style>

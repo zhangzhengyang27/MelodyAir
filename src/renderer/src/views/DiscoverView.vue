@@ -2,7 +2,7 @@
   <div class="space-y-8">
     <!-- Banner -->
     <section v-if="banners.length > 0">
-      <div class="relative h-56 overflow-hidden rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40),0_0_1px_rgba(255,255,255,0.05)]">
+      <div class="banner-container group relative h-56 overflow-hidden rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40),0_0_1px_rgba(255,255,255,0.05)]">
         <div
           v-for="(banner, i) in banners"
           :key="i"
@@ -16,13 +16,28 @@
           />
           <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
         </div>
+
+        <!-- 左右切换箭头 -->
+        <button
+          class="banner-arrow absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 group-hover:opacity-100"
+          @click="prevBanner"
+        >
+          <ChevronLeft class="h-5 w-5" />
+        </button>
+        <button
+          class="banner-arrow absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 group-hover:opacity-100"
+          @click="nextBanner"
+        >
+          <ChevronRight class="h-5 w-5" />
+        </button>
+
         <!-- Dots -->
         <div class="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
           <button
             v-for="(_, i) in banners"
             :key="i"
             class="h-1.5 rounded-full transition-all"
-            :class="i === currentBanner ? 'w-4 bg-white' : 'w-1.5 bg-white/50'"
+            :class="i === currentBanner ? 'w-4 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/80'"
             @click="currentBanner = i"
           />
         </div>
@@ -39,7 +54,7 @@
           class="group cursor-pointer"
           @click="$router.push(`/playlist/${item.id}`)"
         >
-          <CoverImage :src="item.picUrl" :alt="item.name" size="md" playable />
+          <CoverImage :src="item.picUrl" :alt="item.name" size="md" playable @play="$router.push(`/playlist/${item.id}`)" />
           <p class="mt-2 line-clamp-2 text-sm dark:text-[#A1A1B5]">{{ item.name }}</p>
           <p class="mt-0.5 text-xs text-neutral-400">{{ formatPlayCount(item.playCount) }}</p>
         </div>
@@ -93,6 +108,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { ChevronLeft, ChevronRight, Play } from 'lucide-vue-next'
 import { getBanner, getPersonalized, getPersonalizedNewSong, getPersonalizedMv, getPersonalizedDjprogram } from '@/api/personalized'
 import CoverImage from '@/components/common/CoverImage.vue'
 import SectionHeader from '@/components/common/SectionHeader.vue'
@@ -165,5 +181,15 @@ onUnmounted(() => {
 
 function handlePlaySong(song: Song) {
   playSongList(newSongs.value, newSongs.value.findIndex(s => s.id === song.id))
+}
+
+function prevBanner() {
+  if (banners.value.length === 0) return
+  currentBanner.value = (currentBanner.value - 1 + banners.value.length) % banners.value.length
+}
+
+function nextBanner() {
+  if (banners.value.length === 0) return
+  currentBanner.value = (currentBanner.value + 1) % banners.value.length
 }
 </script>
