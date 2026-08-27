@@ -206,7 +206,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { Shuffle, Repeat, Repeat1, ListOrdered, Volume2, VolumeX, Heart, MoreHorizontal, MonitorPlay, AppWindow } from 'lucide-vue-next'
+import { Shuffle, Repeat, Repeat1, ListOrdered, Volume2, VolumeX, Heart, MoreHorizontal, MonitorPlay, AppWindow, ArrowLeftRight } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 import { useSettingsStore } from '@/stores/settings'
 import { useUserStore } from '@/stores/user'
@@ -265,12 +265,12 @@ const qualityShortLabel = computed(() => {
 })
 
 const playModeIcon = computed(() => {
-  const icons: Record<string, any> = { sequence: ListOrdered, loop: Repeat, random: Shuffle, loopOne: Repeat1 }
+  const icons: Record<string, any> = { sequence: ListOrdered, loop: Repeat, random: Shuffle, loopOne: Repeat1, reversed: ArrowLeftRight }
   return icons[playerStore.playMode] || ListOrdered
 })
 
 const playModeLabel = computed(() => {
-  const labels: Record<string, string> = { sequence: '顺序播放', loop: '循环播放', random: '随机播放', loopOne: '单曲循环' }
+  const labels: Record<string, string> = { sequence: '顺序播放', loop: '循环播放', random: '随机播放', loopOne: '单曲循环', reversed: '倒序播放' }
   return labels[playerStore.playMode] || '顺序播放'
 })
 

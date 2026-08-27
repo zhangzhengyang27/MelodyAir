@@ -67,6 +67,9 @@ export function useAutoLoadLyrics() {
         source = 'local'
       }
 
+      let tlyric: string | undefined
+      let romalrc: string | undefined
+
       if (!lrc && !currentSong._localTrackId) {
         let v1Tlyric: string | undefined
         let v1Romalrc: string | undefined
@@ -113,8 +116,8 @@ export function useAutoLoadLyrics() {
 
         const res: any = await getLyric(songId)
         lrc = res?.lrc?.lyric || ''
-        const tlyric = res?.tlyric?.lyric || v1Tlyric
-        const romalrc = v1Romalrc
+        tlyric = res?.tlyric?.lyric || v1Tlyric
+        romalrc = v1Romalrc
         if (lrc) {
           await cacheManager.cacheLyric(songId, lrc, tlyric).catch(() => {})
         }
@@ -122,8 +125,22 @@ export function useAutoLoadLyrics() {
 
       if (lrc) {
         let parsed = parseLrc(lrc)
-        // 翻译和罗马音合并（从上面的 v1 或普通接口获取）
-        // 注意：这里简化处理，完整的翻译合并在 v1 分支中已处理
+        // 合并翻译歌词
+        if (tlyric) {
+          const translated = parseLrc(tlyric)
+          parsed = parsed.map((line) => {
+            const matched = translated.find((t) => Math.abs(t.time - line.time) < 500)
+            return matched ? { ...line, translation: matched.text } : line
+          })
+        }
+        // 合并罗马音歌词
+        if (romalrc) {
+          const roman = parseLrc(romalrc)
+          parsed = parsed.map((line) => {
+            const matched = roman.find((r) => Math.abs(r.time - line.time) < 500)
+            return matched ? { ...line, romanized: matched.text } : line
+          })
+        }
         lyricsStore.setLyrics({
           trackId: songId,
           trackName: currentSong.name,

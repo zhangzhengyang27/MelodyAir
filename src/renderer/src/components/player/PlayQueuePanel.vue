@@ -12,9 +12,9 @@
         <div class="flex items-center justify-between border-b border-neutral-100 px-4 py-3 dark:border-white/5">
           <div class="flex items-center gap-2">
             <ListMusic class="h-5 w-5 text-[#FF5A5F]" />
-            <span class="text-base font-semibold">{{ activeTab === 'queue' ? '播放队列' : '下一首播放' }}</span>
+            <span class="text-base font-semibold">{{ tabLabel }}</span>
             <span class="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-500 dark:bg-white/5 dark:text-[#A1A1B5]">
-              {{ activeTab === 'queue' ? playerStore.playlist.length : playerStore.playNextList.length }}
+              {{ tabCount }}
             </span>
           </div>
           <div class="flex items-center gap-1">
@@ -62,6 +62,14 @@
           >
             下一首播放
             <span v-if="activeTab === 'next'" class="absolute bottom-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-[#FF5A5F]" />
+          </button>
+          <button
+            class="relative flex-1 py-2.5 text-sm font-medium transition-colors"
+            :class="activeTab === 'similar' ? 'text-[#FF5A5F]' : 'text-neutral-400 hover:text-neutral-600 dark:hover:text-[#E9E9F2]'"
+            @click="activeTab = 'similar'; fetchSimilarSongs()"
+          >
+            相似歌曲
+            <span v-if="activeTab === 'similar'" class="absolute bottom-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-[#FF5A5F]" />
           </button>
         </div>
 
@@ -125,7 +133,7 @@
           </template>
 
           <!-- 下一首播放 -->
-          <template v-else>
+          <template v-else-if="activeTab === 'next'">
             <div v-if="playerStore.playNextList.length === 0" class="flex flex-col items-center justify-center py-16 text-center">
               <SkipForward class="mb-3 h-10 w-10 text-neutral-200 dark:text-white/10" />
               <p class="text-sm text-neutral-400">暂无下一首播放</p>
@@ -159,6 +167,48 @@
               </div>
             </div>
           </template>
+
+          <!-- 相似歌曲 -->
+          <template v-else>
+            <div v-if="similarLoading" class="flex flex-col items-center justify-center py-16">
+              <div class="h-8 w-8 animate-spin rounded-full border-2 border-[#FF5A5F] border-t-transparent" />
+              <p class="mt-3 text-sm text-neutral-400">加载中...</p>
+            </div>
+            <div v-else-if="!playerStore.currentSong" class="flex flex-col items-center justify-center py-16 text-center">
+              <Music class="mb-3 h-10 w-10 text-neutral-200 dark:text-white/10" />
+              <p class="text-sm text-neutral-400">暂无播放歌曲</p>
+            </div>
+            <div v-else-if="similarSongs.length === 0" class="flex flex-col items-center justify-center py-16 text-center">
+              <Music class="mb-3 h-10 w-10 text-neutral-200 dark:text-white/10" />
+              <p class="text-sm text-neutral-400">暂无相似歌曲</p>
+            </div>
+            <div v-else>
+              <div
+                v-for="(song, idx) in similarSongs"
+                :key="song.id"
+                class="group flex cursor-pointer items-center gap-3 border-b border-neutral-50 px-4 py-2.5 transition-colors hover:bg-neutral-50 dark:border-white/[0.03] dark:hover:bg-white/[0.03]"
+                @click="handlePlaySimilar(song)"
+              >
+                <div class="flex w-6 shrink-0 items-center justify-center">
+                  <span class="text-xs text-neutral-400">{{ idx + 1 }}</span>
+                </div>
+                <div class="h-9 w-9 shrink-0 overflow-hidden rounded bg-neutral-200 dark:bg-[#1F1F2E]">
+                  <img v-if="song.album?.picUrl" :src="song.album.picUrl + '?param=80y80'" alt="" class="h-full w-full object-cover" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm">{{ song.name }}</p>
+                  <p class="truncate text-xs text-neutral-400">{{ song.artists?.map(a => a.name).join(' / ') }}</p>
+                </div>
+                <button
+                  class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-300 opacity-0 transition-opacity hover:bg-neutral-100 hover:text-[#FF5A5F] group-hover:opacity-100 dark:text-white/20 dark:hover:bg-white/5"
+                  title="下一首播放"
+                  @click.stop="handleAddToNext(song)"
+                >
+                  <SkipForward class="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          </template>
         </div>
       </aside>
     </Transition>
@@ -166,14 +216,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import {
-  ListMusic, Plus, Trash2, X, Play, GripVertical, SkipForward
+  ListMusic, Plus, Trash2, X, Play, GripVertical, SkipForward, Music
 } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 import { useUserStore } from '@/stores/user'
 import { formatDuration } from '@/utils/format'
 import { showToast } from '@/composables/useToast'
+import { getSimiSong } from '@/api/simi'
 import type { Song } from '@/stores/player'
 
 const props = defineProps<{ visible: boolean }>()
@@ -182,9 +233,65 @@ const emit = defineEmits<{ (e: 'update:visible', val: boolean): void }>()
 const playerStore = usePlayerStore()
 const userStore = useUserStore()
 
-const activeTab = ref<'queue' | 'next'>('queue')
+const activeTab = ref<'queue' | 'next' | 'similar'>('queue')
 const dragIndex = ref(-1)
 const dragOverIndex = ref(-1)
+
+// 相似歌曲
+const similarSongs = ref<Song[]>([])
+const similarLoading = ref(false)
+let similarFetchToken = 0
+
+const tabLabel = computed(() => {
+  if (activeTab.value === 'queue') return '播放队列'
+  if (activeTab.value === 'next') return '下一首播放'
+  return '相似歌曲'
+})
+
+const tabCount = computed(() => {
+  if (activeTab.value === 'queue') return playerStore.playlist.length
+  if (activeTab.value === 'next') return playerStore.playNextList.length
+  return similarSongs.value.length
+})
+
+// 切歌时自动刷新相似歌曲（当在相似 tab 时）
+watch(() => playerStore.currentSong?.id, (newId) => {
+  if (activeTab.value === 'similar' && newId) {
+    fetchSimilarSongs()
+  }
+})
+
+async function fetchSimilarSongs() {
+  const songId = playerStore.currentSong?.id
+  if (!songId) return
+  const token = ++similarFetchToken
+  similarLoading.value = true
+  try {
+    const res: any = await getSimiSong(songId)
+    if (token !== similarFetchToken) return // 已被新请求覆盖
+    similarSongs.value = (res?.songs || []).map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      artists: (s.artists || s.ar || []).map((a: any) => ({ id: a.id, name: a.name })),
+      album: { id: s.album?.id || s.al?.id || 0, name: s.album?.name || s.al?.name || '', picUrl: s.album?.picUrl || s.al?.picUrl || '' },
+      duration: s.duration || s.dt || 0,
+      fee: s.fee || 0,
+    }))
+  } catch {
+    similarSongs.value = []
+  } finally {
+    if (token === similarFetchToken) similarLoading.value = false
+  }
+}
+
+function handlePlaySimilar(song: Song) {
+  playerStore.addToPlaylist(song)
+}
+
+function handleAddToNext(song: Song) {
+  playerStore.addToPlayNext(song)
+  showToast('已添加到下一首播放', { type: 'success' })
+}
 
 function emitClose() {
   emit('update:visible', false)

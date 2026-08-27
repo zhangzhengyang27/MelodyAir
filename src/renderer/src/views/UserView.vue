@@ -25,10 +25,24 @@
         {{ isFollowed ? '已关注' : '关注' }}
       </button>
 
+      <!-- Tab 切换 -->
+      <div class="flex gap-1 border-b border-neutral-200 dark:border-white/10">
+        <button
+          v-for="tab in tabs"
+          :key="tab.value"
+          class="relative px-4 py-2 text-sm font-medium transition-colors"
+          :class="activeTab === tab.value ? 'text-[#FF5A5F]' : 'text-neutral-500 hover:text-neutral-700 dark:text-[#A1A1B5] dark:hover:text-[#F0F0F5]'"
+          @click="activeTab = tab.value"
+        >
+          {{ tab.label }}
+          <span v-if="activeTab === tab.value" class="absolute bottom-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-[#FF5A5F]" />
+        </button>
+      </div>
+
       <!-- 歌单 -->
-      <section>
-        <SectionHeader title="歌单" />
-        <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+      <section v-if="activeTab === 'playlists'">
+        <div v-if="playlists.length === 0" class="py-8 text-center text-neutral-400">暂无歌单</div>
+        <div v-else class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
           <div
             v-for="pl in playlists"
             :key="pl.id"
@@ -37,6 +51,42 @@
           >
             <CoverImage :src="pl.coverImgUrl" :alt="pl.name" size="md" playable />
             <p class="mt-2 line-clamp-2 text-sm">{{ pl.name }}</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 听歌排行 -->
+      <section v-if="activeTab === 'record'">
+        <div class="mb-4 flex items-center gap-2">
+          <button
+            v-for="opt in recordTypeOptions"
+            :key="opt.value"
+            class="rounded-full px-3 py-1 text-xs font-medium transition-colors"
+            :class="recordType === opt.value ? 'bg-[#FF5A5F] text-white' : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 dark:bg-[#1F1F2E] dark:text-[#A1A1B5]'"
+            @click="recordType = opt.value"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+
+        <div v-if="recordLoading" class="space-y-2">
+          <div v-for="i in 5" :key="i" class="h-12 animate-pulse rounded-lg bg-neutral-100 dark:bg-white/5" />
+        </div>
+        <div v-else-if="recordSongs.length === 0" class="py-8 text-center text-neutral-400">暂无听歌记录</div>
+        <div v-else class="space-y-1">
+          <div
+            v-for="(item, index) in recordSongs"
+            :key="item.song.id"
+            class="group flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-neutral-50 dark:hover:bg-white/5"
+            @click="handlePlayRecord(item.song)"
+          >
+            <span class="w-6 text-center text-sm font-bold" :class="index < 3 ? 'text-[#FF5A5F]' : 'text-neutral-400'">{{ index + 1 }}</span>
+            <img :src="item.song.al?.picUrl + '?param=80y80'" :alt="item.song.name" class="h-10 w-10 rounded-md object-cover" />
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium">{{ item.song.name }}</p>
+              <p class="truncate text-xs text-neutral-400">{{ item.song.ar?.map((a: any) => a.name).join(' / ') }}</p>
+            </div>
+            <span class="text-xs text-neutral-400">{{ item.playCount }} 次</span>
           </div>
         </div>
       </section>
@@ -49,14 +99,16 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { getUserDetail, getUserPlaylist, followUser } from '@/api/user'
-import SectionHeader from '@/components/common/SectionHeader.vue'
+import { getUserDetail, getUserPlaylist, followUser, getUserRecord } from '@/api/user'
 import CoverImage from '@/components/common/CoverImage.vue'
 import SkeletonDetail from '@/components/common/skeleton/SkeletonDetail.vue'
 import { showToast } from '@/composables/useToast'
+import { usePlayer } from '@/composables/usePlayer'
+import type { Song } from '@/stores/player'
 
 const route = useRoute()
 const userStore = useUserStore()
+const { playSongList } = usePlayer()
 
 const loading = ref(false)
 const uid = ref(0)
@@ -65,6 +117,21 @@ const userFollows = ref(0)
 const userFolloweds = ref(0)
 const isFollowed = ref(false)
 const playlists = ref<any[]>([])
+
+const activeTab = ref<'playlists' | 'record'>('playlists')
+const tabs = [
+  { label: '歌单', value: 'playlists' as const },
+  { label: '听歌排行', value: 'record' as const },
+]
+
+// 听歌排行
+const recordType = ref<0 | 1>(1) // 1=最近一周, 0=所有时间
+const recordTypeOptions = [
+  { label: '最近一周', value: 1 as const },
+  { label: '所有时间', value: 0 as const },
+]
+const recordLoading = ref(false)
+const recordSongs = ref<{ playCount: number; song: any }[]>([])
 
 async function fetchData(id: number) {
   loading.value = true
@@ -88,6 +155,51 @@ async function fetchData(id: number) {
   }
 }
 
+async function fetchRecord() {
+  if (!uid.value) return
+  recordLoading.value = true
+  try {
+    const res: any = await getUserRecord(uid.value, recordType.value)
+    const data = recordType.value === 1 ? res?.weekData : res?.allData
+    recordSongs.value = (data || []).slice(0, 50)
+  } catch {
+    recordSongs.value = []
+  } finally {
+    recordLoading.value = false
+  }
+}
+
+// 切换排行类型时重新获取
+watch(recordType, fetchRecord)
+// 切换到排行 tab 时懒加载
+watch(activeTab, (tab) => {
+  if (tab === 'record' && recordSongs.value.length === 0 && !recordLoading.value) {
+    fetchRecord()
+  }
+})
+
+function handlePlayRecord(songData: any) {
+  const song: Song = {
+    id: songData.id,
+    name: songData.name,
+    artists: (songData.ar || []).map((a: any) => ({ id: a.id, name: a.name })),
+    album: { id: songData.al?.id || 0, name: songData.al?.name || '', picUrl: songData.al?.picUrl || '' },
+    duration: songData.dt || 0,
+    fee: songData.fee || 0,
+  }
+  // 用排行列表作为播放队列
+  const queue = recordSongs.value.map((item) => ({
+    id: item.song.id,
+    name: item.song.name,
+    artists: (item.song.ar || []).map((a: any) => ({ id: a.id, name: a.name })),
+    album: { id: item.song.al?.id || 0, name: item.song.al?.name || '', picUrl: item.song.al?.picUrl || '' },
+    duration: item.song.dt || 0,
+    fee: item.song.fee || 0,
+  }))
+  const index = queue.findIndex((s) => s.id === song.id)
+  playSongList(queue, index >= 0 ? index : 0)
+}
+
 onMounted(() => {
   uid.value = Number(route.params.uid)
   if (uid.value) fetchData(uid.value)
@@ -96,6 +208,8 @@ onMounted(() => {
 watch(() => route.params.uid, (newId) => {
   if (newId) {
     uid.value = Number(newId)
+    activeTab.value = 'playlists'
+    recordSongs.value = []
     fetchData(uid.value)
   }
 })

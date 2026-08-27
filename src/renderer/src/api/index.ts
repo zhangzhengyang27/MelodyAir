@@ -93,11 +93,19 @@ request.interceptors.request.use(
       return config
     }
 
-    // ★ 仅对需要登录的接口通过 HTTP Header 注入 cookie
+    // ★ 仅对需要登录的接口注入 cookie
+    // 注意：浏览器禁止 JS 设置 Cookie 请求头（forbidden header），因此通过 query/body 传递
     const cookieStr = getCookieString()
     if (cookieStr && isAccountRequired(config.url)) {
-      config.headers = config.headers || {}
-      config.headers['Cookie'] = cookieStr
+      const method = (config.method || 'get').toLowerCase()
+      if (method === 'get') {
+        config.params = { ...config.params, cookie: cookieStr }
+      } else {
+        // POST/PUT/PATCH：合并到请求体
+        config.data = typeof config.data === 'object' && config.data !== null
+          ? { ...config.data, cookie: cookieStr }
+          : cookieStr
+      }
     }
 
     // ★ 需要登录的接口在无 cookie 时直接拦截

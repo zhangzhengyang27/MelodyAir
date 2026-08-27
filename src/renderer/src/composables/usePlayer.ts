@@ -5,20 +5,32 @@ import { getSongDetail } from '@/api/song'
 import type { Song } from '@/stores/player'
 import type { Song as ApiSong } from '@/types/api'
 import { logger } from '@/utils/logger'
-import { ArrowRight, Repeat, Shuffle } from 'lucide-vue-next'
+import { ArrowRight, Repeat, Repeat1, Shuffle, ArrowLeftRight } from 'lucide-vue-next'
 
 export function usePlayer() {
   const playerStore = usePlayerStore()
   const { seek, seekByProgress } = useAudio()
 
   const playModeIcon = computed<Component>(() => {
-    const icons: Record<string, Component> = { sequence: ArrowRight, loop: Repeat, random: Shuffle }
+    const icons: Record<string, Component> = {
+      sequence: ArrowRight,
+      loop: Repeat,
+      loopOne: Repeat1,
+      random: Shuffle,
+      reversed: ArrowLeftRight
+    }
     return icons[playerStore.playMode] || ArrowRight
   })
 
   const playModeLabel = computed(() => {
-    const labels: Record<string, string> = { sequence: '顺序播放', loop: '单曲循环', random: '随机播放' }
-    return labels[playerStore.playMode]
+    const labels: Record<string, string> = {
+      sequence: '顺序播放',
+      loop: '循环播放',
+      loopOne: '单曲循环',
+      random: '随机播放',
+      reversed: '倒序播放'
+    }
+    return labels[playerStore.playMode] || '顺序播放'
   })
 
   async function playSong(song: Song) {

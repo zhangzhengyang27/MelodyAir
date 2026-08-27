@@ -51,17 +51,35 @@ export const useUserStore = defineStore('user', () => {
   }
 
   function toggleLike(songId: number) {
-    const idx = likedSongIds.value.indexOf(songId)
-    if (idx >= 0) {
-      likedSongIds.value.splice(idx, 1)
+    const wasLiked = likedSongIds.value.includes(songId)
+    // 乐观更新本地状态
+    if (wasLiked) {
+      const idx = likedSongIds.value.indexOf(songId)
+      if (idx >= 0) likedSongIds.value.splice(idx, 1)
     } else {
       likedSongIds.value.push(songId)
     }
 
-    // Update Touch Bar like state
+    // Update Touch Bar / 托盘 like state
     if (window.electronAPI?.sendIpcEvent) {
-      const isLiked = likedSongIds.value.includes(songId)
-      window.electronAPI.sendIpcEvent('player:updateLikeState', isLiked)
+      window.electronAPI.sendIpcEvent('player:updateLikeState', !wasLiked)
+    }
+
+    // 异步同步到服务器（未登录时跳过）
+    if (isAccountLoggedIn.value) {
+      likeSong(songId, !wasLiked).catch((e) => {
+        logger.warn('User', `toggleLike 同步失败 songId=${songId}, like=${!wasLiked}`, e)
+        // 回滚本地状态
+        if (wasLiked) {
+          if (!likedSongIds.value.includes(songId)) likedSongIds.value.push(songId)
+        } else {
+          const idx = likedSongIds.value.indexOf(songId)
+          if (idx >= 0) likedSongIds.value.splice(idx, 1)
+        }
+        if (window.electronAPI?.sendIpcEvent) {
+          window.electronAPI.sendIpcEvent('player:updateLikeState', wasLiked)
+        }
+      })
     }
   }
 

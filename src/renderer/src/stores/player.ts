@@ -14,6 +14,7 @@ import { useLyricsStore } from './lyrics'
 import { useUserStore } from './user'
 import { LyricsSyncEngine } from '../utils/o3icsSyncEngine'
 import { getAudioAdapter } from '../utils/audioAdapter'
+import { fmTrash } from '../api/fm'
 
 export interface Song {
   id: number
@@ -66,12 +67,17 @@ export const usePlayerStore = defineStore('player', () => {
   const isPersonalFM = ref(false)
   const personalFMTrack = ref<Song | null>(null)
   const personalFMNextTrack = ref<Song | null>(null)
+  const personalFMQueue = ref<Song[]>([])
   const status = ref<PlayerStatus>('paused')
   const currentSongCache = ref<Song | null>(null)
   const sleepTimerDeadline = ref<number | null>(null)
   const sleepTimerTimeoutId = ref<number | null>(null)
   const sleepTimerTickId = ref<number | null>(null)
   const playHistory = ref<Array<{ song: Song; playedAt: number; playCount: number }>>([])
+  // 播放导航栈：记录用户实际播放顺序，用于"上一首"回溯（不同于播放列表顺序）
+  const playNavStack = ref<Song[]>([])
+  // 是否正在从导航栈回溯（避免把回溯的歌再压入栈）
+  let isNavigatingBack = false
 
   // Blob URL 内存管理
   const createdBlobUrls: string[] = []
@@ -232,10 +238,26 @@ export const usePlayerStore = defineStore('player', () => {
   // 初始化音频事件监听（store 创建时执行）
   initAudioEventListeners()
 
+  // 应用持久化的播放速率
+  if (settingsStore.playbackSpeed && settingsStore.playbackSpeed !== 1) {
+    audioAdapter.setPlaybackRate(settingsStore.playbackSpeed)
+  }
+
   // ==================== 核心播放逻辑 ====================
+  // 播放失败自动跳下一首的令牌，防止用户手动切歌后旧的失败定时器仍触发
+  let failSkipToken = 0
+
   async function playSong(song: Song): Promise<void> {
     // 切歌时释放旧 Blob URL
     playerCache.releaseStaleBlobUrls()
+    // 重置失败跳过令牌，使之前的失败定时器失效
+    failSkipToken++
+    // 播放导航栈：非回溯时，将当前歌曲压入栈（用于上一首回溯）
+    if (!isNavigatingBack && currentSong.value && currentSong.value.id !== song.id) {
+      playNavStack.value.push(currentSong.value)
+      if (playNavStack.value.length > 100) playNavStack.value.shift()
+    }
+    isNavigatingBack = false
     // 重置 scrobble 追踪
     scrobbleHelper.resetScrobbleState()
     // 重置播放进度，避免切歌后进度条显示旧值
@@ -253,7 +275,8 @@ export const usePlayerStore = defineStore('player', () => {
         status.value = 'error'
         playing.value = false
         showToast(`无法播放「${song.name}」`, { type: 'warning', dedupeKey: 'player-unplayable' })
-        setTimeout(() => playNext(), 500)
+        const skipToken = failSkipToken
+        setTimeout(() => { if (skipToken === failSkipToken) playNext() }, 500)
         return
       }
 
@@ -304,7 +327,8 @@ export const usePlayerStore = defineStore('player', () => {
       status.value = 'error'
       playing.value = false
       showToast(`播放失败「${song.name}」`, { type: 'error', dedupeKey: 'player-error' })
-      setTimeout(() => playNext(), 500)
+      const skipToken = failSkipToken
+      setTimeout(() => { if (skipToken === failSkipToken) playNext() }, 500)
     }
   }
 
@@ -548,8 +572,15 @@ export const usePlayerStore = defineStore('player', () => {
   async function playNext(): Promise<void> {
     if (playNextList.value.length > 0) {
       const nextSong = playNextList.value.shift()!
-      addToPlaylist(nextSong)
-      return
+      // 跳过当前正在播放的歌曲（防御性处理）
+      if (nextSong.id !== currentSong.value?.id) {
+        // 将歌曲插入到当前播放位置的下一首，然后播放
+        insertNext(nextSong)
+        currentIndex.value++
+        await playSong(nextSong)
+        return
+      }
+      // 如果是当前歌曲，继续走正常的 playNext 逻辑
     }
 
     if (isPersonalFM.value) {
@@ -565,8 +596,11 @@ export const usePlayerStore = defineStore('player', () => {
         break
       case 'random':
         if (shuffledList.value.length > 0) {
-          const randomIndex = Math.floor(Math.random() * shuffledList.value.length)
-          const nextSong = shuffledList.value[randomIndex]
+          // 排除当前播放歌曲，避免连续重复（队列中至少有两首时）
+          const candidates = shuffledList.value.filter((s) => s.id !== currentSong.value?.id)
+          const pool = candidates.length > 0 ? candidates : shuffledList.value
+          const randomIndex = Math.floor(Math.random() * pool.length)
+          const nextSong = pool[randomIndex]
           const originalIndex = playlist.value.findIndex((s) => s.id === nextSong.id)
           if (originalIndex >= 0) {
             currentIndex.value = originalIndex
@@ -600,11 +634,30 @@ export const usePlayerStore = defineStore('player', () => {
     if (isPersonalFM.value) return
     if (playlist.value.length === 0) return
 
+    // 播放超过 3 秒时，回到开头（常见音乐播放器行为）
     if (currentTime.value > 3) {
       seek(0)
       return
     }
 
+    // 优先从播放导航栈回溯（记录用户实际播放顺序）
+    if (playNavStack.value.length > 0) {
+      const prevSong = playNavStack.value.pop()!
+      // 找到该歌曲在播放列表中的位置
+      const idx = playlist.value.findIndex((s) => s.id === prevSong.id)
+      isNavigatingBack = true
+      if (idx >= 0) {
+        currentIndex.value = idx
+      } else {
+        // 歌曲不在当前播放列表中，添加到队列
+        playlist.value.push(prevSong)
+        currentIndex.value = playlist.value.length - 1
+      }
+      await playSong(prevSong)
+      return
+    }
+
+    // 导航栈为空时，回退到播放列表顺序
     switch (playMode.value) {
       case 'random':
         if (shuffledList.value.length > 1) {
@@ -671,10 +724,9 @@ export const usePlayerStore = defineStore('player', () => {
     audioAdapter.setEqualizerEnabled(enabled)
   }
 
-  function toggleMute(): void {
-    audioAdapter.toggleMute()
-    // 静音状态通过状态变化事件更新，这里先乐观更新
-    muted.value = !muted.value
+  async function toggleMute(): Promise<void> {
+    const actualMuted = await audioAdapter.toggleMute()
+    muted.value = typeof actualMuted === 'boolean' ? actualMuted : !muted.value
   }
 
   function finishSleepTimer(): void {
@@ -749,16 +801,16 @@ export const usePlayerStore = defineStore('player', () => {
         return
       }
 
-      window.electronAPI?.audioPlay(url, song.id)
+      await audioAdapter.play(url, song.id)
       updateCurrentSongCache(song)
       mediaSessionHelper.updateMediaSession(song)
 
       // 等待音频加载后恢复播放位置并暂停
       setTimeout(() => {
         if (savedProgress > 0) {
-          window.electronAPI?.audioSeek(savedProgress)
+          audioAdapter.seek(savedProgress)
         }
-        window.electronAPI?.audioPause()
+        audioAdapter.pause()
       }, 500)
 
       if (window.electronAPI?.sendIpcEvent) {
@@ -796,18 +848,56 @@ export const usePlayerStore = defineStore('player', () => {
     await playSong(track)
   }
 
+  /** 启动私人 FM：传入歌曲列表和起始索引，自动维护播放队列 */
+  async function startPersonalFM(tracks: Song[], startIndex = 0): Promise<void> {
+    if (tracks.length === 0) return
+    isPersonalFM.value = true
+    const startTrack = tracks[startIndex]!
+    personalFMTrack.value = startTrack
+    // 队列 = 起始位置之后的所有歌曲
+    personalFMQueue.value = tracks.slice(startIndex + 1)
+    personalFMNextTrack.value = personalFMQueue.value[0] ?? null
+    await playSong(startTrack)
+  }
+
+  /** 向私人 FM 队列追加歌曲（用于无限滚动） */
+  function addToPersonalFMQueue(tracks: Song[]): void {
+    personalFMQueue.value.push(...tracks)
+    if (!personalFMNextTrack.value && personalFMQueue.value.length > 0) {
+      personalFMNextTrack.value = personalFMQueue.value[0]
+    }
+  }
+
   function disablePersonalFM(): void {
     isPersonalFM.value = false
     personalFMTrack.value = null
     personalFMNextTrack.value = null
+    personalFMQueue.value = []
   }
 
   async function playPersonalFMNext(): Promise<void> {
-    if (personalFMNextTrack.value) {
+    if (personalFMQueue.value.length > 0) {
+      const nextTrack = personalFMQueue.value.shift()!
+      personalFMTrack.value = nextTrack
+      personalFMNextTrack.value = personalFMQueue.value[0] ?? null
+      await playSong(nextTrack)
+    } else if (personalFMNextTrack.value) {
+      // 兼容旧的单 nextTrack 模式
       personalFMTrack.value = personalFMNextTrack.value
       personalFMNextTrack.value = null
       await playSong(personalFMTrack.value)
     }
+  }
+
+  /** 私人 FM：不感兴趣（垃圾桶），调用 API 后自动跳下一首 */
+  async function trashCurrentFMTrack(): Promise<void> {
+    if (!isPersonalFM.value || !currentSong.value) return
+    const songId = currentSong.value.id
+    // 异步调用垃圾桶 API，不阻塞切歌
+    fmTrash(songId).catch((e) => logger.warn('player', `FM trash failed for song ${songId}`, e))
+    // 从队列中移除当前歌曲（如果还在）
+    personalFMQueue.value = personalFMQueue.value.filter((s) => s.id !== songId)
+    await playPersonalFMNext()
   }
 
   function destroy(): void {
@@ -833,8 +923,8 @@ export const usePlayerStore = defineStore('player', () => {
   return {
     playlist, currentIndex, playing, playMode, currentTime, duration,
     volume, muted, shuffledList, playNextList, isPersonalFM,
-    personalFMTrack, personalFMNextTrack, status, currentSongCache,
-    sleepTimerDeadline, playHistory, currentSong, progress, bufferedProgress,
+    personalFMTrack, personalFMNextTrack, personalFMQueue, status, currentSongCache,
+    sleepTimerDeadline, playHistory, playNavStack, currentSong, progress, bufferedProgress,
     frequencyData,
     setPlaylist, addToPlaylist, playSong, removeFromPlaylist, clearPlaylist,
     reorderPlaylist, removeDuplicates,
@@ -842,7 +932,7 @@ export const usePlayerStore = defineStore('player', () => {
     setVolume, setPlaybackSpeed, toggleMute, seek, setCurrentTime, setDuration,
     setEqualizerBand, setEqualizerBands, setEqualizerEnabled,
     setSleepTimer, clearSleepTimer, clearPlayHistory, removeHistoryBySongId, loadPersistentState,
-    enablePersonalFM, disablePersonalFM, restorePlayback, destroy,
+    enablePersonalFM, startPersonalFM, addToPersonalFMQueue, trashCurrentFMTrack, disablePersonalFM, restorePlayback, destroy,
   }
 }, {
   persist: {

@@ -38,8 +38,13 @@ export class AudioEngine {
   private _playbackRate: number = 1
   private _isFadeIn: boolean = false
   private _isFadeOut: boolean = false
+  /** 淡出结束后是否自动暂停（resume 时取消） */
+  private _pauseAfterFade: boolean = false
   /** 防止手动 stop() 时误触发 onend 回调 */
   private _isStopping: boolean = false
+
+  /** 待执行的 resume play 监听器，防止多次 resume 累积监听器 */
+  private _pendingResumeListener: (() => void) | null = null
 
   // Web Audio API 均衡器
   private audioContext: AudioContext | null = null
@@ -153,17 +158,27 @@ export class AudioEngine {
         src: [src],
         html5: useHtml5,
         format: [format],
-        volume: this._muted ? 0 : this._volume,
+        volume: useHtml5 ? (this._muted ? 0 : this._volume) : 0, // Web Audio 模式从 0 开始淡入
         onplay: () => {
-          // 确保音量和播放速率正确
+          // 确保播放速率正确
           if (this._howl) {
-            this._howl.volume(this._muted ? 0 : this._volume)
             this._howl.rate(this._playbackRate)
           }
           // 连接均衡器和 AnalyserNode
           this.connectEqualizer()
           this.emitStateChange('playing')
           this.startProgressTracking()
+          // Web Audio 模式下淡入
+          if (!useHtml5 && !this._muted && this._volume > 0) {
+            this._isFadeIn = true
+            this._howl?.fade(0, this._volume, this._fadeDuration)
+            this._howl?.once('fade', () => {
+              this._isFadeIn = false
+              if (this._howl) this._howl.volume(this._volume)
+            })
+          } else if (this._howl) {
+            this._howl.volume(this._muted ? 0 : this._volume)
+          }
           resolve()
         },
         onend: () => {
@@ -208,30 +223,76 @@ export class AudioEngine {
     return this._playbackRate
   }
 
-  /** 继续播放（暂停后恢复） */
+  /** 继续播放（暂停后恢复，淡入） */
   resume(): void {
     if (!this._howl) return
     if (this._howl.playing()) return
 
+    // 移除之前待执行的 resume 监听器，防止多次 resume 累积
+    if (this._pendingResumeListener) {
+      this._howl.off('play', this._pendingResumeListener)
+      this._pendingResumeListener = null
+    }
+
+    // 取消暂停淡出后的自动暂停（防止淡出回调在 resume 后触发导致意外暂停）
+    if (this._pauseAfterFade) {
+      this._pauseAfterFade = false
+      this._isFadeOut = false
+      this._howl.off('fade')
+    }
+
+    // HTML5 模式下直接播放
+    if (this._howl._html5) {
+      this._howl.volume(this._muted ? 0 : this._volume)
+      this._howl.play()
+      this.emitStateChange('playing')
+      this.startProgressTracking()
+      return
+    }
+
+    // Web Audio 模式：从 0 开始淡入
+    this._howl.volume(0)
     this._howl.play()
-    // 等待 play 事件后设置正确音量
     const doResume = () => {
       if (this._howl) {
-        this._howl.volume(this._muted ? 0 : this._volume)
+        this._isFadeIn = true
+        this._howl.fade(0, this._muted ? 0 : this._volume, this._fadeDuration)
+        this._howl.once('fade', () => {
+          this._isFadeIn = false
+        })
       }
       this.emitStateChange('playing')
       this.startProgressTracking()
       this._howl?.off('play', doResume)
+      if (this._pendingResumeListener === doResume) {
+        this._pendingResumeListener = null
+      }
     }
+    this._pendingResumeListener = doResume
     this._howl.on('play', doResume)
   }
 
-  /** 暂停 */
+  /** 暂停（淡出后暂停） */
   pause(): void {
-    if (this._howl && this._howl.playing()) {
-      // ★ HTML5 模式下 fade 不可靠，直接 pause
+    if (!this._howl || !this._howl.playing()) return
+    // HTML5 模式下 fade 不可靠，直接 pause
+    if (this._howl._html5) {
       this._howl.pause()
+      return
     }
+    // 淡出后暂停
+    this._isFadeOut = true
+    this._pauseAfterFade = true
+    const currentVol = this._howl.volume()
+    this._howl.fade(currentVol, 0, this._fadeDuration)
+    this._howl.once('fade', () => {
+      if (this._howl && this._pauseAfterFade) {
+        this._howl.pause()
+        this._howl.volume(this._volume) // 恢复音量设置，下次 resume 时从正确音量开始
+      }
+      this._isFadeOut = false
+      this._pauseAfterFade = false
+    })
   }
 
   /** 停止并卸载 */

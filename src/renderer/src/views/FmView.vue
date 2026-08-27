@@ -1,7 +1,12 @@
 <template>
   <div class="space-y-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-title">私人FM</h1>
+      <div class="flex items-center gap-3">
+        <h1 class="text-title">私人FM</h1>
+        <span v-if="playerStore.isPersonalFM" class="rounded-full bg-[#FF5A5F]/10 px-3 py-1 text-xs font-medium text-[#FF5A5F]">
+          正在播放
+        </span>
+      </div>
       <CoralButton @click="fetchFmSongs">换一批</CoralButton>
     </div>
 
@@ -23,26 +28,64 @@
         </div>
       </div>
 
-      <SongTable v-else :songs="songs" @play="handlePlay" />
+      <div v-else class="space-y-1">
+        <div
+          v-for="(song, index) in songs"
+          :key="song.id"
+          class="group flex items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-neutral-50 dark:hover:bg-white/5"
+          :class="{ 'bg-[#FF5A5F]/5': playerStore.currentSong?.id === song.id && playerStore.isPersonalFM }"
+        >
+          <span class="w-6 text-center text-sm text-neutral-400">{{ index + 1 }}</span>
+          <img
+            :src="song.album.picUrl + '?param=80y80'"
+            :alt="song.name"
+            class="h-10 w-10 rounded-md object-cover"
+          />
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-medium" :class="{ 'text-[#FF5A5F]': playerStore.currentSong?.id === song.id && playerStore.isPersonalFM }">
+              {{ song.name }}
+            </p>
+            <p class="truncate text-xs text-neutral-400">{{ song.artists.map(a => a.name).join(' / ') }}</p>
+          </div>
+          <button
+            class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium text-neutral-500 opacity-0 transition-all hover:bg-[#FF5A5F]/10 hover:text-[#FF5A5F] group-hover:opacity-100"
+            title="不感兴趣"
+            @click="handleTrash(song, index)"
+          >
+            <Trash2 class="h-4 w-4" />
+            不感兴趣
+          </button>
+          <button
+            class="rounded-full bg-[#FF5A5F] px-4 py-1.5 text-xs font-medium text-white opacity-0 transition-opacity hover:bg-[#E0484D] group-hover:opacity-100"
+            @click="handlePlay(index)"
+          >
+            播放
+          </button>
+        </div>
+      </div>
+
+      <!-- FM 播放中提示 -->
+      <div v-if="playerStore.isPersonalFM && playerStore.currentSong" class="flex items-center justify-center gap-2 rounded-xl bg-neutral-50 py-3 text-sm text-neutral-500 dark:bg-white/5 dark:text-[#A1A1B5]">
+        <Radio class="h-4 w-4 animate-pulse text-[#FF5A5F]" />
+        <span>FM 正在播放：{{ playerStore.currentSong.name }}，队列剩余 {{ playerStore.personalFMQueue.length }} 首</span>
+      </div>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { getPersonalFm } from '@/api/fm'
-import SongTable from '@/components/common/SongTable.vue'
+import { ref, onMounted, watch } from 'vue'
+import { getPersonalFm, fmTrash } from '@/api/fm'
 import CoralButton from '@/components/common/CoralButton.vue'
-import { Radio } from 'lucide-vue-next'
+import { Radio, Trash2 } from 'lucide-vue-next'
 import LoginPrompt from '@/components/common/LoginPrompt.vue'
 import SkeletonSongTable from '@/components/common/skeleton/SkeletonSongTable.vue'
-import { usePlayer } from '@/composables/usePlayer'
+import { usePlayerStore } from '@/stores/player'
 import { useUserStore } from '@/stores/user'
 import { showToast } from '@/composables/useToast'
-import { Radio } from 'lucide-vue-next'
 import type { Song } from '@/stores/player'
 
-const { playSongList } = usePlayer()
+const playerStore = usePlayerStore()
 const userStore = useUserStore()
 
 const loading = ref(false)
@@ -51,6 +94,12 @@ const songs = ref<Song[]>([])
 onMounted(async () => {
   if (userStore.isAccountLoggedIn) {
     await fetchFmSongs()
+  }
+})
+
+watch(() => userStore.isAccountLoggedIn, (loggedIn) => {
+  if (loggedIn && songs.value.length === 0) {
+    fetchFmSongs()
   }
 })
 
@@ -73,7 +122,24 @@ async function fetchFmSongs() {
   }
 }
 
-function handlePlay(song: Song) {
-  playSongList(songs.value, songs.value.findIndex(s => s.id === song.id))
+function handlePlay(index: number) {
+  playerStore.startPersonalFM(songs.value, index)
+}
+
+async function handleTrash(song: Song, index: number) {
+  try {
+    // 如果正在播放这首歌，trashCurrentFMTrack 会同时调用 API 并切歌
+    if (playerStore.isPersonalFM && playerStore.currentSong?.id === song.id) {
+      await playerStore.trashCurrentFMTrack()
+    } else {
+      // 非当前播放歌曲，单独调用垃圾桶 API
+      await fmTrash(song.id)
+    }
+    // 从列表中移除
+    songs.value.splice(index, 1)
+    showToast('已减少类似推荐', { type: 'success' })
+  } catch {
+    showToast('操作失败', { type: 'error' })
+  }
 }
 </script>

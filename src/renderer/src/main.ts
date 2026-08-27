@@ -66,10 +66,17 @@ if (!isSecondaryWindow) {
     const playerStore = usePlayerStore()
     // 先恢复持久化状态（睡眠定时、播放历史）
     playerStore.loadPersistentState()
-    // 延迟执行播放恢复，确保 store 初始化完成
-    setTimeout(() => {
+    // 等待音频引擎就绪后恢复播放，带兜底超时
+    let restored = false
+    const tryRestore = () => {
+      if (restored) return
+      restored = true
+      offReady?.()
       playerStore.restorePlayback()
-    }, 1000)
+    }
+    const offReady = window.electronAPI?.onIpcEvent?.('audio:ready', tryRestore)
+    // 兜底：2 秒后强制尝试（音频引擎通常已就绪）
+    setTimeout(tryRestore, 2000)
   })
 }
 

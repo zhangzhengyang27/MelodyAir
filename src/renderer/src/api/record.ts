@@ -22,5 +22,5 @@ export const getRecentDj = (limit = 100): Promise<ApiResponse> =>
   request.get('/record/recent/dj', { params: { limit } })
 
 // 听歌打卡
-export const scrobble = (id: number, sourceid: number, time?: number): Promise<ApiResponse> =>
-  request.get('/scrobble', { params: { id, sourceid, time } })
+export const scrobble = (id: number, sourceId: number, time?: number): Promise<ApiResponse> =>
+  request.post('/scrobble', { id, sourceId, time })
