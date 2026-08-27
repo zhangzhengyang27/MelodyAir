@@ -4,7 +4,15 @@ import { matchSong } from "@/api/unblock"
 import { useSettingsStore } from "@/stores/settings"
 import { THIRD_PARTY_AUDIO_DOMAINS } from "@/constants"
 import { logger } from "@/utils/logger"
+import { showToast } from "@/composables/useToast"
 import type { Ref } from "vue"
+
+/** 音质等级显示名称（降级提示用） */
+const QUALITY_LABELS: Record<string, string> = {
+  standard: '标准音质', higher: '较高音质', exhigh: '高品质',
+  lossless: '无损音质', hires: 'Hi-Res 无损', jyeffect: '高清环绕声',
+  sky: '沉浸环绕声', dolby: '杜比全景声', jymaster: '超清母带',
+}
 
 /**
  * 播放器缓存管理 composable
@@ -148,14 +156,27 @@ export function usePlayerCache(deps: {
       const res = await getSongUrlV1(songId, quality)
 
       let url: string | undefined | null
+      let actualLevel: string | undefined
       if (Array.isArray(res?.data)) {
         url = res.data[0]?.url
+        actualLevel = res.data[0]?.level
       } else if (typeof res?.data === "string" && res.data.startsWith("http")) {
         url = res.data
         if (url.includes("/proxy/audio?url=")) {
           const match = url.match(/url=([^&]+)/)
           if (match) url = decodeURIComponent(match[1])
         }
+      }
+
+      // 音质降级检测：请求的音质与实际返回不一致时提示用户
+      if (url && actualLevel && actualLevel !== quality) {
+        logger.info('player', `音质降级: songId=${songId}, 请求=${quality}, 实际=${actualLevel}`)
+        const requestedLabel = QUALITY_LABELS[quality] || quality
+        const actualLabel = QUALITY_LABELS[actualLevel] || actualLevel
+        showToast(`当前歌曲不支持${requestedLabel}，已切换为${actualLabel}`, {
+          type: 'info',
+          dedupeKey: `quality-downgrade-${songId}-${actualLevel}`,
+        })
       }
 
 

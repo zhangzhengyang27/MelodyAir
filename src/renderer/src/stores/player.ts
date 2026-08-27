@@ -762,6 +762,46 @@ export const usePlayerStore = defineStore('player', () => {
     audioAdapter.seek(time)
   }
 
+  /**
+   * 以新音质重新加载当前歌曲（切换音质时调用）
+   * 保留当前播放进度，绕过缓存重新获取音频 URL
+   */
+  async function reloadCurrentSongAudio(): Promise<void> {
+    const song = currentSong.value
+    if (!song) return
+
+    const savedPosition = currentTime.value
+    const wasPlaying = playing.value || status.value === 'loading'
+
+    try {
+      status.value = 'loading'
+      // useCache=false 绕过缓存，强制用新音质重新获取 URL
+      const url = await playerCache.getAudioSource(song.id, false, song._localTrackId)
+      if (!url) {
+        logger.warn('player', `切换音质后无可用音源: ${song.name}`)
+        showToast('当前歌曲不支持该音质', { type: 'warning', dedupeKey: 'quality-unsupported' })
+        status.value = wasPlaying ? 'playing' : 'paused'
+        return
+      }
+
+      await audioAdapter.play(url, song.id, !!song._streaming)
+      activeBlobUrl.value = url.startsWith('blob:') ? url : null
+
+      // 等待音频引擎就绪后恢复播放进度
+      setTimeout(() => {
+        if (savedPosition > 0) {
+          audioAdapter.seek(savedPosition)
+        }
+        if (!wasPlaying) {
+          audioAdapter.pause()
+        }
+      }, 500)
+    } catch (e) {
+      logger.error('player', '切换音质重载失败:', e)
+      showToast('切换音质失败', { type: 'error' })
+    }
+  }
+
   async function handlePlayEnd(): Promise<void> {
     if (sleepTimerDeadline.value && Date.now() >= sleepTimerDeadline.value) {
       clearSleepTimerHandles()
@@ -932,7 +972,7 @@ export const usePlayerStore = defineStore('player', () => {
     setVolume, setPlaybackSpeed, toggleMute, seek, setCurrentTime, setDuration,
     setEqualizerBand, setEqualizerBands, setEqualizerEnabled,
     setSleepTimer, clearSleepTimer, clearPlayHistory, removeHistoryBySongId, loadPersistentState,
-    enablePersonalFM, startPersonalFM, addToPersonalFMQueue, trashCurrentFMTrack, disablePersonalFM, restorePlayback, destroy,
+    enablePersonalFM, startPersonalFM, addToPersonalFMQueue, trashCurrentFMTrack, disablePersonalFM, restorePlayback, reloadCurrentSongAudio, destroy,
   }
 }, {
   persist: {

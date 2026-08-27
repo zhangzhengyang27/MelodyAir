@@ -427,6 +427,10 @@ function applyTheme(): void {
 
 function handleQualityChange(): void {
   logger.info('settings', 'Quality changed to:', settingsStore.currentQualityLabel)
+  // 切换音质后立即重载当前歌曲（保留播放进度）
+  if (playerStore.currentSong) {
+    playerStore.reloadCurrentSongAudio()
+  }
 }
 
 function handlePlaybackSpeedChange(): void {

@@ -296,8 +296,16 @@ function handleClickOutside(e: MouseEvent) {
 }
 
 function selectQuality(quality: any) {
+  if (quality === settingsStore.musicQuality) {
+    showQualityPopup.value = false
+    return
+  }
   settingsStore.setMusicQuality(quality)
   showQualityPopup.value = false
+  // 切换音质后立即重载当前歌曲（保留播放进度）
+  if (playerStore.currentSong) {
+    playerStore.reloadCurrentSongAudio()
+  }
 }
 
 function toggleMute() {
