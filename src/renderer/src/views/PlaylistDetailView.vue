@@ -2,6 +2,18 @@
   <div class="space-y-6">
     <SkeletonDetail v-if="loading" :rows="8" />
 
+    <!-- 加载失败 / 无效 ID -->
+    <div v-else-if="error" class="flex min-h-[40vh] flex-col items-center justify-center text-center">
+      <span class="text-5xl">😕</span>
+      <p class="mt-4 text-base font-medium text-neutral-700 dark:text-[#E9E9F2]">{{ error }}</p>
+      <button
+        class="mt-4 rounded-xl bg-[#FF5A5F] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#E0484D]"
+        @click="$router.back()"
+      >
+        返回上一页
+      </button>
+    </div>
+
     <template v-else-if="playlist">
       <!-- Header -->
       <div class="flex gap-6">
@@ -43,7 +55,7 @@
             class="group cursor-pointer"
             @click="$router.push(`/playlist/${item.id}`)"
           >
-            <CoverImage :src="item.coverImgUrl" :alt="item.name" size="md" playable />
+            <CoverImage :src="item.coverImgUrl" :alt="item.name" size="md" />
             <p class="mt-2 line-clamp-2 text-sm dark:text-[#A1A1B5]">{{ item.name }}</p>
           </div>
         </div>
@@ -84,10 +96,15 @@ const playlistId = ref(0)
 const playlist = ref<any>(null)
 const songs = ref<Song[]>([])
 const simiPlaylists = ref<any[]>([])
+const error = ref('')
 
 async function fetchData(id: number) {
   loading.value = true
   songsLoading.value = true
+  error.value = ''
+  playlist.value = null
+  songs.value = []
+  simiPlaylists.value = []
   playlistId.value = id
   try {
     const [res, dynamicRes, simiRes] = await Promise.allSettled([
@@ -96,7 +113,18 @@ async function fetchData(id: number) {
       getSimiPlaylist(id)
     ])
     if (res.status === 'fulfilled') {
-      playlist.value = (res.value as any)?.playlist
+      const raw = res.value as any
+      // 兼容两种格式：API 返回 { code, playlist }，DB 缓存直接返回歌单对象
+      if (raw?.playlist) {
+        playlist.value = raw.playlist
+      } else if (raw?.name && (raw?.id || raw?.playlistId)) {
+        // DB 缓存格式：playlistId → id，补齐字段
+        playlist.value = { ...raw, id: raw.id || raw.playlistId }
+      }
+    }
+    if (!playlist.value) {
+      error.value = '歌单不存在或加载失败'
+      return
     }
     if (dynamicRes.status === 'fulfilled') {
       isSubscribed.value = (dynamicRes.value as any)?.subscribed ?? false
@@ -106,7 +134,8 @@ async function fetchData(id: number) {
     }
     // ★ 参照 YPM：用 trackIds 的长度判断是否需要获取全部歌曲
     // /playlist/detail 返回的 trackIds 始终完整，但 tracks 可能不完整
-    const trackCount = playlist.value?.trackIds?.length || 0
+    // DB 缓存可能没有 trackIds，但有 trackCount 字段，用它兜底
+    const trackCount = playlist.value?.trackIds?.length || playlist.value?.trackCount || 0
     if (trackCount > 0) {
       // 分批获取所有歌曲（每次最多 500 首）
       const allSongs: any[] = []
@@ -126,19 +155,34 @@ async function fetchData(id: number) {
         fee: s.fee || 0
       }))
     }
+  } catch (err: unknown) {
+    error.value = err instanceof Error ? err.message : '加载失败，请重试'
   } finally {
     loading.value = false
     songsLoading.value = false
   }
 }
 
+function resolveId(raw: string | string[] | undefined): number {
+  const str = Array.isArray(raw) ? raw[0] : raw
+  if (!str) return NaN
+  // 兼容异常格式如 "2420545066:1"，提取前缀数字
+  const match = String(str).match(/^(\d+)/)
+  return match ? Number(match[1]) : NaN
+}
+
 onMounted(() => {
-  const id = Number(route.params.id)
-  if (id) fetchData(id)
+  const id = resolveId(route.params.id as string)
+  if (id) {
+    fetchData(id)
+  } else {
+    error.value = '无效的歌单 ID'
+  }
 })
 
 watch(() => route.params.id, (newId) => {
-  if (newId) fetchData(Number(newId))
+  const id = resolveId(newId as string)
+  if (id) fetchData(id)
 })
 
 function handlePlaySong(song: Song) {

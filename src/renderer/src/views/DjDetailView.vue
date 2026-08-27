@@ -134,7 +134,9 @@ async function fetchRadio(rid: number) {
     ])
 
     if (detailRes.status === 'fulfilled') {
-      radio.value = (detailRes.value as any)?.djRadio || null
+      const raw = detailRes.value as any
+      // 兼容两种格式：API 可能返回 { djRadio } 或 { data: { djRadio } }
+      radio.value = raw?.djRadio || raw?.data?.djRadio || null
     }
     if (progRes.status === 'fulfilled') {
       const data = progRes.value as { programs?: unknown[]; more?: boolean }

@@ -73,7 +73,9 @@ async function fetchData(id: number) {
     ])
 
     if (detailRes.status === 'fulfilled') {
-      mv.value = (detailRes.value as any)?.data
+      const raw = detailRes.value as any
+      // 兼容两种格式：API 返回 { code, data }，DB 缓存直接返回 MV 对象
+      mv.value = raw?.data || (raw?.name ? raw : null)
     }
     if (urlRes.status === 'fulfilled') {
       mvUrl.value = (urlRes.value as any)?.data?.url || ''

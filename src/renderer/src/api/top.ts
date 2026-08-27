@@ -9,7 +9,7 @@ export const getToplistDetail = (): Promise<ApiResponse> => request.get('/toplis
 
 // 歌手榜
 export const getToplistArtist = (type = 1): Promise<ApiResponse> =>
-  request.get('/toplist/artist', { params: { type } })
+  request.get('/top/artist', { params: { type } })
 
 // 新歌速递
 export const getTopSong = (type = 0): Promise<ApiResponse> =>

@@ -9,14 +9,14 @@
         :key="tab.value"
         class="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
         :class="activeTopTab === tab.value ? 'bg-white text-[#FF5A5F] shadow-sm dark:bg-[#1F1F2E] dark:text-[#FF7F66]' : 'text-neutral-500 dark:text-[#A1A1B5]'"
-        @click="activeTopTab = tab.value"
+        @click="activeTopTab = tab.value; detailVisible = false"
       >
         {{ tab.label }}
       </button>
     </div>
 
     <!-- 歌曲榜单 -->
-    <div v-if="activeTopTab === 'songs'">
+    <div v-if="activeTopTab === 'songs' && !detailVisible">
       <SkeletonCardGrid
         v-if="loading"
         :count="9"
@@ -53,7 +53,7 @@
     </div>
 
     <!-- 歌手榜 -->
-    <div v-if="activeTopTab === 'artists'">
+    <div v-if="activeTopTab === 'artists' && !detailVisible">
       <SkeletonArtistGrid v-if="artistLoading" :count="16" />
       <div v-else-if="artistList.length > 0" class="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
         <div
@@ -62,9 +62,7 @@
           class="cursor-pointer text-center"
           @click="$router.push(`/artist/${item.id}`)"
         >
-          <div class="mx-auto h-24 w-24 overflow-hidden rounded-full shadow-md">
-            <img :src="item.picUrl || item.img1v1Url" :alt="item.name" class="h-full w-full object-cover" />
-          </div>
+          <ArtistAvatar :src="item.picUrl || item.img1v1Url" :alt="item.name" size="md" class="mx-auto shadow-md" />
           <p class="mt-2 line-clamp-1 text-sm">
             <span class="font-bold" :class="idx < 3 ? 'text-[#FF5A5F]' : ''">{{ idx + 1 }}.</span>
             {{ item.name }}
@@ -75,7 +73,7 @@
     </div>
 
     <!-- 新歌速递 -->
-    <div v-if="activeTopTab === 'new'">
+    <div v-if="activeTopTab === 'new' && !detailVisible">
       <SkeletonSongTable v-if="newSongLoading" :rows="8" />
       <SongTable v-else :songs="newSongs" @play="handlePlayNewSong" />
     </div>
@@ -110,6 +108,7 @@ import { ref, onMounted, watch } from 'vue'
 import { getToplist, getToplistArtist, getTopSong } from '@/api/top'
 import { getPlaylistDetail } from '@/api/playlist'
 import SongTable from '@/components/common/SongTable.vue'
+import ArtistAvatar from '@/components/common/ArtistAvatar.vue'
 import SkeletonCardGrid from '@/components/common/skeleton/SkeletonCardGrid.vue'
 import SkeletonArtistGrid from '@/components/common/skeleton/SkeletonArtistGrid.vue'
 import SkeletonSongTable from '@/components/common/skeleton/SkeletonSongTable.vue'

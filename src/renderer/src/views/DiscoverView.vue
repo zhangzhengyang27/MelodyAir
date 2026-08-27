@@ -45,17 +45,9 @@
     </section>
     <SkeletonBanner v-else-if="loading" />
 
-    <!-- 每日推荐强卡片 -->
-    <section>
-      <LoginPrompt
-        v-if="!userStore.isAccountLoggedIn"
-        :icon="Sparkles"
-        title="登录后查看每日推荐"
-        description="根据你的听歌口味，每天为你精选 20 首好歌"
-        buttonText="登录查看每日推荐"
-      />
+    <!-- 每日推荐强卡片（未登录时隐藏） -->
+    <section v-if="userStore.isAccountLoggedIn">
       <div
-        v-else
         class="group relative flex items-center justify-between overflow-hidden rounded-2xl bg-gradient-to-r from-[#FF5A5F] to-[#FF7F66] p-6 text-white shadow-[0_4px_20px_rgba(255,90,95,0.30)] transition-transform hover:scale-[1.01]"
         @click="$router.push('/daily')"
       >
@@ -154,8 +146,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useUserStore } from '@/stores/user'
-import LoginPrompt from '@/components/common/LoginPrompt.vue'
-import { ChevronLeft, ChevronRight, Play, CalendarDays, Music, Sparkles } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, Play, CalendarDays, Music } from 'lucide-vue-next'
 import { getBanner, getPersonalized, getPersonalizedNewSong, getPersonalizedMv, getPersonalizedDjprogram } from '@/api/personalized'
 import CoverImage from '@/components/common/CoverImage.vue'
 import SectionHeader from '@/components/common/SectionHeader.vue'

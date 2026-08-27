@@ -3,6 +3,7 @@
     <div class="flex items-center justify-between">
       <h1 class="text-title">云盘</h1>
       <button
+        v-if="userStore.isAccountLoggedIn"
         class="rounded-xl bg-[#FF5A5F] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#E0484D]"
         @click="triggerUpload"
       >
@@ -19,16 +20,26 @@
       <p class="mt-1 text-xs text-neutral-500">{{ uploadProgress }}%</p>
     </div>
 
-    <SkeletonSongTable v-if="loading" :rows="8" />
+    <LoginPrompt
+      v-if="!userStore.isAccountLoggedIn"
+      :icon="Cloud"
+      title="登录后查看云盘"
+      description="上传和管理你的云端音乐，随时随地收听"
+      buttonText="登录查看云盘"
+    />
 
-    <div v-else-if="songs.length === 0" class="flex min-h-[30vh] items-center justify-center">
-      <div class="text-center">
-        <span class="text-5xl">☁️</span>
-        <p class="mt-4 text-neutral-500 dark:text-[#A1A1B5]">云盘中暂无歌曲</p>
+    <template v-else>
+      <SkeletonSongTable v-if="loading" :rows="8" />
+
+      <div v-else-if="songs.length === 0" class="flex min-h-[30vh] items-center justify-center">
+        <div class="text-center">
+          <span class="text-5xl">☁️</span>
+          <p class="mt-4 text-neutral-500 dark:text-[#A1A1B5]">云盘中暂无歌曲</p>
+        </div>
       </div>
-    </div>
 
-    <SongTable v-else :songs="songs" @play="handlePlay" />
+      <SongTable v-else :songs="songs" @play="handlePlay" />
+    </template>
   </div>
 </template>
 
@@ -36,13 +47,17 @@
 import { ref, onMounted } from 'vue'
 import { getCloudList, uploadToCloud } from '@/api/cloud'
 import SongTable from '@/components/common/SongTable.vue'
+import LoginPrompt from '@/components/common/LoginPrompt.vue'
 import SkeletonSongTable from '@/components/common/skeleton/SkeletonSongTable.vue'
 import { usePlayer } from '@/composables/usePlayer'
+import { useUserStore } from '@/stores/user'
 import { showToast } from '@/composables/useToast'
+import { Cloud } from 'lucide-vue-next'
 import type { Song } from '@/stores/player'
 import { logger } from '@/utils/logger'
 
 const { playSongList } = usePlayer()
+const userStore = useUserStore()
 
 const loading = ref(false)
 const songs = ref<Song[]>([])
@@ -51,7 +66,9 @@ const uploadProgress = ref(0)
 const uploadFileName = ref('')
 
 onMounted(async () => {
-  await fetchCloudList()
+  if (userStore.isAccountLoggedIn) {
+    await fetchCloudList()
+  }
 })
 
 async function fetchCloudList() {
@@ -69,6 +86,8 @@ async function fetchCloudList() {
         fee: s.fee || 0
       }
     })
+  } catch (err: unknown) {
+    showToast(err instanceof Error ? err.message : '加载失败，请重试', { type: 'error' })
   } finally {
     loading.value = false
   }

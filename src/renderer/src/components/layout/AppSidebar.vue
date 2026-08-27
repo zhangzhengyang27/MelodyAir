@@ -161,15 +161,17 @@ const discoverItems = [
   { to: '/dj', icon: Radio, label: '播客' }
 ]
 
-// 我的音乐分组（本地音乐按平台隐藏）
+// 我的音乐分组（本地音乐按平台隐藏，私人FM/云盘按登录状态隐藏）
 const myMusicItems = computed(() => {
-  const items = [
-    { to: { path: '/library', query: { tab: 'recent' } }, icon: Clock, label: '最近播放' },
-    { to: '/fm', icon: Headphones, label: '私人FM' },
-    { to: '/cloud', icon: Cloud, label: '云盘' }
+  const items: Array<{ to: any; icon: any; label: string }> = [
+    { to: { path: '/library', query: { tab: 'recent' } }, icon: Clock, label: '最近播放' }
   ]
   if (hasLocalScan) {
-    items.splice(1, 0, { to: '/local', icon: HardDrive, label: '本地音乐' })
+    items.push({ to: '/local', icon: HardDrive, label: '本地音乐' })
+  }
+  if (userStore.isAccountLoggedIn) {
+    items.push({ to: '/fm', icon: Headphones, label: '私人FM' })
+    items.push({ to: '/cloud', icon: Cloud, label: '云盘' })
   }
   return items
 })

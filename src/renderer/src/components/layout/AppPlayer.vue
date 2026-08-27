@@ -5,7 +5,7 @@
       <div
         v-if="playerStore.currentSong"
         class="group relative h-12 w-12 shrink-0 cursor-pointer overflow-hidden rounded-lg bg-neutral-200 dark:bg-[#1F1F2E]"
-        @click="showFullPlayer = true"
+        @click="openFullPlayer"
       >
         <img
           v-if="playerStore.currentSong.album?.picUrl"
@@ -66,7 +66,7 @@
 
         <SleepTimerButton />
 
-        <div class="volume-group flex items-center">
+        <div class="volume-group relative flex items-center">
           <button class="player-btn" @click="toggleMute" :title="playerStore.muted ? '取消静音' : '静音'">
             <VolumeX v-if="playerStore.muted" class="h-[18px] w-[18px]" />
             <Volume2 v-else class="h-[18px] w-[18px]" />
@@ -154,7 +154,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h10m-10 4h6" />
         </svg>
       </button>
-      <button class="player-btn" title="全屏播放" @click="showFullPlayer = true">
+      <button class="player-btn" title="全屏播放" @click="openFullPlayer">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
         </svg>
@@ -237,7 +237,16 @@ function toggleLike() {
 }
 
 const showPlaylist = ref(false)
-const showFullPlayer = defineModel<boolean>('showFullPlayer', { default: false })
+const props = defineProps<{
+  showFullPlayer?: boolean
+}>()
+const emit = defineEmits<{
+  'update:showFullPlayer': [value: boolean]
+}>()
+
+function openFullPlayer() {
+  emit('update:showFullPlayer', true)
+}
 const hoverTime = ref<number | null>(null)
 const hoverProgress = ref(0)
 const showQualityPopup = ref(false)
@@ -405,6 +414,10 @@ onUnmounted(() => {
 }
 
 .volume-slider {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
   height: 0.25rem;
   width: 0;
   cursor: pointer;
@@ -413,13 +426,14 @@ onUnmounted(() => {
   background-color: var(--color-neutral-200);
   outline: none;
   opacity: 0;
-  transition: width 0.25s ease, opacity 0.2s ease;
+  transition: width 0.25s ease, opacity 0.2s ease, margin-left 0.25s ease;
+  margin-left: 0;
 }
 
 .volume-group:hover .volume-slider {
   width: 5rem;
   opacity: 1;
-  margin-left: 0.25rem;
+  margin-left: 0.5rem;
 }
 
 .dark .volume-slider {

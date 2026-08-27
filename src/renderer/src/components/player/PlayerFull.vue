@@ -489,7 +489,7 @@ import LyricsDisplay from '@/components/lyrics/LyricsDisplay.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import PlayQueue from './PlayQueue.vue'
 import { useLyricsSync } from '@/composables/useLyricsSync'
-import { Disc3, AlignLeft, Image, Activity, Info, Share2, X, SlidersHorizontal, Timer } from 'lucide-vue-next'
+import { Disc3, AlignLeft, Image as ImageIcon, Activity, Info, Share2, X, SlidersHorizontal, Timer } from 'lucide-vue-next'
 import { useEqualizer, type EqualizerPreset } from '@/composables/useEqualizer'
 
 defineEmits<{
@@ -674,7 +674,7 @@ const displayMode = ref<DisplayMode>('vinyl')
 const displayModes = [
   { value: 'vinyl' as const, label: '黑胶模式', icon: Disc3 },
   { value: 'lyrics' as const, label: '纯歌词模式', icon: AlignLeft },
-  { value: 'cover' as const, label: '封面模式', icon: Image },
+  { value: 'cover' as const, label: '封面模式', icon: ImageIcon },
 ]
 
 // 音频可视化

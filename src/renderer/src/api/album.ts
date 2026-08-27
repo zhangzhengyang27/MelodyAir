@@ -3,7 +3,7 @@ import type { AlbumDetail, ApiResponse } from '@/types/api'
 
 // 专辑内容
 export const getAlbumDetail = (id: number): Promise<AlbumDetail> =>
-  request.get('/album', { params: { id } })
+  request.get('/album/detail', { params: { id } })
 
 // 专辑动态信息
 export const getAlbumDetailDynamic = (id: number): Promise<ApiResponse<{ isSub?: boolean; subTime?: string }>> =>

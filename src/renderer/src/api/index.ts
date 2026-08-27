@@ -29,6 +29,9 @@ const ACCOUNT_REQUIRED_APIS = [
   '/daily_recommend',
   '/recommend/songs',
   '/recommend/resource',
+  // 私人FM
+  '/personal_fm',
+  '/personal/fm',
   // 喜欢与收藏操作
   '/likelist',
   '/like',

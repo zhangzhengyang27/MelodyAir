@@ -1,9 +1,9 @@
 import request from './index'
 import type { ApiResponse, PersonalizedSong } from '@/types/api'
 
-// 首页 banner（文档接口为 /banner）
+// 首页 banner（后端路由为 /homepage/banner）
 export const getBanner = (type = 0): Promise<ApiResponse> =>
-  request.get('/banner', { params: { type } })
+  request.get('/homepage/banner', { params: { type } })
 
 // 个性化推荐歌单
 export const getPersonalized = (limit = 30): Promise<ApiResponse<{ result: Playlist[] }>> =>

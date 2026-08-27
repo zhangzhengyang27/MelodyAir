@@ -37,7 +37,7 @@
         class="group cursor-pointer"
         @click="$router.push(`/playlist/${item.id}`)"
       >
-        <CoverImage :src="item.coverImgUrl" :alt="item.name" size="md" playable />
+        <CoverImage :src="item.coverImgUrl" :alt="item.name" size="md" />
         <p class="mt-2 line-clamp-2 text-sm dark:text-[#A1A1B5]">{{ item.name }}</p>
         <p class="mt-0.5 text-xs text-neutral-400">{{ formatPlayCount(item.playCount) }}</p>
       </div>
