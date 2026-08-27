@@ -35,9 +35,6 @@
           class="h-auto w-full"
         />
       </div>
-
-      <!-- Comments -->
-      <CommentSection v-if="mvId" :type="1" :id="mvId" title="评论" />
     </template>
   </div>
 </template>
@@ -46,7 +43,6 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { getMvDetail, getMvUrl } from '@/api/mv'
-import CommentSection from '@/components/common/CommentSection.vue'
 import SkeletonDetail from '@/components/common/skeleton/SkeletonDetail.vue'
 import { useUserStore } from '@/stores/user'
 import { showToast } from '@/composables/useToast'

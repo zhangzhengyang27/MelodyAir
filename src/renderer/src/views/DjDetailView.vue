@@ -97,7 +97,6 @@ import { useRoute } from 'vue-router'
 import { getDjDetail, getDjProgram, subDj } from '@/api/dj'
 import SectionHeader from '@/components/common/SectionHeader.vue'
 import CoralButton from '@/components/common/CoralButton.vue'
-import CommentSection from '@/components/common/CommentSection.vue'
 import SkeletonDetail from '@/components/common/skeleton/SkeletonDetail.vue'
 import Skeleton from '@/components/common/skeleton/Skeleton.vue'
 import { usePlayer } from '@/composables/usePlayer'
@@ -135,8 +134,17 @@ async function fetchRadio(rid: number) {
 
     if (detailRes.status === 'fulfilled') {
       const raw = detailRes.value as any
-      // 兼容两种格式：API 可能返回 { djRadio } 或 { data: { djRadio } }
-      radio.value = raw?.djRadio || raw?.data?.djRadio || null
+      // 兼容多种格式：
+      // 1. { djRadio: {...} }（旧版接口）
+      // 2. { data: { djRadio: {...} } }（嵌套格式）
+      // 3. 电台对象本身（新版 /api/djradio/v2/get，transform 提取 data 后直接返回）
+      // 4. { cacheValue: 电台对象 }（缓存命中时后端返回原始缓存记录）
+      radio.value = raw?.djRadio
+        || raw?.data?.djRadio
+        || raw?.cacheValue?.djRadio
+        || raw?.cacheValue?.data?.djRadio
+        || (raw?.name && raw?.id ? raw : null)
+        || (raw?.cacheValue?.name && raw?.cacheValue?.id ? raw.cacheValue : null)
     }
     if (progRes.status === 'fulfilled') {
       const data = progRes.value as { programs?: unknown[]; more?: boolean }

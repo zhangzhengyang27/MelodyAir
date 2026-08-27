@@ -53,7 +53,7 @@
             class="group cursor-pointer"
             @click="$router.push(`/dj/${radio.id}`)"
           >
-            <CoverImage :src="radio.picUrl" :alt="radio.name" size="md" playable />
+            <CoverImage :src="radio.picUrl" :alt="radio.name" size="md" />
             <p class="mt-2 line-clamp-2 text-sm dark:text-[#A1A1B5]">{{ radio.name }}</p>
             <p v-if="radio.dj" class="mt-0.5 text-xs text-neutral-400">{{ radio.dj.brand }}</p>
           </div>
@@ -70,7 +70,7 @@
             class="group cursor-pointer"
             @click="$router.push(`/dj/${radio.id}`)"
           >
-            <CoverImage :src="radio.picUrl" :alt="radio.name" size="md" playable />
+            <CoverImage :src="radio.picUrl" :alt="radio.name" size="md" />
             <p class="mt-2 line-clamp-2 text-sm dark:text-[#A1A1B5]">{{ radio.name }}</p>
             <p class="mt-0.5 text-xs text-neutral-400">{{ formatPlayCount(radio.programCount) }}个节目</p>
           </div>
@@ -87,7 +87,7 @@
             class="group cursor-pointer"
             @click="$router.push(`/dj/${radio.id}`)"
           >
-            <CoverImage :src="radio.picUrl" :alt="radio.name" size="md" playable />
+            <CoverImage :src="radio.picUrl" :alt="radio.name" size="md" />
             <p class="mt-2 line-clamp-2 text-sm dark:text-[#A1A1B5]">{{ radio.name }}</p>
             <p class="mt-0.5 text-xs text-neutral-400">{{ formatPlayCount(radio.programCount) }}个节目</p>
           </div>
@@ -111,27 +111,6 @@
               <p class="truncate text-xs text-neutral-400">{{ prog.radio?.name }}</p>
             </div>
             <span class="shrink-0 text-xs text-neutral-400">{{ formatDuration(prog.duration) }}</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- 节目榜单 -->
-      <section v-if="activeCategory === 0 && toplistPrograms.length > 0">
-        <SectionHeader title="节目榜单" />
-        <div class="space-y-2">
-          <div
-            v-for="(prog, idx) in toplistPrograms"
-            :key="prog.id"
-            class="flex items-center gap-4 rounded-xl p-3 transition-colors hover:bg-neutral-50 dark:hover:bg-white/4"
-          >
-            <span class="w-6 text-center text-sm font-bold" :class="idx < 3 ? 'text-[#FF5A5F]' : 'text-neutral-400'">{{ idx + 1 }}</span>
-            <div class="h-10 w-10 shrink-0 overflow-hidden rounded-lg">
-              <img :src="prog.coverUrl + '?param=100y100'" alt="" class="h-full w-full object-cover" />
-            </div>
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium dark:text-[#F0F0F5]">{{ prog.name }}</p>
-              <p class="truncate text-xs text-neutral-400">{{ prog.radio?.name }}</p>
-            </div>
           </div>
         </div>
       </section>
@@ -224,7 +203,8 @@ onMounted(async () => {
       banners.value = (bannerRes.value as any)?.data || []
     }
     if (toplistRes.status === 'fulfilled') {
-      toplistPrograms.value = (toplistRes.value as any)?.list || (toplistRes.value as any)?.programs || []
+      const raw = toplistRes.value as any
+      toplistPrograms.value = raw?.list || raw?.programs || raw?.data?.list || []
     }
 
     // Banner 自动轮播

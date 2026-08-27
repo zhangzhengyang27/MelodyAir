@@ -32,9 +32,6 @@
 
       <!-- Songs -->
       <SongTable :songs="songs" @play="handlePlaySong" />
-
-      <!-- Comments -->
-      <CommentSection v-if="albumId" :type="3" :id="albumId" title="评论" />
     </template>
   </div>
 </template>
@@ -45,7 +42,6 @@ import { useRoute } from 'vue-router'
 import { getAlbumDetail, getAlbumDetailDynamic } from '@/api/album'
 import SongTable from '@/components/common/SongTable.vue'
 import CoralButton from '@/components/common/CoralButton.vue'
-import CommentSection from '@/components/common/CommentSection.vue'
 import SkeletonDetail from '@/components/common/skeleton/SkeletonDetail.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import { useUserStore } from '@/stores/user'

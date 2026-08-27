@@ -93,9 +93,6 @@
           </div>
         </div>
       </section>
-
-      <!-- Comments -->
-      <CommentSection v-if="artistId" :type="7" :id="artistId" title="评论" />
     </template>
   </div>
 </template>
@@ -108,7 +105,6 @@ import { getSimiArtist } from '@/api/simi'
 import SongTable from '@/components/common/SongTable.vue'
 import CoverImage from '@/components/common/CoverImage.vue'
 import SectionHeader from '@/components/common/SectionHeader.vue'
-import CommentSection from '@/components/common/CommentSection.vue'
 import SkeletonDetail from '@/components/common/skeleton/SkeletonDetail.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import { useUserStore } from '@/stores/user'

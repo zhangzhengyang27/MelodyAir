@@ -60,9 +60,6 @@
           </div>
         </div>
       </section>
-
-      <!-- Comments -->
-      <CommentSection v-if="playlistId" :type="2" :id="playlistId" title="评论" />
     </template>
   </div>
 </template>
@@ -76,7 +73,6 @@ import SongTable from '@/components/common/SongTable.vue'
 import CoralButton from '@/components/common/CoralButton.vue'
 import CoverImage from '@/components/common/CoverImage.vue'
 import SectionHeader from '@/components/common/SectionHeader.vue'
-import CommentSection from '@/components/common/CommentSection.vue'
 import SkeletonDetail from '@/components/common/skeleton/SkeletonDetail.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import { useUserStore } from '@/stores/user'
