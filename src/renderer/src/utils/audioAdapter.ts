@@ -83,11 +83,17 @@ class AudioAdapter {
 
   // ==================== 播放控制 ====================
 
-  async play(url: string, songId: string | number): Promise<void> {
+  /**
+   * 播放音频
+   * @param url 音频 URL
+   * @param songId 歌曲 ID
+   * @param html5 是否使用 HTML5 Audio 模式（流式播放，适合长音频如播客）
+   */
+  async play(url: string, songId: string | number, html5 = false): Promise<void> {
     if (this.isElectron) {
-      ;(window as any).electronAPI.audioPlay(url, songId)
+      ;(window as any).electronAPI.audioPlay(url, songId, html5)
     } else if (this.localEngine) {
-      await this.localEngine.play(url)
+      await this.localEngine.play(url, { html5 })
     }
   }
 

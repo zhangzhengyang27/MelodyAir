@@ -3,7 +3,7 @@
     <div v-if="!userStore.profile" class="flex min-h-[40vh] items-center justify-center">
       <div class="text-center">
         <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-100 dark:bg-[#1F1F2E]">
-          <span class="text-4xl">🎵</span>
+          <Music class="h-8 w-8 text-neutral-400" />
         </div>
         <h2 class="text-subtitle font-semibold">登录后查看</h2>
         <p class="mt-2 text-sm text-neutral-500">登录后即可查看你的个人音乐库</p>
@@ -196,6 +196,7 @@ import { getSongDetail } from '@/api/song'
 import { getRecentSong } from '@/api/record'
 import SongTable from '@/components/common/SongTable.vue'
 import PlayHistoryList from '@/components/common/PlayHistoryList.vue'
+import { Music } from 'lucide-vue-next'
 import CoverImage from '@/components/common/CoverImage.vue'
 import SkeletonCardGrid from '@/components/common/skeleton/SkeletonCardGrid.vue'
 import SkeletonArtistGrid from '@/components/common/skeleton/SkeletonArtistGrid.vue'

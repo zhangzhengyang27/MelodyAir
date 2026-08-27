@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, type Component } from 'vue'
 import type { Song } from '../../stores/player'
 
 export interface ContextMenuItem {
   label: string
-  icon?: string
+  icon?: string | Component
   action: () => void
   divider?: boolean
   disabled?: boolean
@@ -97,7 +97,8 @@ onUnmounted(() => {
             :class="{ disabled: item.disabled }"
             @click="handleItemClick(item)"
           >
-            <span class="menu-icon" v-if="item.icon">{{ item.icon }}</span>
+            <span class="menu-icon" v-if="item.icon && typeof item.icon === 'string'">{{ item.icon }}</span>
+            <component v-else-if="item.icon" :is="item.icon" class="h-4 w-4 flex-shrink-0" />
             <span>{{ item.label }}</span>
           </button>
         </template>

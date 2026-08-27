@@ -14,14 +14,23 @@
         :src="currentSong.album.picUrl + '?param=120y120'"
         class="h-16 w-16 rounded-xl object-cover"
       />
-      <div v-else class="flex h-16 w-16 items-center justify-center rounded-xl bg-white/5 text-white/30">♪</div>
+      <div v-else class="flex h-16 w-16 items-center justify-center rounded-xl bg-white/5 text-white/30">
+        <Music class="h-6 w-6" />
+      </div>
 
       <div class="min-w-0 flex-1">
         <p class="truncate text-sm text-white/90">{{ currentSong?.artists?.map(a => a.name).join(' / ') || '--' }}</p>
         <div class="mt-2 flex items-center gap-2">
-          <button class="ctrl-btn ctrl-btn-sm" @click="emit('prev')">⏮</button>
-          <button class="play-btn-main !h-10 !w-10" @click="emit('toggle')">{{ playing ? '⏸' : '▶' }}</button>
-          <button class="ctrl-btn ctrl-btn-sm" @click="emit('next')">⏭</button>
+          <button class="ctrl-btn ctrl-btn-sm" @click="emit('prev')">
+            <SkipBack class="h-4 w-4" />
+          </button>
+          <button class="play-btn-main !h-10 !w-10" @click="emit('toggle')">
+            <Pause v-if="playing" class="h-5 w-5" />
+            <Play v-else class="h-5 w-5 translate-x-0.5" />
+          </button>
+          <button class="ctrl-btn ctrl-btn-sm" @click="emit('next')">
+            <SkipForward class="h-4 w-4" />
+          </button>
         </div>
       </div>
     </div>
@@ -46,6 +55,7 @@ import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { useLyricsStore } from '@/stores/lyrics'
 import { formatTime } from '@/utils/format'
+import { SkipBack, SkipForward, Play, Pause, Music } from 'lucide-vue-next'
 
 /**
  * Mini Player 组件事件

@@ -3,7 +3,7 @@
     <div class="w-full max-w-sm space-y-6 rounded-2xl bg-white p-8 shadow-[0_2px_16px_rgba(0,0,0,0.08)] dark:bg-[#171722] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40),0_0_1px_rgba(255,255,255,0.05)]">
       <div class="text-center">
         <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#FFF5F3] dark:bg-[rgba(255,90,95,0.15)]">
-          <span class="text-3xl">🎵</span>
+          <Music class="h-7 w-7" />
         </div>
         <h1 class="text-title">登录 Melody Air</h1>
         <p class="mt-2 text-sm text-neutral-500">发现你的专属音乐世界</p>
@@ -177,6 +177,7 @@ import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { sendCaptcha as sendCaptchaApi, registerCellphone } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
+import { Music } from 'lucide-vue-next'
 
 const router = useRouter()
 const userStore = useUserStore()

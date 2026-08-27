@@ -2,7 +2,7 @@
   <div class="space-y-2">
     <div v-if="historyList.length === 0" class="py-12 text-center">
       <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100 dark:bg-[#1F1F2E]">
-        <span class="text-3xl">🎵</span>
+        <Music class="h-7 w-7 text-neutral-400" />
       </div>
       <p class="text-sm text-neutral-500">暂无播放历史</p>
     </div>
@@ -75,6 +75,7 @@ import { usePlayerStore, type Song } from '@/stores/player'
 import { showToast } from '@/composables/useToast'
 import ContextMenu from '../track/ContextMenu.vue'
 import type { ContextMenuItem } from '../track/ContextMenu.vue'
+import { Play, SkipForward, Plus, Trash2, Music } from 'lucide-vue-next'
 
 const playerStore = usePlayerStore()
 const historyList = computed(() => playerStore.playHistory)
@@ -87,22 +88,22 @@ const contextMenuSong = ref<Song | null>(null)
 const contextMenuItems = computed<ContextMenuItem[]>(() => [
   {
     label: '播放',
-    icon: '▶',
+    icon: Play,
     action: () => contextMenuSong.value && handlePlay(contextMenuSong.value)
   },
   {
     label: '插入下一首',
-    icon: '⏭',
+    icon: SkipForward,
     action: () => contextMenuSong.value && handleInsertNext(contextMenuSong.value)
   },
   {
     label: '添加到播放列表',
-    icon: '➕',
+    icon: Plus,
     action: () => contextMenuSong.value && handleAddToPlaylist(contextMenuSong.value)
   },
   {
     label: '从历史中删除',
-    icon: '🗑',
+    icon: Trash2,
     action: () => contextMenuSong.value && handleRemove(contextMenuSong.value.id)
   }
 ])

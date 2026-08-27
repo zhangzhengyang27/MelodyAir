@@ -133,7 +133,8 @@ export function useAutoLoadLyrics() {
           lines: parsed,
         })
       } else {
-        lyricsStore.setError('暂无歌词')
+        // 播客节目（谈话类）通常没有歌词，显示友好提示
+        lyricsStore.setError(currentSong._streaming ? '播客节目暂无歌词' : '暂无歌词')
       }
     } catch (e) {
       logger.error('lyric', 'Failed to fetch lyric:', e)

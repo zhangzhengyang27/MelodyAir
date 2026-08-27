@@ -18,7 +18,7 @@
 
       <div v-else-if="songs.length === 0" class="flex min-h-[30vh] items-center justify-center">
         <div class="text-center">
-          <span class="text-5xl">📻</span>
+          <Radio class="mx-auto h-12 w-12 text-neutral-400" />
           <p class="mt-4 text-neutral-500 dark:text-[#A1A1B5]">暂无FM歌曲，点击上方"换一批"试试</p>
         </div>
       </div>
@@ -33,6 +33,7 @@ import { ref, onMounted } from 'vue'
 import { getPersonalFm } from '@/api/fm'
 import SongTable from '@/components/common/SongTable.vue'
 import CoralButton from '@/components/common/CoralButton.vue'
+import { Radio } from 'lucide-vue-next'
 import LoginPrompt from '@/components/common/LoginPrompt.vue'
 import SkeletonSongTable from '@/components/common/skeleton/SkeletonSongTable.vue'
 import { usePlayer } from '@/composables/usePlayer'

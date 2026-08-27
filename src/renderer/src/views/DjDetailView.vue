@@ -206,7 +206,9 @@ function playProgram(prog: { mainSong?: { id?: number; artists?: { id: number; n
       picUrl: prog.coverUrl || prog.radio?.picUrl || ''
     },
     duration: prog.duration || 0,
-    fee: 0
+    fee: 0,
+    // 播客节目通常很长（30-90分钟），使用 HTML5 流式播放模式
+    _streaming: true
   }
   playSongList([song], 0)
 }

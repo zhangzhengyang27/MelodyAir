@@ -42,7 +42,7 @@
             @click.stop="removeFromHistory(item.keyword)"
             title="删除"
           >
-            ✕
+            <X class="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -150,6 +150,7 @@ import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { cloudSearch, getSearchHotDetail, getSearchSuggest } from '@/api/search'
 import CoverImage from '@/components/common/CoverImage.vue'
+import { X } from 'lucide-vue-next'
 import SongTable from '@/components/common/SongTable.vue'
 import { usePlayerStore } from '@/stores/player'
 import { usePlayer } from '@/composables/usePlayer'

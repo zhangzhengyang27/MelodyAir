@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import type { Song } from '../../stores/player'
 import ContextMenu from './ContextMenu.vue'
+import { Play, Pause, SkipForward, Plus, Link2 } from 'lucide-vue-next'
 
 interface Props {
   song: Song
@@ -72,11 +73,11 @@ function formatDuration(seconds: number): string {
  * 构建右键菜单项
  */
 const menuItems = computed(() => [
-  { label: '立即播放', icon: '▶', action: () => emit('play', props.song) },
-  { label: '添加到下一首播放', icon: '⏭', action: () => emit('addToNext', props.song) },
+  { label: '立即播放', icon: Play, action: () => emit('play', props.song) },
+  { label: '添加到下一首播放', icon: SkipForward, action: () => emit('addToNext', props.song) },
   { divider: true, action: () => {} },
-  { label: '收藏到歌单', icon: '+', action: () => {}, disabled: true }, // TODO: 实现收藏功能
-  { label: '复制链接', icon: '🔗', action: () => {}, disabled: true } // TODO: 实现复制链接
+  { label: '收藏到歌单', icon: Plus, action: () => {}, disabled: true },
+  { label: '复制链接', icon: Link2, action: () => {}, disabled: true }
 ])
 </script>
 
@@ -104,7 +105,8 @@ const menuItems = computed(() => [
         :class="{ active: isPlaying && isActive }"
         @click.stop="handleDoubleClick"
       >
-        {{ isPlaying && isActive ? '⏸' : '▶' }}
+        <Pause v-if="isPlaying && isActive" class="h-3.5 w-3.5" />
+        <Play v-else class="h-3.5 w-3.5 translate-x-0.5" />
       </button>
     </div>
 

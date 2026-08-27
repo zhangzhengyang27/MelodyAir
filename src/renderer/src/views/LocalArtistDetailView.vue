@@ -6,7 +6,7 @@
       <div class="flex items-center gap-6">
         <div class="h-32 w-32 shrink-0 overflow-hidden rounded-full bg-neutral-100 dark:bg-[#1F1F2E]">
           <img v-if="artist.avatarPath" :src="getCoverUrl(artist.avatarPath)" alt="" class="h-full w-full object-cover" />
-          <div v-else class="flex h-full w-full items-center justify-center text-4xl">🎤</div>
+          <div v-else class="flex h-full w-full items-center justify-center"><Mic class="h-10 w-10 text-neutral-300" /></div>
         </div>
         <div>
           <h1 class="text-display">{{ artist.name }}</h1>
@@ -30,7 +30,7 @@
           >
             <div class="aspect-square overflow-hidden rounded-2xl bg-neutral-100 dark:bg-[#1F1F2E]">
               <img v-if="album.coverPath" :src="getCoverUrl(album.coverPath)" :alt="album.name" class="h-full w-full object-cover" />
-              <div v-else class="flex h-full w-full items-center justify-center text-3xl">💿</div>
+              <div v-else class="flex h-full w-full items-center justify-center"><Disc3 class="h-8 w-8 text-neutral-300" /></div>
             </div>
             <p class="mt-2 text-sm font-medium line-clamp-1">{{ album.name }}</p>
           </div>
@@ -54,6 +54,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useLocalStore } from '@/stores/local'
 import { useSettingsStore } from '@/stores/settings'
+import { Mic, Disc3 } from 'lucide-vue-next'
 import SongTable from '@/components/common/SongTable.vue'
 import CoralButton from '@/components/common/CoralButton.vue'
 import SkeletonDetail from '@/components/common/skeleton/SkeletonDetail.vue'

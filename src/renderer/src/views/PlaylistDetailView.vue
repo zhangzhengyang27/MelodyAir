@@ -4,7 +4,7 @@
 
     <!-- 加载失败 / 无效 ID -->
     <div v-else-if="error" class="flex min-h-[40vh] flex-col items-center justify-center text-center">
-      <span class="text-5xl">😕</span>
+      <Frown class="h-12 w-12 text-neutral-400" />
       <p class="mt-4 text-base font-medium text-neutral-700 dark:text-[#E9E9F2]">{{ error }}</p>
       <button
         class="mt-4 rounded-xl bg-[#FF5A5F] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#E0484D]"
@@ -69,6 +69,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { getPlaylistDetail, getPlaylistTrackAll, getPlaylistDetailDynamic } from '@/api/playlist'
 import { getSimiPlaylist } from '@/api/simi'
+import { Frown } from 'lucide-vue-next'
 import SongTable from '@/components/common/SongTable.vue'
 import CoralButton from '@/components/common/CoralButton.vue'
 import CoverImage from '@/components/common/CoverImage.vue'

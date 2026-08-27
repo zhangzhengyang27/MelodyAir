@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { VolumeX, Volume1, Volume2 } from 'lucide-vue-next'
 
 interface Props {
   /** 当前音量 0-1 */
@@ -98,10 +99,9 @@ function handleMouseLeave(): void {
 
 // 音量图标计算
 const volumeIcon = computed(() => {
-  if (props.muted || props.volume === 0) return '🔇'
-  if (props.volume < 0.3) return '🔈'
-  if (props.volume < 0.7) return '🔉'
-  return '🔊'
+  if (props.muted || props.volume === 0) return VolumeX
+  if (props.volume < 0.5) return Volume1
+  return Volume2
 })
 
 onUnmounted(() => {
@@ -115,7 +115,7 @@ onUnmounted(() => {
   <div class="volume-control" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
     <!-- 音量图标按钮 -->
     <button class="volume-button" @click.stop="toggleMute" :title="muted ? '取消静音' : '静音'">
-      {{ volumeIcon }}
+      <component :is="volumeIcon" class="h-5 w-5" />
     </button>
 
     <!-- 音量滑块弹出层 -->

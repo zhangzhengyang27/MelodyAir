@@ -3,7 +3,7 @@
     <div v-if="!userStore.isAccountLoggedIn" class="flex min-h-[40vh] items-center justify-center">
       <div class="text-center">
         <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-100 dark:bg-[#1F1F2E]">
-          <span class="text-4xl">📅</span>
+          <Calendar class="h-8 w-8 text-neutral-400" />
         </div>
         <h2 class="text-subtitle font-semibold">登录后查看</h2>
         <p class="mt-2 text-sm text-neutral-500">每日推荐需要登录后才能使用</p>
@@ -48,6 +48,7 @@ import { ref, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { getRecommendSongs, getRecommendResource } from '@/api/personalized'
 import SectionHeader from '@/components/common/SectionHeader.vue'
+import { Calendar } from 'lucide-vue-next'
 import CoverImage from '@/components/common/CoverImage.vue'
 import SongTable from '@/components/common/SongTable.vue'
 import SkeletonSongTable from '@/components/common/skeleton/SkeletonSongTable.vue'

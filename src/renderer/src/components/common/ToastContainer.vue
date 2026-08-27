@@ -8,11 +8,13 @@
           class="pointer-events-auto flex items-center gap-3 rounded-xl border px-4 py-3 shadow-lg backdrop-blur-md max-w-sm"
           :class="toastClasses(toast.type)"
         >
-          <span v-if="toast.type === 'error'" class="text-base">⚠</span>
-          <span v-else-if="toast.type === 'success'" class="text-base">✓</span>
-          <span v-else class="text-base">ℹ</span>
+          <AlertTriangle v-if="toast.type === 'error'" class="h-4 w-4 flex-shrink-0" />
+          <CheckCircle v-else-if="toast.type === 'success'" class="h-4 w-4 flex-shrink-0" />
+          <Info v-else class="h-4 w-4 flex-shrink-0" />
           <span class="text-sm font-medium">{{ toast.message }}</span>
-          <button @click="remove(toast.id)" class="ml-2 text-xs opacity-60 hover:opacity-100 transition-opacity">✕</button>
+          <button @click="remove(toast.id)" class="ml-2 text-xs opacity-60 hover:opacity-100 transition-opacity">
+            <X class="h-3.5 w-3.5" />
+          </button>
         </div>
       </TransitionGroup>
     </div>
@@ -21,6 +23,7 @@
 
 <script setup lang="ts">
 import { useToast } from '@/composables/useToast'
+import { AlertTriangle, CheckCircle, Info, X } from 'lucide-vue-next'
 
 const { toasts, remove } = useToast()
 

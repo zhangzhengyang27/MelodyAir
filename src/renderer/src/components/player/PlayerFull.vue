@@ -118,7 +118,72 @@
                   <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </button>
+
+              <!-- 歌词设置面板 -->
+              <div v-if="showLyricsSettings" class="lyrics-settings-panel" @click.stop>
+                <!-- 显示模式 -->
+                <div class="settings-section">
+                  <div class="settings-section-title">显示模式</div>
+                  <div class="display-mode-segment">
+                    <button
+                      v-for="m in displayModeOptions"
+                      :key="m.value"
+                      class="segment-btn"
+                      :class="{ active: lyricsStore.displayMode === m.value }"
+                      @click="lyricsStore.setDisplayMode(m.value)"
+                    >
+                      <component :is="m.icon" class="h-3.5 w-3.5" />
+                      <span>{{ m.label }}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="settings-divider" />
+
+                <!-- 翻译 / 罗马音 -->
+                <div class="settings-section">
+                  <div class="settings-row">
+                    <span class="settings-row-label">翻译</span>
+                    <button
+                      class="toggle-switch"
+                      :class="{ active: lyricsStore.showTranslation }"
+                      @click="lyricsStore.toggleTranslation()"
+                    >
+                      <span class="toggle-knob" />
+                    </button>
+                  </div>
+                  <div class="settings-row">
+                    <span class="settings-row-label">罗马音</span>
+                    <button
+                      class="toggle-switch"
+                      :class="{ active: lyricsStore.showRomanized }"
+                      @click="lyricsStore.toggleRomanized()"
+                    >
+                      <span class="toggle-knob" />
+                    </button>
+                  </div>
+                </div>
+
+                <div class="settings-divider" />
+
+                <!-- 字号 -->
+                <div class="settings-section">
+                  <div class="settings-row">
+                    <span class="settings-row-label">字号</span>
+                    <div class="font-size-control">
+                      <button class="font-size-btn" @click="lyricsStore.setFontSize(Math.max(12, lyricsStore.fontSize - 2))">
+                        <Minus class="h-3 w-3" />
+                      </button>
+                      <span class="font-size-value">{{ lyricsStore.fontSize }}</span>
+                      <button class="font-size-btn" @click="lyricsStore.setFontSize(Math.min(28, lyricsStore.fontSize + 2))">
+                        <Plus class="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
+
             <p class="lyrics-song-artist">
               <template v-if="playerStore.currentSong?.artists?.length">
                 <template v-for="(artist, idx) in playerStore.currentSong.artists" :key="artist.id">
@@ -128,40 +193,6 @@
               </template>
               <span v-else>--</span>
             </p>
-
-            <!-- 歌词设置面板 -->
-            <div v-if="showLyricsSettings" class="lyrics-settings-panel" @click.stop>
-              <div class="settings-group">
-                <span class="settings-label">显示模式</span>
-                <div class="settings-btns">
-                  <button v-for="m in ['compact', 'normal', 'expanded']" :key="m"
-                    class="settings-btn" :class="{ active: lyricsStore.displayMode === m }"
-                    @click="lyricsStore.setDisplayMode(m as any)">
-                    {{ m === 'compact' ? '单行' : m === 'normal' ? '三行' : '全部' }}
-                  </button>
-                </div>
-              </div>
-              <div class="settings-group">
-                <span class="settings-label">翻译</span>
-                <button class="settings-toggle" :class="{ active: lyricsStore.showTranslation }" @click="lyricsStore.toggleTranslation()">
-                  {{ lyricsStore.showTranslation ? '开' : '关' }}
-                </button>
-              </div>
-              <div class="settings-group">
-                <span class="settings-label">罗马音</span>
-                <button class="settings-toggle" :class="{ active: lyricsStore.showRomanized }" @click="lyricsStore.toggleRomanized()">
-                  {{ lyricsStore.showRomanized ? '开' : '关' }}
-                </button>
-              </div>
-              <div class="settings-group">
-                <span class="settings-label">字号</span>
-                <div class="font-size-control">
-                  <button class="settings-btn small" @click="lyricsStore.setFontSize(Math.max(12, lyricsStore.fontSize - 2))">A-</button>
-                  <span class="font-size-value">{{ lyricsStore.fontSize }}</span>
-                  <button class="settings-btn small" @click="lyricsStore.setFontSize(Math.min(28, lyricsStore.fontSize + 2))">A+</button>
-                </div>
-              </div>
-            </div>
           </div>
 
           <!-- 歌词显示 -->
@@ -227,7 +258,10 @@
         <div class="controls-bar">
           <div class="controls-left">
             <button class="ctrl-btn-icon" @click="playerStore.togglePlayMode" :title="playModeLabel">
-              <span class="text-lg">{{ playModeIcon }}</span>
+              <div class="relative">
+                <component :is="playModeIcon" class="h-5 w-5" />
+                <span v-if="playerStore.playMode === 'loopOne'" class="loop-one-badge">1</span>
+              </div>
             </button>
             <button class="ctrl-btn-icon" @click="handleLike" :title="isLiked ? '取消喜欢' : '喜欢'">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" :class="[isLiked ? 'text-coral' : '']" :fill="isLiked ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -489,7 +523,7 @@ import LyricsDisplay from '@/components/lyrics/LyricsDisplay.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import PlayQueue from './PlayQueue.vue'
 import { useLyricsSync } from '@/composables/useLyricsSync'
-import { Disc3, AlignLeft, Image as ImageIcon, Activity, Info, Share2, X, SlidersHorizontal, Timer } from 'lucide-vue-next'
+import { Disc3, AlignLeft, Image as ImageIcon, Activity, Info, Share2, X, SlidersHorizontal, Timer, Shuffle, Repeat, ArrowRight, RotateCcw, AlignCenter, AlignJustify, Minus, Plus } from 'lucide-vue-next'
 import { useEqualizer, type EqualizerPreset } from '@/composables/useEqualizer'
 
 defineEmits<{
@@ -777,11 +811,14 @@ const isLiked = computed(() =>
 )
 
 const playModeIcon = computed(() => {
-  const icons: Record<string, string> = {
-    sequence: '\u{1F500}', loop: '\u{1F501}', random: '\u{1F3B2}',
-    loopOne: '\u{1F502}', reversed: '\u23EE}'
+  const icons: Record<string, any> = {
+    sequence: ArrowRight,
+    loop: Repeat,
+    random: Shuffle,
+    loopOne: Repeat,
+    reversed: RotateCcw,
   }
-  return icons[playerStore.playMode]
+  return icons[playerStore.playMode] || ArrowRight
 })
 
 const playModeLabel = computed(() => {
@@ -791,6 +828,13 @@ const playModeLabel = computed(() => {
   }
   return labels[playerStore.playMode]
 })
+
+// 歌词显示模式选项
+const displayModeOptions = [
+  { value: 'compact' as const, label: '单行', icon: AlignLeft },
+  { value: 'normal' as const, label: '三行', icon: AlignCenter },
+  { value: 'expanded' as const, label: '全部', icon: AlignJustify },
+]
 
 // Accent color derived from cover
 const accentColorRef = ref('#FF5A5F')
@@ -2002,6 +2046,7 @@ onUnmounted(() => {
 
 /* 歌词区域标题 */
 .lyrics-header {
+  position: relative;
   margin-bottom: 24px;
   text-align: center;
 }
@@ -2037,6 +2082,8 @@ onUnmounted(() => {
   justify-content: center;
   gap: 8px;
   position: relative;
+  width: fit-content;
+  margin: 0 auto;
 }
 
 .lyrics-settings-btn {
@@ -2065,93 +2112,157 @@ onUnmounted(() => {
   top: 100%;
   right: 0;
   margin-top: 8px;
-  padding: 16px;
-  background: rgba(20, 20, 30, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  padding: 14px;
+  background: rgba(18, 18, 28, 0.96);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.3);
   z-index: 100;
-  min-width: 220px;
+  min-width: 240px;
   text-align: left;
+  animation: settingsFadeIn 0.2s ease;
 }
 
-.settings-group {
+@keyframes settingsFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.settings-section {
+  padding: 4px 0;
+}
+
+.settings-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+.settings-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 10px 0;
+}
+
+.settings-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  padding: 6px 0;
 }
 
-.settings-group:last-child {
-  margin-bottom: 0;
-}
-
-.settings-label {
+.settings-row-label {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 500;
 }
 
-.settings-btns {
+/* 显示模式分段控件 */
+.display-mode-segment {
   display: flex;
   gap: 4px;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
 }
 
-.settings-btn {
-  padding: 4px 10px;
+.segment-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 8px;
   font-size: 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-weight: 500;
+  border-radius: 7px;
+  border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
-.settings-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.9);
+.segment-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
 }
 
-.settings-btn.active {
+.segment-btn.active {
   background: var(--accent-color);
-  border-color: var(--accent-color);
   color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-.settings-btn.small {
-  padding: 2px 8px;
-  font-size: 11px;
-}
-
-.settings-toggle {
-  padding: 4px 14px;
-  font-size: 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: transparent;
-  color: rgba(255, 255, 255, 0.6);
+/* Toggle 开关 */
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
   cursor: pointer;
-  transition: all 0.15s ease;
-  min-width: 40px;
+  transition: background 0.25s ease;
+  padding: 0;
+  flex-shrink: 0;
 }
 
-.settings-toggle.active {
+.toggle-switch.active {
   background: var(--accent-color);
-  border-color: var(--accent-color);
-  color: #fff;
 }
 
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toggle-switch.active .toggle-knob {
+  transform: translateX(18px);
+}
+
+/* 字号控制 */
 .font-size-control {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+
+.font-size-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.font-size-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
 }
 
 .font-size-value {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  min-width: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  min-width: 22px;
   text-align: center;
 }
 
@@ -2342,6 +2453,16 @@ onUnmounted(() => {
 
 .ctrl-btn-icon:hover {
   color: rgba(255, 255, 255, 0.9);
+}
+
+.loop-one-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -4px;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1;
 }
 
 /* Main Play Button */

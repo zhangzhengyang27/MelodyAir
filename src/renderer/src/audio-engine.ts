@@ -75,7 +75,7 @@ function initAudioEngine() {
 /**
  * 播放歌曲
  */
-async function play(params: { url: string; songId: string | number }) {
+async function play(params: { url: string; songId: string | number; html5?: boolean }) {
   if (!audioEngine) initAudioEngine()
 
   // 如果是同一首歌且正在播放，忽略
@@ -85,7 +85,7 @@ async function play(params: { url: string; songId: string | number }) {
 
   currentSongId = params.songId
   try {
-    await audioEngine!.play(params.url)
+    await audioEngine!.play(params.url, { html5: params.html5 })
   } catch (error) {
     console.error('[AudioEngine] Play failed:', error)
   }

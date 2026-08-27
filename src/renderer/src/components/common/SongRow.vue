@@ -95,6 +95,7 @@ import { formatDuration } from '@/utils/format'
 import { showToast } from '@/composables/useToast'
 import ContextMenu from '../track/ContextMenu.vue'
 import type { ContextMenuItem } from '../track/ContextMenu.vue'
+import { Play, SkipForward, Plus } from 'lucide-vue-next'
 
 const props = defineProps<{
   song: Song
@@ -115,17 +116,17 @@ const contextMenuY = ref(0)
 const contextMenuItems = computed<ContextMenuItem[]>(() => [
   {
     label: '播放',
-    icon: '▶',
+    icon: Play,
     action: () => handlePlay()
   },
   {
     label: '插入下一首',
-    icon: '⏭',
+    icon: SkipForward,
     action: () => handleInsertNext()
   },
   {
     label: '添加到播放列表',
-    icon: '➕',
+    icon: Plus,
     action: () => handleAddToPlaylist()
   }
 ])

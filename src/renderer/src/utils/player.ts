@@ -119,8 +119,10 @@ export class AudioEngine {
   /**
    * 播放音频（核心方法）
    * 参照 YPM: 每次 unload 全局 Howl，创建新实例
+   * @param src 音频 URL
+   * @param options.html5 是否使用 HTML5 Audio 模式（流式播放，适合长音频如播客；但不支持均衡器和可视化）
    */
-  play(src: string): Promise<void> {
+  play(src: string, options?: { html5?: boolean }): Promise<void> {
     return new Promise((resolve, reject) => {
       // ★ 关键：先停止并卸载旧实例（stop 内部已调用 howl.unload()）
       this.stop()
@@ -138,15 +140,18 @@ export class AudioEngine {
       }
 
       const format = this.guessFormat(src)
+      const useHtml5 = options?.html5 ?? false
 
       // 重置停止标志，允许新实例的 onend 回调正常触发
       this._isStopping = false
 
-      // 使用 Web Audio API 模式（非 HTML5），以便音频经过 masterGain，
-      // 均衡器和 AnalyserNode（音频可视化）才能正常工作
+      // html5: false（默认）使用 Web Audio API 模式，音频经过 masterGain，
+      // 均衡器和 AnalyserNode（音频可视化）才能正常工作，但需要先下载整个文件再解码。
+      // html5: true 使用 HTML5 Audio 元素，支持流式播放，适合长音频（如播客），
+      // 但不经过 Web Audio API，均衡器和可视化不可用。
       this._howl = new Howl({
         src: [src],
-        html5: false,
+        html5: useHtml5,
         format: [format],
         volume: this._muted ? 0 : this._volume,
         onplay: () => {

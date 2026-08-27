@@ -37,7 +37,7 @@
     <!-- 音乐库列表 -->
     <section v-if="activeTab === 'libraries'">
       <div v-if="localStore.libraries.length === 0" class="py-12 text-center text-neutral-400">
-        <div class="text-5xl mb-3">📂</div>
+        <div class="mb-3"><FolderOpen class="mx-auto h-12 w-12 text-neutral-400" /></div>
         <p>还没有音乐库，点击上方按钮添加</p>
       </div>
       <div v-else class="space-y-3">
@@ -95,7 +95,7 @@
               :alt="artist.name"
               class="h-full w-full object-cover"
             />
-            <div v-else class="flex h-full w-full items-center justify-center text-4xl">🎤</div>
+            <div v-else class="flex h-full w-full items-center justify-center"><Mic class="h-8 w-8 text-neutral-300" /></div>
           </div>
           <p class="mt-2 text-sm font-medium line-clamp-1">{{ artist.name }}</p>
           <p class="text-xs text-neutral-500 dark:text-[#A1A1B5]">{{ artist.albums?.length || 0 }} 张专辑</p>
@@ -123,7 +123,7 @@
               :alt="album.name"
               class="h-full w-full object-cover"
             />
-            <div v-else class="flex h-full w-full items-center justify-center text-4xl">💿</div>
+            <div v-else class="flex h-full w-full items-center justify-center"><Disc3 class="h-8 w-8 text-neutral-300" /></div>
           </div>
           <p class="mt-2 text-sm font-medium line-clamp-1">{{ album.name }}</p>
           <p class="text-xs text-neutral-500 dark:text-[#A1A1B5]">{{ album.artist?.name || '未知歌手' }}</p>
@@ -208,6 +208,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useLocalStore } from '@/stores/local'
 import { useSettingsStore } from '@/stores/settings'
 import { uploadFile, getOssUrl } from '@/api/local'
+import { FolderOpen, Mic, Disc3 } from 'lucide-vue-next'
 import SongTable from '@/components/common/SongTable.vue'
 import CoralButton from '@/components/common/CoralButton.vue'
 import SkeletonCardGrid from '@/components/common/skeleton/SkeletonCardGrid.vue'

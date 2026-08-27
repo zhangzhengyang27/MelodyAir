@@ -143,7 +143,7 @@ const api = {
   // ==================== 音频引擎控制 ====================
 
   /** 播放音频 */
-  audioPlay: (url: string, songId: string | number) => ipcRenderer.send('audio:play', { url, songId }),
+  audioPlay: (url: string, songId: string | number, html5 = false) => ipcRenderer.send('audio:play', { url, songId, html5 }),
   /** 暂停 */
   audioPause: () => ipcRenderer.send('audio:pause'),
   /** 继续播放 */

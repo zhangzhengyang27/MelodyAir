@@ -1,18 +1,19 @@
-import { computed } from 'vue'
+import { computed, type Component } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { useAudio } from './useAudio'
 import { getSongDetail } from '@/api/song'
 import type { Song } from '@/stores/player'
 import type { Song as ApiSong } from '@/types/api'
 import { logger } from '@/utils/logger'
+import { ArrowRight, Repeat, Shuffle } from 'lucide-vue-next'
 
 export function usePlayer() {
   const playerStore = usePlayerStore()
   const { seek, seekByProgress } = useAudio()
 
-  const playModeIcon = computed(() => {
-    const icons: Record<string, string> = { sequence: '🔀', loop: '🔁', random: '🎲' }
-    return icons[playerStore.playMode]
+  const playModeIcon = computed<Component>(() => {
+    const icons: Record<string, Component> = { sequence: ArrowRight, loop: Repeat, random: Shuffle }
+    return icons[playerStore.playMode] || ArrowRight
   })
 
   const playModeLabel = computed(() => {

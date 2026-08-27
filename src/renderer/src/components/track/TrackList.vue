@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { Song } from '../../stores/player'
 import TrackItem from './TrackItem.vue'
+import { Music } from 'lucide-vue-next'
 
 interface Props {
   songs: Song[]
@@ -70,7 +71,7 @@ const columns: Column[] = [
 
       <!-- 空状态 -->
       <div v-if="songs.length === 0" class="empty-state">
-        <div class="empty-icon">🎵</div>
+        <div class="empty-icon"><Music class="h-10 w-10" /></div>
         <p>暂无歌曲</p>
       </div>
     </div>

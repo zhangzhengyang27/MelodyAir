@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import type { Song } from '../../stores/player'
 import { useQueueHistory } from '@/composables/useQueueHistory'
+import { X } from 'lucide-vue-next'
 
 interface Props {
   /** 播放列表 */
@@ -166,7 +167,7 @@ function formatTimestamp(timestamp: number): string {
               <span class="song-count">{{ playlist.length }} 首</span>
             </h3>
             <button class="close-button" @click="emit('close')" title="关闭">
-              ✕
+              <X class="h-4 w-4" />
             </button>
           </div>
 
@@ -209,7 +210,7 @@ function formatTimestamp(timestamp: number): string {
                   @click.stop="$emit('removeFromNext', index)"
                   title="移除"
                 >
-                  ✕
+                  <X class="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -260,7 +261,7 @@ function formatTimestamp(timestamp: number): string {
             <div v-if="showHistory" class="history-panel">
               <div class="history-header">
                 <h4>队列历史</h4>
-                <button class="close-history-btn" @click="showHistory = false">✕</button>
+                <button class="close-history-btn" @click="showHistory = false"><X class="h-4 w-4" /></button>
               </div>
               <div class="history-list">
                 <div
@@ -279,7 +280,7 @@ function formatTimestamp(timestamp: number): string {
                     @click.stop="handleDeleteSnapshot(snapshot.id)"
                     title="删除"
                   >
-                    ✕
+                    <X class="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -335,7 +336,7 @@ function formatTimestamp(timestamp: number): string {
                   @click.stop="$emit('remove', index)"
                   title="从列表中移除"
                 >
-                  ✕
+                  <X class="h-4 w-4" />
                 </button>
               </div>
             </div>

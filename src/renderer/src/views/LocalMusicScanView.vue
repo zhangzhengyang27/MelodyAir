@@ -149,8 +149,9 @@
               class="flex items-center gap-3 rounded-lg p-3 transition-colors hover:bg-neutral-100 dark:hover:bg-[rgba(255,255,255,0.05)]"
             >
               <div class="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-neutral-200 dark:bg-[#252535]">
-                <span class="flex h-full w-full items-center justify-center text-lg">
-                  {{ file.error ? '❌' : '🎵' }}
+                <span class="flex h-full w-full items-center justify-center">
+                  <X v-if="file.error" class="h-4 w-4 text-red-400" />
+                  <Music v-else class="h-4 w-4 text-neutral-400" />
                 </span>
               </div>
               <div class="min-w-0 flex-1">
@@ -248,6 +249,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useLocalStore } from '@/stores/local'
 import { batchImportFiles, type ImportFileData } from '@/api/local'
 import { useRouter } from 'vue-router'
+import { Music, X } from 'lucide-vue-next'
 
 const router = useRouter()
 const localStore = useLocalStore()

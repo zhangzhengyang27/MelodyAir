@@ -26,6 +26,8 @@ export interface Song {
   fee?: number
   /** 本地音轨 ID（有此字段时直接用 /stream/:localTrackId 播放） */
   _localTrackId?: number
+  /** 是否使用 HTML5 流式播放模式（长音频如播客，不支持均衡器和可视化） */
+  _streaming?: boolean
 }
 
 interface PlayerState {
@@ -257,7 +259,8 @@ export const usePlayerStore = defineStore('player', () => {
 
       logger.info('player', `开始播放: "${song.name}", url=${url.slice(0, 100)}...`)
       // 通过统一音频适配器播放（Electron IPC / 浏览器本地 AudioEngine 降级）
-      audioAdapter.play(url, song.id)
+      // 长音频（如播客）使用 HTML5 流式播放模式，避免 Web Audio API 需先下载整个文件再解码导致超时
+      audioAdapter.play(url, song.id, !!song._streaming)
       activeBlobUrl.value = url.startsWith('blob:') ? url : null
       updateCurrentSongCache(song)
 
