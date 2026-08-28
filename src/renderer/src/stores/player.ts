@@ -47,6 +47,16 @@ interface PlayerState {
   currentSongCache: Song | null
 }
 
+/** 模块级纯函数：由歌曲列表构建随机播放列表（generateShuffledList 与 afterHydrate 共用） */
+function buildShuffledList(songs: Song[]): Song[] {
+  const list = [...songs]
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [list[i], list[j]] = [list[j]!, list[i]!]
+  }
+  return list
+}
+
 export const usePlayerStore = defineStore('player', () => {
   const settingsStore = useSettingsStore()
 
@@ -87,6 +97,9 @@ export const usePlayerStore = defineStore('player', () => {
   let lastLyricText = ''
   const PROGRESS_IPC_INTERVAL = 300  // 任务栏进度 300ms
   const LYRICS_IPC_INTERVAL = 500    // Touch Bar 歌词 500ms
+
+  // 播放结束兜底检测定时器（Howler.js onend 事件在 Web Audio 模式下偶发不触发）
+  let endDetectTimer: number | null = null
 
   // 音频事件监听器清理函数
   let audioTimeUpdateCleanup: (() => void) | null = null
@@ -162,6 +175,32 @@ export const usePlayerStore = defineStore('player', () => {
       currentTime.value = data.currentTime
       duration.value = data.duration
 
+      // 播放结束兜底检测：Howler.js onend 在 Web Audio 模式下偶发不触发，
+      // 当进度已到末尾且持续 1s 仍处于播放状态时，手动触发切歌。
+      const nearEnd = duration.value > 0 && currentTime.value >= duration.value - 0.25
+      if (nearEnd && playing.value) {
+        if (endDetectTimer === null) {
+          // [TEMP-DEBUG]
+          logger.warn('player', `[TEMP-DEBUG] arm endDetect (cur=${data.currentTime.toFixed(2)}, dur=${data.duration.toFixed(2)})`)
+          endDetectTimer = window.setTimeout(() => {
+            endDetectTimer = null
+            if (playing.value && duration.value > 0 && currentTime.value >= duration.value - 0.25) {
+              logger.warn('player', 'Playback end detected via fallback (onended event missed)')
+              // onend 未触发时 Howler 内部状态混乱（isPlaying 仍为 true），
+              // 必须先强制停止并重置状态，否则重播/切歌时会被 audio-engine
+              // 的 "同一首歌且正在播放则忽略" 逻辑拦截，导致界面无响应。
+              audioAdapter.stop()
+              playing.value = false
+              status.value = 'paused'
+              handlePlayEnd()
+            }
+          }, 1000)
+        }
+      } else if (endDetectTimer !== null) {
+        clearTimeout(endDetectTimer)
+        endDetectTimer = null
+      }
+
       // 全局歌词同步（不依赖组件，所有页面都生效）
       const lyricsStore = useLyricsStore()
       if (lyricsStore.hasLyrics && !lyricsStore.isDraggingProgress) {
@@ -210,12 +249,16 @@ export const usePlayerStore = defineStore('player', () => {
 
     // 状态变化
     audioStateChangeCleanup = audioAdapter.on('stateChange', (data) => {
+      // [TEMP-DEBUG]
+      logger.warn('player', `[TEMP-DEBUG] stateChange: ${data.status}`)
       status.value = data.status as PlayerStatus
       playing.value = data.status === 'playing'
     })
 
     // 播放结束
     audioEndedCleanup = audioAdapter.on('ended', () => {
+      // [TEMP-DEBUG]
+      logger.warn('player', '[TEMP-DEBUG] received ENDED event -> handlePlayEnd')
       handlePlayEnd()
     })
 
@@ -224,6 +267,16 @@ export const usePlayerStore = defineStore('player', () => {
       logger.error('player', 'Player error:', data.message)
       status.value = 'error'
       playing.value = false
+      // Electron 模式下 audioAdapter.play() 仅发送 IPC 不等待结果，
+      // Howler 的加载/解码错误通过此事件异步传递，需在此自动跳下一首。
+      // 使用 failSkipToken 防止用户手动切歌后旧的失败定时器仍触发。
+      const skipToken = failSkipToken
+      setTimeout(() => {
+        if (skipToken === failSkipToken) {
+          logger.info('player', 'Auto-skip after playback error')
+          playNext()
+        }
+      }, 500)
     })
 
     // 缓冲进度
@@ -576,6 +629,8 @@ export const usePlayerStore = defineStore('player', () => {
 
   // ==================== 播放控制 ====================
   async function playNext(): Promise<void> {
+    // [TEMP-DEBUG]
+    logger.warn('player', `[TEMP-DEBUG] playNext entry: mode=${playMode.value}, playlist=${playlist.value.length}, shuffled=${shuffledList.value.length}, curIdx=${currentIndex.value}, fm=${isPersonalFM.value}, playNextList=${playNextList.value.length}`)
     if (playNextList.value.length > 0) {
       const nextSong = playNextList.value.shift()!
       // 跳过当前正在播放的歌曲（防御性处理）
@@ -601,6 +656,10 @@ export const usePlayerStore = defineStore('player', () => {
         if (currentSong.value) await playSong(currentSong.value)
         break
       case 'random':
+        // 兜底：重启恢复后 shuffledList 未持久化会为空，需重建（否则随机模式静默失效）
+        if (shuffledList.value.length === 0 && playlist.value.length > 0) {
+          generateShuffledList()
+        }
         if (shuffledList.value.length > 0) {
           // 排除当前播放歌曲，避免连续重复（队列中至少有两首时）
           const candidates = shuffledList.value.filter((s) => s.id !== currentSong.value?.id)
@@ -666,6 +725,10 @@ export const usePlayerStore = defineStore('player', () => {
     // 导航栈为空时，回退到播放列表顺序
     switch (playMode.value) {
       case 'random':
+        // 兜底：重启恢复后 shuffledList 未持久化会为空，需重建（否则随机模式静默失效）
+        if (shuffledList.value.length === 0 && playlist.value.length > 0) {
+          generateShuffledList()
+        }
         if (shuffledList.value.length > 1) {
           const currentSongId = currentSong.value?.id
           let prevSong: Song | undefined
@@ -825,11 +888,7 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function generateShuffledList(): void {
-    shuffledList.value = [...playlist.value]
-    for (let i = shuffledList.value.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffledList.value[i], shuffledList.value[j]] = [shuffledList.value[j]!, shuffledList.value[i]!]
-    }
+    shuffledList.value = buildShuffledList(playlist.value)
   }
 
   // ==================== 恢复播放 ====================
@@ -950,6 +1009,10 @@ export const usePlayerStore = defineStore('player', () => {
 
   function destroy(): void {
     clearSleepTimerHandles()
+    if (endDetectTimer !== null) {
+      clearTimeout(endDetectTimer)
+      endDetectTimer = null
+    }
     playerCache.releaseAllBlobUrls()
     // 清理音频事件监听器
     audioTimeUpdateCleanup?.()
@@ -1006,6 +1069,12 @@ export const usePlayerStore = defineStore('player', () => {
             logger.warn('player', `Migration: filtered ${playlist.length - validPlaylist.length} invalid songs`)
             ctx.store.$state.playlist = validPlaylist
           }
+        }
+
+        // shuffledList 为派生数据不持久化，重启恢复后需按恢复的随机模式重建，
+        // 否则随机模式下 playNext/playPrev 在空列表上静默失效（表现为播完不自动切歌）
+        if (state.playMode === 'random' && Array.isArray(state.playlist) && state.playlist.length > 0) {
+          ctx.store.$state.shuffledList = buildShuffledList(state.playlist as Song[])
         }
       } catch {
         // 迁移失败时保持当前值

@@ -722,6 +722,22 @@ app.whenReady().then(() => {
   // 监听窗口创建事件以优化性能
   app.on("browser-window-created", (_, window) => {
     optimizer.watchWindowShortcuts(window)
+    // [TEMP-DEBUG] 转发所有窗口 console 到主进程 stdout（诊断播放结束问题用，诊断后删除）
+    window.webContents.on("console-message" as any, (...cbArgs: any[]) => {
+      try {
+        const first = cbArgs[0]
+        let text: string
+        if (first && typeof first === "object" && "message" in first) {
+          text = String(first.message)
+        } else {
+          text = String(cbArgs[2] ?? "")
+        }
+        const shortUrl = String(window.webContents.getURL()).split("/").pop() || "?"
+        console.log(`[CONSOLE][${shortUrl}] ${text.slice(0, 300)}`)
+      } catch {
+        // 忽略转发失败
+      }
+    })
   })
 
   // 初始化核心模块

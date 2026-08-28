@@ -184,8 +184,13 @@ export class AudioEngine {
         onend: () => {
           // 如果是手动 stop 导致的，不触发 onEnd（避免自动切歌）
           if (!this._isStopping && !this._isFadeOut) {
+            // [TEMP-DEBUG]
+            logger.warn('player', '[TEMP-DEBUG] howl onend fired')
             this.stopProgressTracking()
             this.onEndCallback?.()
+          } else {
+            // [TEMP-DEBUG]
+            logger.warn('player', `[TEMP-DEBUG] howl onend SUPPRESSED (_isStopping=${this._isStopping}, _isFadeOut=${this._isFadeOut})`)
           }
         },
         onpause: () => {
