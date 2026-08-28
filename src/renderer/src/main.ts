@@ -4,6 +4,10 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import router from './router'
 import App from './App.vue'
 import './assets/styles/tailwind.css'
+import { cleanupInvalidCookieEntries } from './api/cookie'
+
+// 启动时清理历史上被错误存储的 cookie 属性项（必须在任何 API 请求之前执行）
+cleanupInvalidCookieEntries()
 
 const pinia = createPinia()
 pinia.use(piniaPluginPersistedstate)

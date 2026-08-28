@@ -126,10 +126,18 @@ request.interceptors.request.use(
  * 参照 YPM: 301 状态码（需要登录）时自动登出
  */
 request.interceptors.response.use(
-  (response) => {
+  async (response) => {
     const data = response.data
     if (data?.code !== undefined && data.code !== 200) {
       logger.warn('api', `${response.config.method?.toUpperCase()} ${response.config.url} 业务异常: code=${data.code}, message=${data.message || data.msg}`)
+    }
+    // 301 = Cookie 过期 / 需要登录（后端可能以 HTTP 200 + body.code=301 返回）
+    if (data?.code === 301) {
+      logger.warn('api', 'Token expired (code=301), logout required')
+      const { useUserStore } = await import('@/stores/user')
+      const userStore = useUserStore()
+      await userStore.logout()
+      return Promise.reject(new Error('Token expired, please login again'))
     }
     return response.data
   },
@@ -143,8 +151,13 @@ request.interceptors.response.use(
     } else {
       logger.error('api', `请求配置错误: ${error.message}`)
     }
-    if (error?.response?.data?.code === 301) {
-      logger.warn('api', 'Token expired, logout required')
+    // 301 = Cookie 过期 / 需要登录
+    // 兼容两种返回：① body.code===301  ② 400 错误消息中包含 "status 301"（旧版后端未修复时）
+    const respData = error?.response?.data
+    const isTokenExpired = respData?.code === 301 ||
+      (typeof respData?.message === 'string' && /status\s*301/i.test(respData.message))
+    if (isTokenExpired) {
+      logger.warn('api', 'Token expired (301), logout required')
       const { useUserStore } = await import('@/stores/user')
       const userStore = useUserStore()
       await userStore.logout()

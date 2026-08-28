@@ -204,6 +204,29 @@ import { usePlayer } from '@/composables/usePlayer'
 import { showToast } from '@/composables/useToast'
 import type { Song } from '@/stores/player'
 
+/**
+ * 映射 /song/detail 返回的歌曲数据为内部 Song 格式。
+ * 兼容两种字段结构：
+ * - 网易云原始：id / name / ar / al / dt
+ * - 后端自定义：songId / name / artists / album / duration
+ */
+function mapSongDetail(s: any): Song {
+  const artists = (s.artists || s.ar)?.map((a: any) => ({ id: a.id, name: a.name })) || []
+  const album = s.album || s.al
+  return {
+    id: s.songId ?? s.id,
+    name: s.name || '未知歌曲',
+    artists,
+    album: {
+      id: album?.id || 0,
+      name: album?.name || '',
+      picUrl: album?.picUrl || '',
+    },
+    duration: s.duration ?? s.dt ?? 0,
+    fee: s.fee || 0,
+  }
+}
+
 const userStore = useUserStore()
 const playerStore = usePlayerStore()
 const { playSongList } = usePlayer()
@@ -299,14 +322,7 @@ onMounted(async () => {
       if (ids.length > 0) {
         const idsStr = ids.slice(0, 50).join(',')
         const songRes: any = await getSongDetail(idsStr)
-        likedSongs.value = (songRes?.songs || []).map((s: any) => ({
-          id: s.id,
-          name: s.name,
-          artists: s.ar?.map((a: any) => ({ id: a.id, name: a.name })) || [],
-          album: { id: s.al?.id || 0, name: s.al?.name || '', picUrl: s.al?.picUrl || '' },
-          duration: s.dt || 0,
-          fee: s.fee || 0
-        }))
+        likedSongs.value = (songRes?.songs || []).map(mapSongDetail)
       }
     }
 
@@ -438,14 +454,7 @@ async function handleMockLogin() {
           if (ids.length > 0) {
             const idsStr = ids.slice(0, 50).join(',')
             const songRes: any = await getSongDetail(idsStr)
-            likedSongs.value = (songRes?.songs || []).map((s: any) => ({
-              id: s.id,
-              name: s.name,
-              artists: s.ar?.map((a: any) => ({ id: a.id, name: a.name })) || [],
-              album: { id: s.al?.id || 0, name: s.al?.name || '', picUrl: s.al?.picUrl || '' },
-              duration: s.dt || 0,
-              fee: s.fee || 0
-            }))
+            likedSongs.value = (songRes?.songs || []).map(mapSongDetail)
           }
         }
 

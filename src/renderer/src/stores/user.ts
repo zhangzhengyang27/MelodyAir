@@ -99,31 +99,50 @@ export const useUserStore = defineStore('user', () => {
   async function checkLoginStatus() {
     try {
       const res: LoginStatusResponse = await getLoginStatus()
-      if (res?.profile) {
-        profile.value = mapUserProfile(res.profile as unknown as Record<string, unknown>)
+      const remoteProfile = res?.profile || res?.data?.profile
+      if (remoteProfile) {
+        profile.value = mapUserProfile(remoteProfile as unknown as Record<string, unknown>)
         fetchUserPlaylists()
         fetchLikedSongIds()
-      } else if (res?.data?.profile) {
-        profile.value = mapUserProfile(res.data.profile as unknown as Record<string, unknown>)
-        fetchUserPlaylists()
-        fetchLikedSongIds()
+      } else if (profile.value) {
+        // 原本已登录但服务端返回空 profile，说明 cookie 已过期，清除本地登录态
+        logger.warn('User', '登录态已过期（checkLoginStatus 返回空 profile），清除本地用户信息')
+        clearLocalAuth()
       }
     } catch {
-      // 未登录
+      // 网络错误等情况不清除，避免误判
     }
   }
 
   async function fetchUserProfile(): Promise<void> {
     try {
       const res: LoginStatusResponse = await getLoginStatus()
-      if (res?.code === 200 && res?.profile) {
-        profile.value = mapUserProfile(res.profile as unknown as Record<string, unknown>)
-      } else if (res?.data?.profile) {
-        profile.value = mapUserProfile(res.data.profile as unknown as Record<string, unknown>)
+      const remoteProfile = (res?.code === 200 && res?.profile) || res?.data?.profile
+      if (remoteProfile) {
+        profile.value = mapUserProfile(remoteProfile as unknown as Record<string, unknown>)
+      } else if (profile.value) {
+        // 原本已登录但验证后无 profile，说明 cookie 已过期
+        logger.warn('User', '登录态已过期（fetchUserProfile 返回空 profile），清除本地用户信息')
+        clearLocalAuth()
       }
     } catch {
-      // 忽略
+      // 网络错误不清除，避免误判
     }
+  }
+
+  /**
+   * 清除本地登录态（profile / cookie / 歌单 / 喜欢列表等），不调用后端登出接口。
+   * 用于检测到 cookie 过期时，避免页面继续显示已过期的用户头像和昵称。
+   */
+  function clearLocalAuth() {
+    profile.value = null
+    playlists.value = []
+    likedSongIds.value = []
+    cookie.value = ''
+    loginMode.value = null
+    likedSongPlaylistId.value = 0
+    localStorage.removeItem('cookie-MUSIC_U')
+    localStorage.removeItem('cookie-__csrf')
   }
 
   /**
@@ -502,14 +521,7 @@ export const useUserStore = defineStore('user', () => {
     } catch {
       // 静默
     }
-    localStorage.removeItem('cookie-MUSIC_U')
-    localStorage.removeItem('cookie-__csrf')
-    profile.value = null
-    playlists.value = []
-    likedSongIds.value = []
-    cookie.value = ''
-    loginMode.value = null
-    likedSongPlaylistId.value = 0
+    clearLocalAuth()
   }
 
   return {
