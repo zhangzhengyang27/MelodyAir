@@ -30,12 +30,8 @@ export interface ElectronAPI {
   audioSetEqualizerBands: (gains: number[]) => void
   audioSetEqualizerEnabled: (enabled: boolean) => void
   audioStop: () => void
-  // 同步查询类（preload 以 invoke 实现，audioAdapter 通过可选调用使用）
-  audioGetVolume?: () => number
-  audioGetPlaybackRate?: () => number
-  audioGetCurrentTime?: () => number
-  audioGetDuration?: () => number
-  audioIsPlaying?: () => boolean
+  // 注意：preload 未暴露查询类音频 API（引擎在隐藏窗口，单向 send 拿不到返回值），
+  // 播放状态统一通过 onAudioTimeUpdate / onAudioStateChange 等事件获取
   onAudioTimeUpdate: (callback: (data: { currentTime: number; duration: number }) => void) => () => void
   onAudioStateChange: (callback: (data: { status: string }) => void) => () => void
   onAudioEnded: (callback: () => void) => () => void

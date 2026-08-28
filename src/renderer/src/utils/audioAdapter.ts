@@ -149,18 +149,17 @@ class AudioAdapter {
     }
   }
 
-  getVolume(): number {
-    if (this.isElectron) {
-      return (window as any).electronAPI.audioGetVolume?.() ?? 0.8
-    }
-    return this.localEngine?.getVolume() ?? 0.8
-  }
+  // 注意：不提供 getVolume/getPlaybackRate/getCurrentTime/getDuration/isPlaying 等读取方法。
+  // Electron 下引擎运行在隐藏窗口，preload 未暴露对应查询 API（单向 send 拿不到返回值），
+  // 这类方法只会返回误导性的假默认值；播放状态统一由 timeUpdate/stateChange 等事件驱动。
 
-  toggleMute(): boolean {
+  toggleMute(): boolean | undefined {
     if (this.isElectron) {
-      return (window as any).electronAPI.audioToggleMute?.() ?? false
+      // IPC 为单向 send（fire-and-forget），拿不到引擎切换后的状态，
+      // 返回 undefined 让上层走乐观翻转；兜底成 false 会把静音状态永远压回未静音
+      return (window as any).electronAPI.audioToggleMute?.()
     }
-    return this.localEngine?.toggleMute() ?? false
+    return this.localEngine?.toggleMute()
   }
 
   setPlaybackRate(rate: number): void {
@@ -169,13 +168,6 @@ class AudioAdapter {
     } else {
       this.localEngine?.setPlaybackRate(rate)
     }
-  }
-
-  getPlaybackRate(): number {
-    if (this.isElectron) {
-      return (window as any).electronAPI.audioGetPlaybackRate?.() ?? 1
-    }
-    return this.localEngine?.getPlaybackRate() ?? 1
   }
 
   setEqualizerBand(bandIndex: number, gain: number): void {
@@ -200,27 +192,6 @@ class AudioAdapter {
     } else {
       this.localEngine?.setEqualizerEnabled(enabled)
     }
-  }
-
-  getCurrentTime(): number {
-    if (this.isElectron) {
-      return (window as any).electronAPI.audioGetCurrentTime?.() ?? 0
-    }
-    return this.localEngine?.getCurrentTime() ?? 0
-  }
-
-  getDuration(): number {
-    if (this.isElectron) {
-      return (window as any).electronAPI.audioGetDuration?.() ?? 0
-    }
-    return this.localEngine?.getDuration() ?? 0
-  }
-
-  isPlaying(): boolean {
-    if (this.isElectron) {
-      return (window as any).electronAPI.audioIsPlaying?.() ?? false
-    }
-    return this.localEngine?.isPlaying() ?? false
   }
 
   stop(): void {

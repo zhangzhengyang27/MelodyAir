@@ -138,13 +138,6 @@ function setVolume(params: { volume: number }) {
 }
 
 /**
- * 获取音量
- */
-function getVolume() {
-  return audioEngine?.getVolume() ?? 0.8
-}
-
-/**
  * 切换静音
  */
 function toggleMute() {
@@ -156,13 +149,6 @@ function toggleMute() {
  */
 function setPlaybackRate(params: { rate: number }) {
   audioEngine?.setPlaybackRate(params.rate)
-}
-
-/**
- * 获取播放速率
- */
-function getPlaybackRate() {
-  return audioEngine?.getPlaybackRate() ?? 1
 }
 
 /**
@@ -187,27 +173,6 @@ function setEqualizerEnabled(params: { enabled: boolean }) {
 }
 
 /**
- * 获取当前时间
- */
-function getCurrentTime() {
-  return audioEngine?.getCurrentTime() ?? 0
-}
-
-/**
- * 获取时长
- */
-function getDuration() {
-  return audioEngine?.getDuration() ?? 0
-}
-
-/**
- * 是否正在播放
- */
-function isPlaying() {
-  return audioEngine?.isPlaying() ?? false
-}
-
-/**
  * 停止
  */
 function stop() {
@@ -215,7 +180,8 @@ function stop() {
   audioEngine?.stop()
 }
 
-// 注册 IPC 命令处理
+// 注册 IPC 命令处理（仅命令类通道；主进程不转发查询类通道，
+// 播放状态通过 timeUpdate/stateChange 等事件广播）
 const commandHandlers: Record<string, (params: any) => any> = {
   'audio:play': play,
   'audio:pause': pause,
@@ -223,29 +189,20 @@ const commandHandlers: Record<string, (params: any) => any> = {
   'audio:toggle': toggle,
   'audio:seek': seek,
   'audio:setVolume': setVolume,
-  'audio:getVolume': getVolume,
   'audio:toggleMute': toggleMute,
   'audio:setPlaybackRate': setPlaybackRate,
-  'audio:getPlaybackRate': getPlaybackRate,
   'audio:setEqualizerBand': setEqualizerBand,
   'audio:setEqualizerBands': setEqualizerBands,
   'audio:setEqualizerEnabled': setEqualizerEnabled,
-  'audio:getCurrentTime': getCurrentTime,
-  'audio:getDuration': getDuration,
-  'audio:isPlaying': isPlaying,
   'audio:stop': stop
 }
 
 if (ipcRenderer) {
-  // 监听来自主进程的命令
+  // 监听来自主进程的命令（命令均为单向 send，无回包）
   Object.entries(commandHandlers).forEach(([channel, handler]) => {
     ipcRenderer.on(channel, async (_event: any, params: any) => {
       try {
-        const result = await handler(params)
-        // 对于需要返回值的命令，通过 reply 返回
-        if (result !== undefined) {
-          _event.reply(`${channel}:reply`, result)
-        }
+        await handler(params)
       } catch (error) {
         console.error(`[AudioEngine] Command ${channel} failed:`, error)
       }

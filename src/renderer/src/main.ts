@@ -76,6 +76,8 @@ if (!isSecondaryWindow) {
       if (restored) return
       restored = true
       offReady?.()
+      // 引擎就绪后先同步持久化的音量/静音/倍速，再恢复播放
+      playerStore.syncAudioEngineState()
       playerStore.restorePlayback()
     }
     const offReady = window.electronAPI?.onIpcEvent?.('audio:ready', tryRestore)

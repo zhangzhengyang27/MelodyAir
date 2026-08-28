@@ -789,6 +789,20 @@ export const usePlayerStore = defineStore('player', () => {
     audioAdapter.setVolume(volume.value)
   }
 
+  /**
+   * 把持久化的音量/静音/倍速同步给音频引擎。
+   * Electron 下引擎窗口每次启动都是默认状态（音量 0.8、未静音、倍速 1），
+   * store 创建时发出的 setPlaybackRate 会早于引擎就绪而被丢弃，
+   * 必须等引擎 ready 后（见 main.ts 的 tryRestore）再同步，否则 UI 显示与实际播放不符。
+   */
+  function syncAudioEngineState(): void {
+    audioAdapter.setVolume(volume.value)
+    if (muted.value) audioAdapter.toggleMute()
+    if (settingsStore.playbackSpeed && settingsStore.playbackSpeed !== 1) {
+      audioAdapter.setPlaybackRate(settingsStore.playbackSpeed)
+    }
+  }
+
   function setPlaybackSpeed(rate: number): void {
     const safeRate = Math.max(0.5, Math.min(2, rate))
     settingsStore.playbackSpeed = safeRate
@@ -1057,7 +1071,7 @@ export const usePlayerStore = defineStore('player', () => {
     setPlaylist, addToPlaylist, playSong, removeFromPlaylist, clearPlaylist,
     reorderPlaylist, removeDuplicates,
     addToPlayNext, insertNext, removeQueueItem, playNext, playPrev, togglePlaying, togglePlayMode,
-    setVolume, setPlaybackSpeed, toggleMute, seek, setCurrentTime, setDuration,
+    setVolume, setPlaybackSpeed, toggleMute, syncAudioEngineState, seek, setCurrentTime, setDuration,
     setEqualizerBand, setEqualizerBands, setEqualizerEnabled,
     setSleepTimer, clearSleepTimer, clearPlayHistory, removeHistoryBySongId, loadPersistentState,
     enablePersonalFM, startPersonalFM, addToPersonalFMQueue, trashCurrentFMTrack, disablePersonalFM, restorePlayback, reloadCurrentSongAudio, destroy,

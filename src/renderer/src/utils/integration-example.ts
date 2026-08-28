@@ -126,13 +126,13 @@
 //       />
 //     </div>
 //
-//     <!-- 音量 + 额外控制 -->
+//     <!-- 音量 + 额外控制（静音统一走 playerStore.muted，参照 AppPlayer.vue / PlayerFull.vue） -->
 //     <div class="extra-controls">
-//       <VolumeControl
-//         :volume="playerStore.volume"
-//         :muted="playerStore.muted"
-//         @update:volume="playerStore.setVolume"
-//         @update:muted="playerStore.toggleMute"
+//       <button @click="playerStore.toggleMute">{{ playerStore.muted ? '🔇' : '🔊' }}</button>
+//       <input
+//         type="range" min="0" max="1" step="0.01"
+//         :value="playerStore.volume"
+//         @input="playerStore.setVolume(($event.target as HTMLInputElement).valueAsNumber)"
 //       />
 //       <button @click="showQueue = true">📋</button>
 //       <button @click="showLyrics = true">🎤</button>

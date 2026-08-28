@@ -77,7 +77,7 @@
             max="1"
             step="0.01"
             :value="playerStore.volume"
-            @input="playerStore.setVolume(($event.target as HTMLInputElement).valueAsNumber)"
+            @input="onVolumeInput(($event.target as HTMLInputElement).valueAsNumber)"
             class="volume-slider"
           />
         </div>
@@ -317,6 +317,12 @@ function selectQuality(quality: any) {
 
 function toggleMute() {
   playerStore.toggleMute()
+}
+
+// 静音状态下拖动音量视为解除静音（与全屏播放页行为一致）
+function onVolumeInput(v: number) {
+  playerStore.setVolume(v)
+  if (v > 0 && playerStore.muted) playerStore.toggleMute()
 }
 
 async function toggleDesktopLyrics() {
