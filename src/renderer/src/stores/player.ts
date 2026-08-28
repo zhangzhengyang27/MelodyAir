@@ -25,8 +25,6 @@ export interface Song {
   url?: string
   /** 0=免费, 1=VIP/付费, 4=专辑购买 */
   fee?: number
-  /** 本地音轨 ID（有此字段时直接用 /stream/:localTrackId 播放） */
-  _localTrackId?: number
   /** 是否使用 HTML5 流式播放模式（长音频如播客，不支持均衡器和可视化） */
   _streaming?: boolean
 }
@@ -277,7 +275,7 @@ export const usePlayerStore = defineStore('player', () => {
       status.value = 'loading'
       markPlayHistory(song)
 
-      const url = await playerCache.getAudioSource(song.id, true, song._localTrackId)
+      const url = await playerCache.getAudioSource(song.id, true)
       if (!url) {
         logger.warn('player', `No playable source for "${song.name}" (id=${song.id})`)
         status.value = 'error'
@@ -786,7 +784,7 @@ export const usePlayerStore = defineStore('player', () => {
       // 重置实际音质，重新解析
       actualQuality.value = null
       // useCache=false 绕过缓存，强制用新音质重新获取 URL
-      const url = await playerCache.getAudioSource(song.id, false, song._localTrackId)
+      const url = await playerCache.getAudioSource(song.id, false)
       if (!url) {
         logger.warn('player', `切换音质后无可用音源: ${song.name}`)
         showToast('当前歌曲不支持该音质', { type: 'warning', dedupeKey: 'quality-unsupported' })
@@ -845,7 +843,7 @@ export const usePlayerStore = defineStore('player', () => {
 
     try {
       status.value = 'loading'
-      const url = await playerCache.getAudioSource(song.id, true, song._localTrackId)
+      const url = await playerCache.getAudioSource(song.id, true)
       if (!url) {
         logger.warn('player', 'Failed to restore playback: no source')
         return

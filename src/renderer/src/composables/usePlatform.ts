@@ -29,8 +29,6 @@ export interface PlatformCapabilities {
   hasMiniPlayer: boolean
   /** 桌面歌词独立窗口 */
   hasDesktopLyrics: boolean
-  /** 本地音乐文件扫描（文件系统访问） */
-  hasLocalScan: boolean
   /** macOS Touch Bar */
   hasTouchBar: boolean
   /** Electron 独立音频引擎窗口 */
@@ -75,8 +73,6 @@ function computeCapabilities(): PlatformCapabilities {
     hasMiniPlayer: isElectron && typeof api?.openMiniWindow === 'function',
     // 桌面歌词
     hasDesktopLyrics: isElectron && typeof api?.openLyricsWindow === 'function',
-    // 本地音乐扫描
-    hasLocalScan: isElectron && typeof api?.selectScanDirectory === 'function',
     // Touch Bar：仅 macOS
     hasTouchBar: isElectron && platform === 'darwin',
     // 独立音频引擎

@@ -2,38 +2,6 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 /**
- * 扫描进度信息（与主进程 ScanProgress 保持一致）
- */
-export interface ScanProgress {
-  status: 'scanning' | 'parsing' | 'completed' | 'error'
-  currentFile: string
-  scannedCount: number
-  totalCount: number
-  parsedCount: number
-  errorCount: number
-}
-
-/**
- * 扫描结果（与主进程 ScanResult 保持一致）
- */
-export interface ScanResult {
-  files: Array<{
-    filePath: string
-    fileName: string
-    fileSize: number
-    title?: string
-    artist?: string
-    album?: string
-    duration?: number
-    error?: string
-  }>
-  totalFiles: number
-  successCount: number
-  errorCount: number
-  duration: number
-}
-
-/**
  * MelodyAir Electron Preload API
  * 暴露安全的 IPC 通信接口给渲染进程
  *
@@ -282,45 +250,6 @@ const api = {
   /** 获取系统是否应该使用深色颜色 */
   shouldUseDarkColors: (): Promise<boolean> =>
     ipcRenderer.invoke('theme:shouldUseDarkColors'),
-
-  // ==================== 本地音乐扫描 ====================
-
-  /** 选择扫描目录 */
-  selectScanDirectory: (): Promise<string | null> =>
-    ipcRenderer.invoke('scan:selectDirectory'),
-
-  /** 开始扫描 */
-  startScan: (dirPath: string): Promise<ScanResult> =>
-    ipcRenderer.invoke('scan:start', dirPath),
-
-  /** 中止扫描 */
-  abortScan: (): Promise<boolean> =>
-    ipcRenderer.invoke('scan:abort'),
-
-  /** 提取封面 */
-  extractCover: (filePath: string): Promise<{ data: string; mimeType: string } | null> =>
-    ipcRenderer.invoke('scan:extractCover', filePath),
-
-  /** 计算文件校验和 */
-  calculateChecksum: (filePath: string): Promise<string | null> =>
-    ipcRenderer.invoke('scan:calculateChecksum', filePath),
-
-  /** 保存封面图片 */
-  saveCover: (coverData: string, fileName: string): Promise<string | null> =>
-    ipcRenderer.invoke('scan:saveCover', coverData, fileName),
-
-  /** 监听扫描进度 */
-  onScanProgress: (callback: (progress: ScanProgress) => void): (() => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, progress: ScanProgress) => {
-      callback(progress)
-    }
-
-    ipcRenderer.on('scan:progress', handler)
-
-    return () => {
-      ipcRenderer.removeListener('scan:progress', handler)
-    }
-  }
 }
 
 // 通过 contextBridge 暴露安全的 API 给渲染进程

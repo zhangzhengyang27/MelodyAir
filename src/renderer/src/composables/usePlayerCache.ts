@@ -123,15 +123,9 @@ export function usePlayerCache(deps: {
    */
   async function getAudioSource(
     songId: number,
-    useCache = true,
-    localTrackId?: number
+    useCache = true
   ): Promise<string | null> {
     const settingsStore = useSettingsStore()
-
-    // 本地音轨
-    if (localTrackId) {
-      return `${settingsStore.apiBase}/stream/${localTrackId}`
-    }
 
     // 0. 检查预缓存 URL
     const preloadedUrl = getNextTrackUrl(songId)
@@ -312,7 +306,7 @@ export function usePlayerCache(deps: {
         }
       }
 
-      const url = await getAudioSource(nextId, false, nextSong._localTrackId as number | undefined)
+      const url = await getAudioSource(nextId, false)
       if (url) {
         nextTrackUrlCache = url
         if (!url.startsWith("blob:")) {

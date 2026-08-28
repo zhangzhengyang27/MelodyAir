@@ -1,7 +1,6 @@
 import { ref, watch, onUnmounted } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { getLyric, getLyricV1 } from '@/api/song'
-import { getLocalLyrics } from '@/api/local'
 import { parseLyric, findCurrentLyricIndex, mergeLyricsWithTranslation, mergeLyricsWithRomanization, type LyricLine } from '@/utils/lyric'
 import { cacheManager } from '@/utils/db'
 import { useSettingsStore } from '@/stores/settings'
@@ -32,94 +31,66 @@ export function useLyric() {
       const currentSong = playerStore.currentSong
       let lrc = ''
 
-      // ★ 先尝试从 IndexedDB 缓存读取（仅网易云歌曲）
-      if (!currentSong?._localTrackId) {
+      // ★ 先尝试从 IndexedDB 缓存读取
+      try {
+        const cached = await cacheManager.getLyric(songId)
+        if (cached?.lyric) {
+          lrc = cached.lyric
+          const tlyric = cached.tlyric || undefined
+          lyrics.value = mergeLyricsWithTranslation(parseLyric(lrc), tlyric)
+          lastFetchedSongId = songId
+          logger.debug('lyric', `命中 IDB 缓存: songId=${songId}`)
+          // 后台静默更新缓存（fire-and-forget）
+          getLyric(songId).then((res: any) => {
+            const newLrc = res?.lrc?.lyric || ''
+            const newTlyric = res?.tlyric?.lyric || undefined
+            if (newLrc && newLrc !== cached.lyric) {
+              cacheManager.cacheLyric(songId, newLrc, newTlyric)
+            }
+          }).catch(() => {})
+          return
+        }
+      } catch (e) {
+        logger.warn('lyric', 'IDB 缓存读取失败:', e)
+      }
+
+      // 网易云歌曲：优先使用逐字歌词 API
+      const settingsStore = useSettingsStore()
+      const useEnhancedLyric = settingsStore.enableEnhancedLyric ?? true
+
+      if (useEnhancedLyric) {
+        logger.info('lyric', `请求逐字歌词: songId=${songId}`)
         try {
-          const cached = await cacheManager.getLyric(songId)
-          if (cached?.lyric) {
-            lrc = cached.lyric
-            const tlyric = cached.tlyric || undefined
-            lyrics.value = mergeLyricsWithTranslation(parseLyric(lrc), tlyric)
+          const resV1: any = await getLyricV1(songId, { cp: true, tv: 1, lv: 1, rv: 1, yv: 1 })
+          lrc = resV1?.lrc?.lyric || resV1?.klyric?.lyric || resV1?.yrc?.lyric || ''
+          const tlyric = resV1?.tlyric?.lyric || undefined
+          const romalrc = resV1?.romalrc?.lyric || resV1?.yrc?.lyric || undefined
+          if (lrc) {
+            let mergedLyrics = mergeLyricsWithTranslation(parseLyric(lrc), tlyric)
+            mergedLyrics = mergeLyricsWithRomanization(mergedLyrics, romalrc)
+            lyrics.value = mergedLyrics
             lastFetchedSongId = songId
-            logger.debug('lyric', `命中 IDB 缓存: songId=${songId}`)
-            // 后台静默更新缓存（fire-and-forget）
-            getLyric(songId).then((res: any) => {
-              const newLrc = res?.lrc?.lyric || ''
-              const newTlyric = res?.tlyric?.lyric || undefined
-              if (newLrc && newLrc !== cached.lyric) {
-                cacheManager.cacheLyric(songId, newLrc, newTlyric)
-              }
-            }).catch(() => {})
+            // 缓存
+            cacheManager.cacheLyric(songId, lrc, tlyric).catch(() => {})
+            logger.debug('lyric', `逐字歌词解析成功, 共 ${lyrics.value.length} 行`)
             return
           }
         } catch (e) {
-          logger.warn('lyric', 'IDB 缓存读取失败:', e)
+          logger.warn('lyric', '逐字歌词请求失败，回退到普通歌词:', e)
         }
       }
 
-      // 本地歌曲：走 /lyrics/:songId 接口
-      if (currentSong?._localTrackId) {
-        logger.info('lyric', `请求本地歌词: songId=${songId}, trackId=${currentSong._localTrackId}`)
-        const res: any = await getLocalLyrics(songId)
-        const data = res?.body ?? res
-        lrc = data?.lrc?.lyric || ''
-        if (!lrc && data?.synced && typeof data.synced === 'string') {
-          try {
-            const syncedObj = JSON.parse(data.synced)
-            if (syncedObj && typeof syncedObj === 'object') {
-              const parts: string[] = []
-              for (const [k, v] of Object.entries(syncedObj)) {
-                if (/^\d{1,2}:\d{2}\.\d{2,3}$/.test(k) && v) {
-                  const [min, sec] = k.split(':')
-                  parts.push(`[${min.padStart(2, '0')}:${sec}]${v}`)
-                }
-              }
-              if (parts.length > 0) lrc = parts.join('\n')
-            }
-          } catch (e) {
-            logger.warn('lyric', 'synced JSON 解析失败:', e)
-          }
-        }
-        if (!lrc) lrc = data?.plain || ''
-      } else {
-        // 网易云歌曲：优先使用逐字歌词 API
-        const settingsStore = useSettingsStore()
-        const useEnhancedLyric = settingsStore.enableEnhancedLyric ?? true
-
-        if (useEnhancedLyric) {
-          logger.info('lyric', `请求逐字歌词: songId=${songId}`)
-          try {
-            const resV1: any = await getLyricV1(songId, { cp: true, tv: 1, lv: 1, rv: 1, yv: 1 })
-            lrc = resV1?.lrc?.lyric || resV1?.klyric?.lyric || resV1?.yrc?.lyric || ''
-            const tlyric = resV1?.tlyric?.lyric || undefined
-            const romalrc = resV1?.romalrc?.lyric || resV1?.yrc?.lyric || undefined
-            if (lrc) {
-              let mergedLyrics = mergeLyricsWithTranslation(parseLyric(lrc), tlyric)
-              mergedLyrics = mergeLyricsWithRomanization(mergedLyrics, romalrc)
-              lyrics.value = mergedLyrics
-              lastFetchedSongId = songId
-              // 缓存
-              cacheManager.cacheLyric(songId, lrc, tlyric).catch(() => {})
-              logger.debug('lyric', `逐字歌词解析成功, 共 ${lyrics.value.length} 行`)
-              return
-            }
-          } catch (e) {
-            logger.warn('lyric', '逐字歌词请求失败，回退到普通歌词:', e)
-          }
-        }
-
-        // 回退到普通歌词
-        logger.info('lyric', `请求网易云歌词: songId=${songId}`)
-        const res: any = await getLyric(songId)
-        lrc = res?.lrc?.lyric || ''
-        const tlyric = res?.tlyric?.lyric || undefined
-        if (!res?.lrc?.lyric) {
-          logger.warn('lyric', `songId=${songId} 无歌词数据, 原始响应 code=${res?.code}`)
-        }
-        // ★ 写入 IDB 缓存
-        if (lrc) {
-          cacheManager.cacheLyric(songId, lrc, tlyric).catch(() => {})
-        }
+      // 回退到普通歌词
+      logger.info('lyric', `请求网易云歌词: songId=${songId}`)
+      const res: any = await getLyric(songId)
+      lrc = res?.lrc?.lyric || ''
+      const tlyric = res?.tlyric?.lyric || undefined
+      if (!res?.lrc?.lyric) {
+        logger.warn('lyric', `songId=${songId} 无歌词数据, 原始响应 code=${res?.code}`)
+      }
+      // ★ 写入 IDB 缓存
+      if (lrc) {
+        cacheManager.cacheLyric(songId, lrc, tlyric).catch(() => {})
       }
 
       if (lrc) {

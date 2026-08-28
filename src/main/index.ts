@@ -13,7 +13,6 @@ import {
 import { join } from "path"
 import { electronApp, optimizer, is } from "@electron-toolkit/utils"
 import { createTouchBar, updateTouchBarLyrics, updateTouchBarPlayState, updateTouchBarLikeState } from "./touchBar"
-import { registerScanHandlers } from "./scanner"
 
 // ==================== 类型定义 ====================
 
@@ -714,8 +713,6 @@ function registerIpcHandlers(): void {
 
   safeIpcHandle("theme:shouldUseDarkColors", () => nativeTheme.shouldUseDarkColors)
 
-  // 注册扫描相关处理器
-  registerScanHandlers(mainWindow)
 
 }
 

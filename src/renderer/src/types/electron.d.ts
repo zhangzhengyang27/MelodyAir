@@ -55,15 +55,6 @@ export interface ElectronAPI {
   // 主题同步
   setDarkMode: (isDark: boolean) => void
   shouldUseDarkColors: () => Promise<boolean>
-
-  // 本地音乐扫描
-  selectScanDirectory: () => Promise<string | null>
-  startScan: (dirPath: string) => Promise<any>
-  abortScan: () => Promise<boolean>
-  extractCover: (filePath: string) => Promise<{ data: string; mimeType: string } | null>
-  calculateChecksum: (filePath: string) => Promise<string | null>
-  saveCover: (coverData: string, fileName: string) => Promise<string | null>
-  onScanProgress: (callback: (progress: any) => void) => () => void
 }
 
 declare global {

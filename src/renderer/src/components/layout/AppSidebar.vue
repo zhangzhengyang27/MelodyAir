@@ -132,15 +132,13 @@ import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   Home, Trophy, ListMusic, Mic, Film, Disc3, Radio,
-  Library, HardDrive, Cloud, Plus, Heart, Music,
+  Library, Cloud, Plus, Heart, Music,
   ChevronDown, ChevronRight, Headphones, Clock
 } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
-import { usePlatform } from '@/composables/usePlatform'
 import { showToast } from '@/composables/useToast'
 
 const userStore = useUserStore()
-const { hasLocalScan } = usePlatform()
 
 /** 歌单列表默认预览数量 */
 const PLAYLIST_PREVIEW_COUNT = 10
@@ -161,14 +159,11 @@ const discoverItems = [
   { to: '/dj', icon: Radio, label: '播客' }
 ]
 
-// 我的音乐分组（本地音乐按平台隐藏，私人FM/云盘按登录状态隐藏）
+// 我的音乐分组
 const myMusicItems = computed(() => {
   const items: Array<{ to: any; icon: any; label: string }> = [
     { to: { path: '/library', query: { tab: 'recent' } }, icon: Clock, label: '最近播放' }
   ]
-  if (hasLocalScan) {
-    items.push({ to: '/local', icon: HardDrive, label: '本地音乐' })
-  }
   if (userStore.isAccountLoggedIn) {
     items.push({ to: '/fm', icon: Headphones, label: '私人FM' })
     items.push({ to: '/cloud', icon: Cloud, label: '云盘' })

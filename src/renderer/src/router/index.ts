@@ -55,30 +55,6 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '云盘' }
       },
       {
-        path: 'local',
-        name: 'local-music',
-        component: () => import('@/views/LocalMusicView.vue'),
-        meta: { title: '本地音乐' }
-      },
-      {
-        path: 'local/scan',
-        name: 'local-music-scan',
-        component: () => import('@/views/LocalMusicScanView.vue'),
-        meta: { title: '扫描本地音乐' }
-      },
-      {
-        path: 'local/album/:id',
-        name: 'local-album',
-        component: () => import('@/views/LocalAlbumDetailView.vue'),
-        meta: { title: '本地专辑' }
-      },
-      {
-        path: 'local/artist/:id',
-        name: 'local-artist',
-        component: () => import('@/views/LocalArtistDetailView.vue'),
-        meta: { title: '本地歌手' }
-      },
-      {
         path: 'playlist/:id',
         name: 'playlist',
         component: () => import('@/views/PlaylistDetailView.vue'),
@@ -149,12 +125,6 @@ const routes: RouteRecordRaw[] = [
         name: 'settings',
         component: () => import('@/views/SettingsView.vue'),
         meta: { title: '设置' }
-      },
-      {
-        path: 'local-metadata',
-        name: 'local-metadata',
-        component: () => import('@/views/LocalMusicMetadataView.vue'),
-        meta: { title: '本地音乐元数据' }
       }
     ]
   },

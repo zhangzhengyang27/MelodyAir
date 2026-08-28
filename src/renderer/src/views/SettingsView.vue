@@ -146,7 +146,7 @@
       </div>
 
       <!-- 桌面端专属设置（Web 端自动隐藏） -->
-      <template v-if="hasGlobalShortcut || hasTray || hasAutoLaunch || hasLocalScan">
+      <template v-if="hasGlobalShortcut || hasTray || hasAutoLaunch">
         <div class="my-2 flex items-center gap-2 px-1">
           <Monitor class="h-3.5 w-3.5 text-[#FF5A5F]" />
           <span class="text-xs font-medium tracking-wide text-[#FF5A5F]">桌面端专属</span>
@@ -183,14 +183,6 @@
             <p class="setting-description">系统启动时自动运行 MelodyAir</p>
           </div>
           <ToggleSwitch v-model="settingsStore.autoLaunch" @update:model-value="handleAutoLaunchChange" />
-        </div>
-
-        <div v-if="hasLocalScan" class="setting-row">
-          <div class="setting-info">
-            <p class="setting-label">本地音乐元数据管理</p>
-            <p class="setting-description">管理本地歌曲信息、批量整理和导入导出</p>
-          </div>
-          <button class="primary-button" @click="goToMetadata">打开管理页</button>
         </div>
       </template>
     </section>
@@ -396,7 +388,7 @@ const equalizerEnabled = equalizer.enabled
 const equalizerBands = equalizer.bands
 const activePresetName = equalizer.activePresetName
 const presetKeys = Object.keys(equalizer.presets)
-const { hasMiniPlayer, hasDesktopLyrics, hasGlobalShortcut, hasTray, hasAutoLaunch, hasLocalScan } = usePlatform()
+const { hasMiniPlayer, hasDesktopLyrics, hasGlobalShortcut, hasTray, hasAutoLaunch } = usePlatform()
 
 const showMiniPlayer = ref(false)
 const showEqualizer = ref(false)
@@ -440,10 +432,6 @@ function handlePlaybackSpeedChange(): void {
 
 function onEqualizerBandInput(index: number, event: Event): void {
   equalizer.setBand(index, Number((event.target as HTMLInputElement).value))
-}
-
-function goToMetadata(): void {
-  router.push('/local-metadata')
 }
 
 async function handleOpenMiniWindow(): Promise<void> {

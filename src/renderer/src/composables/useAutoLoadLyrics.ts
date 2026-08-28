@@ -9,7 +9,6 @@ import { useLyricsStore } from '@/stores/lyrics'
 import { useSettingsStore } from '@/stores/settings'
 import { parseLrc } from '@/utils/lyricsParser'
 import { getLyric, getLyricV1 } from '@/api/song'
-import { getLocalLyrics } from '@/api/local'
 import { cacheManager } from '@/utils/db'
 import { logger } from '@/utils/logger'
 
@@ -27,50 +26,24 @@ export function useAutoLoadLyrics() {
       if (!currentSong) return
 
       let lrc = ''
-      let source: 'local' | 'online' | 'cache' = 'online'
+      let source: 'online' | 'cache' = 'online'
 
-      if (!currentSong._localTrackId) {
-        try {
-          const cached = await cacheManager.getLyric(songId)
-          if (cached?.lyric && parseLrc(cached.lyric).length > 0) {
-            lrc = cached.lyric
-            source = 'cache'
-            logger.debug('lyric', `命中 IDB 缓存: songId=${songId}`)
-          }
-        } catch (e) {
-          logger.warn('lyric', 'IDB 缓存读取失败:', e)
+      // 优先读取 IDB 缓存
+      try {
+        const cached = await cacheManager.getLyric(songId)
+        if (cached?.lyric && parseLrc(cached.lyric).length > 0) {
+          lrc = cached.lyric
+          source = 'cache'
+          logger.debug('lyric', `命中 IDB 缓存: songId=${songId}`)
         }
-      }
-
-      if (!lrc && currentSong._localTrackId) {
-        const res: any = await getLocalLyrics(songId)
-        const data = res?.body ?? res
-        lrc = data?.lrc?.lyric || ''
-        if (!lrc && data?.synced && typeof data.synced === 'string') {
-          try {
-            const syncedObj = JSON.parse(data.synced)
-            if (syncedObj && typeof syncedObj === 'object') {
-              const parts: string[] = []
-              for (const [k, v] of Object.entries(syncedObj)) {
-                if (/^\d{1,2}:\d{2}\.\d{2,3}$/.test(k) && v) {
-                  const [min, sec] = k.split(':')
-                  parts.push(`[${min.padStart(2, '0')}:${sec}]${v}`)
-                }
-              }
-              if (parts.length > 0) lrc = parts.join('\n')
-            }
-          } catch (e) {
-            logger.warn('lyric', 'synced JSON 解析失败:', e)
-          }
-        }
-        if (!lrc) lrc = data?.plain || ''
-        source = 'local'
+      } catch (e) {
+        logger.warn('lyric', 'IDB 缓存读取失败:', e)
       }
 
       let tlyric: string | undefined
       let romalrc: string | undefined
 
-      if (!lrc && !currentSong._localTrackId) {
+      if (!lrc) {
         let v1Tlyric: string | undefined
         let v1Romalrc: string | undefined
         if (settingsStore.enableEnhancedLyric) {
