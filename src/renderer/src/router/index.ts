@@ -147,16 +147,4 @@ const router = createRouter({
   routes
 })
 
-// Web 端降级守卫：本地音乐相关路由在纯浏览器环境下重定向到我的音乐
-router.beforeEach((to, _from, next) => {
-  if (to.path.startsWith('/local')) {
-    const isElectron = typeof window !== 'undefined' && !!window.electronAPI
-    if (!isElectron) {
-      next({ path: '/library' })
-      return
-    }
-  }
-  next()
-})
-
 export default router

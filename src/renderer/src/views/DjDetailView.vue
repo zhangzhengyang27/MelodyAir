@@ -3,18 +3,6 @@
     <SkeletonDetail v-if="loading" :rows="8" />
 
     <template v-else-if="radio">
-      <!-- 返回 -->
-      <div class="flex items-center gap-4">
-        <button
-          class="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-coral-500 dark:text-[#A1A1B5] dark:hover:bg-white/6"
-          @click="$router.back()"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-      </div>
-
       <!-- Header -->
       <div class="flex gap-6">
         <div class="h-48 w-48 shrink-0 overflow-hidden rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40),0_0_1px_rgba(255,255,255,0.05)]">

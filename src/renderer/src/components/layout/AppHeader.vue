@@ -1,7 +1,21 @@
 <template>
   <header class="app-header-drag flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 bg-white px-6 dark:border-white/10 dark:bg-[#0F0F14]">
-    <!-- Search -->
-    <div class="relative flex-1 max-w-lg" ref="searchContainerRef">
+    <!-- 左侧：返回按钮 + 搜索 -->
+    <div class="flex flex-1 items-center gap-3 max-w-lg">
+      <!-- 返回按钮（有历史记录时显示） -->
+      <Transition name="fade">
+        <button
+          v-if="canGoBack"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-[#FF5A5F] dark:text-[#A1A1B5] dark:hover:bg-white/6"
+          title="返回"
+          @click="goBack"
+        >
+          <ArrowLeft class="h-[18px] w-[18px]" />
+        </button>
+      </Transition>
+
+      <!-- Search -->
+      <div class="relative flex-1" ref="searchContainerRef">
       <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
       </svg>
@@ -167,9 +181,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Sun, Moon, Library, Cloud, Settings, LogOut, Search, Info, RefreshCw, MessageSquare, Code2 } from 'lucide-vue-next'
+import { Sun, Moon, Library, Cloud, Settings, LogOut, Search, Info, RefreshCw, MessageSquare, Code2, ArrowLeft } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
 import { useSettingsStore } from '@/stores/settings'
 import { usePlatform } from '@/composables/usePlatform'
@@ -181,6 +195,26 @@ const router = useRouter()
 const userStore = useUserStore()
 const settingsStore = useSettingsStore()
 const { isElectron } = usePlatform()
+
+// 返回按钮：记录是否有上一个路由（非首次进入）
+const hasPrevious = ref(false)
+const canGoBack = computed(() => hasPrevious.value)
+
+function goBack() {
+  if (canGoBack.value) {
+    router.back()
+  }
+}
+
+// 监听路由变化：第二次导航后即认为有历史可返回
+let isFirstRoute = true
+watch(() => router.currentRoute.value.fullPath, () => {
+  if (isFirstRoute) {
+    isFirstRoute = false
+  } else {
+    hasPrevious.value = true
+  }
+}, { immediate: true })
 
 const searchQuery = ref('')
 const showUserMenu = ref(false)
@@ -448,5 +482,16 @@ onUnmounted(() => {
 .dropdown-leave-to {
   opacity: 0;
   transform: translateY(-6px) scale(0.97);
+}
+
+/* 返回按钮淡入淡出 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease, width 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
