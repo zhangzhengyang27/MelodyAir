@@ -67,7 +67,7 @@
       "build/**/*"
     ],
     "mac": {
-      "icon": "build/icon.png",
+      "icon": "build/icon.icns",
       "category": "public.app-category.music",
       "target": [
         "dmg",

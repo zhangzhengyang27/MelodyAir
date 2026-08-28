@@ -722,7 +722,7 @@ app.whenReady().then(() => {
   // macOS 设置 Dock 图标
   if (process.platform === "darwin") {
     const iconPath = join(__dirname, "../../build/icon.png")
-    app.dock.setIcon(iconPath)
+    app.dock.setIcon(nativeImage.createFromPath(iconPath))
   }
 
   // 监听窗口创建事件以优化性能
