@@ -288,29 +288,6 @@ export interface LoginResponse {
   msg?: string
 }
 
-/** 二维码 Key 响应 */
-export interface QrCodeKeyResponse {
-  code: number
-  data: { unikey: string; qrurl?: string }
-  message?: string
-}
-
-/** 二维码创建响应 */
-export interface QrCodeCreateResponse {
-  code: number
-  data: { qrurl: string; qrimg: string }
-  message?: string
-}
-
-/** 二维码扫码状态响应 */
-export interface QrCodeCheckResponse {
-  code: number   // 800=二维码过期, 801=等待扫码, 802=已扫码待确认, 803=授权登录成功
-  message?: string
-  cookie?: string
-  avatarUrl?: string
-  nickname?: string
-}
-
 /** 登录状态响应 */
 export interface LoginStatusResponse {
   data: {

@@ -2,11 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import {
   loginCellphone,
-  loginEmail,
   loginAnonimous,
-  loginQrCodeKey,
-  loginQrCodeCreate,
-  loginQrCodeCheck,
   getLoginStatus,
   refreshCookie,
   logout as apiLogout
@@ -24,9 +20,6 @@ import { throttledPersistStorage } from '@/utils/persistStorage'
 import type { UserProfile, Playlist } from '@/types/api'
 import type {
   LoginResponse,
-  QrCodeKeyResponse,
-  QrCodeCreateResponse,
-  QrCodeCheckResponse,
   LoginStatusResponse,
 } from '@/types/api'
 
@@ -192,44 +185,6 @@ export const useUserStore = defineStore('user', () => {
   }
 
   /**
-   * 手机号+密码登录
-   */
-  async function loginByPassword(phone: string, password: string, countrycode?: string) {
-    try {
-      const res: LoginResponse = await loginCellphone({ phone, password, countrycode })
-      if (res?.cookie || res?.code === 200) {
-        if (res.cookie) handleLoginSuccess(res.cookie)
-        await fetchUserProfile()
-        await fetchLikedPlaylist()
-        return { success: true }
-      }
-      return { success: false, message: res?.message || '登录失败' }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e)
-      return { success: false, message: msg || '登录失败' }
-    }
-  }
-
-  /**
-   * 邮箱登录
-   */
-  async function loginByEmail(email: string, password: string) {
-    try {
-      const res: LoginResponse = await loginEmail(email, password)
-      if (res?.cookie || res?.code === 200) {
-        if (res.cookie) handleLoginSuccess(res.cookie)
-        await fetchUserProfile()
-        await fetchLikedPlaylist()
-        return { success: true }
-      }
-      return { success: false, message: res?.message || '登录失败' }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e)
-      return { success: false, message: msg || '登录失败' }
-    }
-  }
-
-  /**
    * 游客登录
    */
   async function loginAsAnonimous() {
@@ -243,52 +198,6 @@ export const useUserStore = defineStore('user', () => {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       return { success: false, message: msg || '游客登录失败' }
-    }
-  }
-
-  /**
-   * 扫码登录 - 获取二维码 Key（第一步）
-   */
-  async function getQrCodeKey(): Promise<string | null> {
-    try {
-      const res: QrCodeKeyResponse = await loginQrCodeKey()
-      if (res?.code === 200) {
-        return res.data?.unikey || null
-      }
-      return null
-    } catch {
-      return null
-    }
-  }
-
-  /**
-   * 扫码登录 - 生成二维码图片（第二步）
-   */
-  async function getQrCodeImage(key: string): Promise<string | null> {
-    try {
-      const res: QrCodeCreateResponse = await loginQrCodeCreate(key, true)
-      if (res?.code === 200) {
-        return res.data?.qrimg || null
-      }
-      return null
-    } catch {
-      return null
-    }
-  }
-
-  /**
-   * 扫码登录 - 检查扫码状态（轮询用）
-   */
-  async function checkQrCodeStatus(key: string): Promise<{ code: number; cookie?: string; message?: string }> {
-    try {
-      const res: QrCodeCheckResponse = await loginQrCodeCheck(key)
-      return {
-        code: res?.code ?? -1,
-        cookie: res?.cookie,
-        message: res?.message || res?.msg,
-      }
-    } catch {
-      return { code: -1 }
     }
   }
 
@@ -555,12 +464,7 @@ export const useUserStore = defineStore('user', () => {
     fetchUserAccount,
     fetchLikedPlaylist,
     loginByPhone,
-    loginByPassword,
-    loginByEmail,
     loginAsAnonimous,
-    getQrCodeKey,
-    getQrCodeImage,
-    checkQrCodeStatus,
     handleLoginSuccess,
     importMusicUCookie,
     refreshLoginCookie,

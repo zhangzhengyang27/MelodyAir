@@ -149,6 +149,13 @@ request.interceptors.response.use(
       const status = error.response.status
       const url = error.config?.url
       logger.error('api', `HTTP 错误: ${status} ${url}`, error.response.data)
+
+      // 429 = 触发限流（后端：登录/注册 10 次/分钟、验证码 3 次/分钟、全局 100 次/分钟）。
+      // 重写 message 让 UI 直接展示可读文案；保留 response 供调用方判断
+      if (status === 429) {
+        error.isRateLimited = true
+        error.message = '操作过于频繁，请稍后再试'
+      }
     } else if (error?.request) {
       logger.error('api', `网络错误（无响应）: ${error.message}`, error.config?.url)
     } else {
