@@ -71,7 +71,9 @@ const noCustomClassRule = {
       Program() {
         for (const pattern of FORBIDDEN_PATTERNS) {
           let match
-          const regex = new RegExp(pattern.source, pattern.flags)
+          // 必须带 g 标志：否则 exec 永远返回首个匹配且不推进 lastIndex，
+          // while 循环会对同一位置无限上报（内存耗尽 / eslint 挂死）
+          const regex = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g')
           while ((match = regex.exec(source)) !== null) {
             const className = match[0]
             const loc = context.sourceCode.getLocFromIndex(match.index)
