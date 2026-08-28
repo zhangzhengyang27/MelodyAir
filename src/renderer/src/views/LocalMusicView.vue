@@ -149,6 +149,37 @@
           </button>
         </div>
         <SongTable :songs="songListForPlayer" @play="handlePlaySong" />
+        <!-- 分页控件 -->
+        <div v-if="localStore.total > localStore.limit" class="mt-4 flex items-center justify-between">
+          <div class="text-sm text-neutral-500">
+            共 {{ localStore.total }} 首，第 {{ localStore.page }} / {{ Math.ceil(localStore.total / localStore.limit) }} 页
+          </div>
+          <div class="flex items-center gap-2">
+            <select
+              v-model="pageSize"
+              class="rounded-lg border border-neutral-200 px-2 py-1 text-sm dark:border-neutral-700 dark:bg-[#13131C]"
+              @change="handlePageSizeChange"
+            >
+              <option :value="20">20/页</option>
+              <option :value="50">50/页</option>
+              <option :value="100">100/页</option>
+            </select>
+            <button
+              class="rounded-lg bg-neutral-100 px-3 py-1 text-sm hover:bg-neutral-200 disabled:opacity-50 dark:bg-[#1F1F2E] dark:hover:bg-[#2A2A3A]"
+              :disabled="localStore.page <= 1"
+              @click="goToPage(localStore.page - 1)"
+            >
+              上一页
+            </button>
+            <button
+              class="rounded-lg bg-neutral-100 px-3 py-1 text-sm hover:bg-neutral-200 disabled:opacity-50 dark:bg-[#1F1F2E] dark:hover:bg-[#2A2A3A]"
+              :disabled="localStore.page >= Math.ceil(localStore.total / localStore.limit)"
+              @click="goToPage(localStore.page + 1)"
+            >
+              下一页
+            </button>
+          </div>
+        </div>
       </template>
     </section>
 
@@ -230,6 +261,18 @@ const uploadLibraryId = ref<number | null>(null)
 const uploadFileRef = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
 const uploadProgress = ref(0)
+const pageSize = ref(50)
+
+// 分页
+function goToPage(p: number) {
+  localStore.page = p
+  localStore.fetchSongs()
+}
+function handlePageSizeChange() {
+  localStore.limit = pageSize.value
+  localStore.page = 1
+  localStore.fetchSongs()
+}
 
 const tabs = [
   { label: '音乐库', value: 'libraries' },

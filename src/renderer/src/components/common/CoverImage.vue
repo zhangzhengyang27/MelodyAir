@@ -10,6 +10,7 @@
         class="h-full w-full object-cover transition-[opacity,transform] duration-300"
         :class="imgLoaded ? 'opacity-100 group-hover:scale-105' : 'opacity-0'"
         loading="lazy"
+        draggable="false"
         @load="imgLoaded = true"
         @error="handleImgError"
       />
@@ -23,7 +24,7 @@
     <!-- Play overlay -->
     <div
       v-if="playable"
-      class="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/20"
+      class="absolute inset-0 flex cursor-pointer items-center justify-center bg-black/0 transition-colors group-hover:bg-black/20"
       @click.stop="$emit('play')"
     >
       <div class="flex h-10 w-10 scale-0 items-center justify-center rounded-full bg-[#FF5A5F] text-white shadow-lg transition-transform duration-200 group-hover:scale-100">

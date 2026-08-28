@@ -116,8 +116,8 @@
       <div class="relative" ref="qualityPopupRef">
         <button
           class="player-btn whitespace-nowrap text-[11px] font-medium leading-tight"
-          :class="{ 'text-[#FF5A5F]': settingsStore.musicQuality !== 'exhigh' }"
-          :title="'当前音质：' + settingsStore.currentQualityLabel"
+          :class="{ 'text-[#FF5A5F]': effectiveQuality !== 'exhigh' }"
+          :title="'当前音质：' + (settingsStore.qualityLabels[effectiveQuality] || effectiveQuality)"
           @click.stop="showQualityPopup = !showQualityPopup"
         >
           {{ qualityShortLabel }}
@@ -137,11 +137,11 @@
                   v-for="(label, key) in settingsStore.qualityLabels"
                   :key="key"
                   class="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left transition-colors hover:bg-neutral-50 dark:hover:bg-white/5"
-                  :class="{ 'text-[#FF5A5F]': key === settingsStore.musicQuality }"
+                  :class="{ 'text-[#FF5A5F]': key === effectiveQuality }"
                   @click="selectQuality(key as any)"
                 >
                   <span class="text-[13px]">{{ label }}</span>
-                  <svg v-if="key === settingsStore.musicQuality" class="h-3.5 w-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                  <svg v-if="key === effectiveQuality" class="h-3.5 w-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                 </button>
               </div>
             </div>
@@ -261,8 +261,12 @@ const qualityShortLabel = computed(() => {
     lossless: '无损', hires: 'HiRes', jyeffect: '环绕',
     sky: '沉浸', dolby: '杜比', jymaster: '母带'
   }
-  return map[settingsStore.musicQuality] || '品质'
+  const q = playerStore.actualQuality || settingsStore.musicQuality
+  return map[q] || '品质'
 })
+
+/** 当前生效的音质（实际音质优先，其次用户设置） */
+const effectiveQuality = computed(() => playerStore.actualQuality || settingsStore.musicQuality)
 
 const playModeIcon = computed(() => {
   const icons: Record<string, any> = { sequence: ListOrdered, loop: Repeat, random: Shuffle, loopOne: Repeat1, reversed: ArrowLeftRight }
@@ -296,7 +300,8 @@ function handleClickOutside(e: MouseEvent) {
 }
 
 function selectQuality(quality: any) {
-  if (quality === settingsStore.musicQuality) {
+  // 与当前生效音质一致时无需操作
+  if (quality === effectiveQuality.value) {
     showQualityPopup.value = false
     return
   }
@@ -378,7 +383,9 @@ onUnmounted(() => {
   width: 2rem;
   border-radius: 9999px;
   color: var(--color-neutral-500);
+  cursor: pointer;
   transition: background-color 0.15s, color 0.15s;
+  user-select: none;
 }
 
 .player-btn:hover {
@@ -403,6 +410,8 @@ onUnmounted(() => {
   border-radius: 0.75rem;
   border: 1px solid var(--color-neutral-200);
   font-size: 0.75rem;
+  cursor: pointer;
+  user-select: none;
   transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
 

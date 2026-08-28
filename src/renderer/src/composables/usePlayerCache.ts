@@ -21,6 +21,8 @@ const QUALITY_LABELS: Record<string, string> = {
 export function usePlayerCache(deps: {
   createdBlobUrls: string[]
   activeBlobUrl: Ref<string | null>
+  /** 音质解析完成回调（用于同步实际音质到播放器 UI） */
+  onQualityResolved?: (level: string) => void
 }) {
   // 预缓存状态
   let nextTrackUrlCache: string | null = null
@@ -169,14 +171,17 @@ export function usePlayerCache(deps: {
       }
 
       // 音质降级检测：请求的音质与实际返回不一致时提示用户
-      if (url && actualLevel && actualLevel !== quality) {
-        logger.info('player', `音质降级: songId=${songId}, 请求=${quality}, 实际=${actualLevel}`)
-        const requestedLabel = QUALITY_LABELS[quality] || quality
-        const actualLabel = QUALITY_LABELS[actualLevel] || actualLevel
-        showToast(`当前歌曲不支持${requestedLabel}，已切换为${actualLabel}`, {
-          type: 'info',
-          dedupeKey: `quality-downgrade-${songId}-${actualLevel}`,
-        })
+      if (url && actualLevel) {
+        deps.onQualityResolved?.(actualLevel)
+        if (actualLevel !== quality) {
+          logger.info('player', `音质降级: songId=${songId}, 请求=${quality}, 实际=${actualLevel}`)
+          const requestedLabel = QUALITY_LABELS[quality] || quality
+          const actualLabel = QUALITY_LABELS[actualLevel] || actualLevel
+          showToast(`当前歌曲不支持${requestedLabel}，已切换为${actualLabel}`, {
+            type: 'info',
+            dedupeKey: `quality-downgrade-${songId}-${actualLevel}`,
+          })
+        }
       }
 
 

@@ -126,7 +126,13 @@ export const usePlayerStore = defineStore('player', () => {
   )
 
   // ==================== Composable 依赖 ====================
-  const playerCache = usePlayerCache({ createdBlobUrls, activeBlobUrl })
+  // 当前歌曲实际播放的音质（可能因歌曲不支持而降级，null 表示与设置一致）
+  const actualQuality = ref<string | null>(null)
+  const playerCache = usePlayerCache({
+    createdBlobUrls,
+    activeBlobUrl,
+    onQualityResolved: (level: string) => { actualQuality.value = level },
+  })
 
   const scrobbleHelper = useScrobble({
     currentSong,
@@ -264,6 +270,8 @@ export const usePlayerStore = defineStore('player', () => {
     currentTime.value = 0
     duration.value = 0
     bufferedProgress.value = 0
+    // 重置实际音质（新歌曲重新解析）
+    actualQuality.value = null
 
     try {
       status.value = 'loading'
@@ -775,6 +783,8 @@ export const usePlayerStore = defineStore('player', () => {
 
     try {
       status.value = 'loading'
+      // 重置实际音质，重新解析
+      actualQuality.value = null
       // useCache=false 绕过缓存，强制用新音质重新获取 URL
       const url = await playerCache.getAudioSource(song.id, false, song._localTrackId)
       if (!url) {
@@ -965,7 +975,7 @@ export const usePlayerStore = defineStore('player', () => {
     volume, muted, shuffledList, playNextList, isPersonalFM,
     personalFMTrack, personalFMNextTrack, personalFMQueue, status, currentSongCache,
     sleepTimerDeadline, playHistory, playNavStack, currentSong, progress, bufferedProgress,
-    frequencyData,
+    frequencyData, actualQuality,
     setPlaylist, addToPlaylist, playSong, removeFromPlaylist, clearPlaylist,
     reorderPlaylist, removeDuplicates,
     addToPlayNext, insertNext, removeQueueItem, playNext, playPrev, togglePlaying, togglePlayMode,

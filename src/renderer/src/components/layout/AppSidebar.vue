@@ -228,6 +228,8 @@ async function handleCreatePlaylist() {
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   color: var(--color-neutral-600);
+  cursor: pointer;
+  user-select: none;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 

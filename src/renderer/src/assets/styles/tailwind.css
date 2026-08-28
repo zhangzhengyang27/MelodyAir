@@ -154,6 +154,23 @@ body,
   font-family: var(--font-sans);
 }
 
+/* 全局交互光标：按钮和可点击元素默认手型，禁用时禁止 */
+button,
+[role="button"] {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* 图片默认不可拖拽，避免点击时出现拖拽幽灵 */
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
 /* ============================================================
  * CUSTOM SCROLLBAR - Dual theme support
  * ============================================================ */
@@ -201,12 +218,22 @@ body,
 }
 
 /* Selection styling */
+::selection {
+  background-color: rgba(255, 90, 95, 0.2);
+  color: inherit;
+}
+
 .dark ::selection {
   background-color: rgba(255, 90, 95, 0.3);
   color: var(--dark-text-primary);
 }
 
 /* Focus visible ring for accessibility */
+:focus-visible {
+  outline: 2px solid rgba(255, 90, 95, 0.5);
+  outline-offset: 2px;
+}
+
 .dark :focus-visible {
   outline: 2px solid var(--dark-border-focus);
   outline-offset: 2px;

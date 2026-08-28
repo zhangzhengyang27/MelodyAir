@@ -30,6 +30,8 @@ export const useLocalStore = defineStore('local', () => {
 
   // 分页状态
   const total = ref(0)
+  const page = ref(1)
+  const limit = ref(50)
 
   // 音乐库 CRUD（返回纯数组，非分页）
   async function fetchLibraries() {
@@ -101,13 +103,17 @@ export const useLocalStore = defineStore('local', () => {
   }
 
   // 歌曲（分页返回 { songs, total, page, limit }）
-  async function fetchSongs(params?: { artistId?: number }) {
+  async function fetchSongs(params?: { artistId?: number; page?: number; limit?: number }) {
     loading.value = true
     try {
-      const res: any = await getLocalSongs(params)
+      const p = page.value
+      const l = limit.value
+      const res: any = await getLocalSongs({ page: p, limit: l, ...params })
       const data = extractBody(res)
       songs.value = Array.isArray(data?.songs) ? data.songs : []
       total.value = data?.total ?? songs.value.length
+      page.value = data?.page ?? p
+      limit.value = data?.limit ?? l
     } finally {
       loading.value = false
     }
@@ -150,7 +156,7 @@ export const useLocalStore = defineStore('local', () => {
 
   return {
     libraries, albums, artists, songs, stats,
-    loading, scanning, scraping, total,
+    loading, scanning, scraping, total, page, limit,
     fetchLibraries, addLibrary, removeLibrary, triggerScan,
     fetchAlbums, fetchAlbum,
     fetchArtists, fetchArtist,
