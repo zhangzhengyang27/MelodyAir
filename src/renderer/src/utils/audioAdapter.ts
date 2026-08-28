@@ -8,9 +8,30 @@
 import { AudioEngine } from './player'
 import type { PlayerStatus } from './player'
 import { logger } from './logger'
+import { useSettingsStore } from '@/stores/settings'
 
 // 频率数据数组长度（AnalyserNode fftSize / 2）
 const FREQUENCY_BIN_COUNT = 128
+
+/**
+ * Web 环境将音源 URL 改写为后端 /proxy/audio 代理地址。
+ * 音源 CDN 响应不带 CORS 头，Web Audio 的 fetch 拉流会被浏览器拦截；
+ * 后端代理（AI-node /proxy/audio）会按白名单反射 Origin（本机源默认放行）
+ * 并支持 Range 断点，使 Web 模式保留 Web Audio 的均衡器/可视化能力。
+ * 仅改写网易云 CDN（*.music.126.net，与后端默认代理白名单一致），
+ * 其余远程 URL 无法确保后端放行，交由调用方降级 HTML5 直连。
+ */
+function toProxiedUrl(url: string): string {
+  try {
+    const target = new URL(url)
+    if (target.protocol !== 'https:' && target.protocol !== 'http:') return url
+    if (!target.hostname.endsWith('.music.126.net')) return url
+    const apiBase = useSettingsStore().apiBase.replace(/\/+$/, '')
+    return `${apiBase}/proxy/audio?url=${encodeURIComponent(url)}`
+  } catch {
+    return url
+  }
+}
 
 class AudioAdapter {
   private isElectron: boolean
@@ -93,14 +114,24 @@ class AudioAdapter {
     if (this.isElectron) {
       ;(window as any).electronAPI.audioPlay(url, songId, html5)
     } else if (this.localEngine) {
-      // Web 降级：音源 CDN 无 CORS 头，Web Audio 模式的 fetch 请求会被浏览器拦截，
-      // 远程 URL 强制走 HTML5 Audio（audio 标签拉流不受 CORS 限制），
-      // 代价是均衡器/可视化失效；blob:/data: 本地数据仍可走 Web Audio 保留均衡器
-      const forceHtml5 = !url.startsWith('blob:') && !url.startsWith('data:')
-      if (forceHtml5 && !html5) {
-        logger.info('audio-adapter', 'Web 环境：远程音源自动降级为 HTML5 Audio 模式（规避 CORS）')
+      const isRemote = !url.startsWith('blob:') && !url.startsWith('data:')
+      if (isRemote && html5) {
+        // 长音频（播客）走 HTML5 流式：audio 标签拉流不受 CORS 限制，直连 CDN 即可
+        await this.localEngine.play(url, { html5: true })
+      } else if (isRemote) {
+        // 音源经后端代理补 CORS 后保留 Web Audio 模式（均衡器/可视化可用）；
+        // 非白名单音源无法代理，降级 HTML5 直连（audio 标签不受 CORS 限制）
+        const proxied = toProxiedUrl(url)
+        if (proxied !== url) {
+          await this.localEngine.play(proxied, { html5: false })
+        } else {
+          logger.info('audio-adapter', 'Web 环境：非白名单音源，降级为 HTML5 Audio 模式（规避 CORS）')
+          await this.localEngine.play(url, { html5: true })
+        }
+      } else {
+        // blob:/data: 本地数据同源，直接 Web Audio
+        await this.localEngine.play(url, { html5 })
       }
-      await this.localEngine.play(url, { html5: html5 || forceHtml5 })
     }
   }
 
