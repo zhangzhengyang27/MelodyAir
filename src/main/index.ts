@@ -639,9 +639,6 @@ function registerIpcHandlers(): void {
     if (lyricsWindow && !lyricsWindow.isDestroyed()) {
       lyricsWindow.webContents.send("player:trackUpdated", trackInfo)
     }
-
-    // 更新任务栏进度（Windows）或 Dock 图标（macOS）
-    updateTaskbarProgress(trackInfo.duration, 0)
   })
 
   ipcMain.on("player:updatePlayState", (_event, isPlaying: boolean) => {
@@ -680,10 +677,6 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.on("player:updateProgress", (_event, progress: number) => {
-    if (trayState.currentTrack) {
-      updateTaskbarProgress(trayState.currentTrack.duration, progress)
-    }
-
     // 同步到迷你窗口
     if (miniWindow && !miniWindow.isDestroyed()) {
       miniWindow.webContents.send("player:progressUpdated", progress)
@@ -715,24 +708,6 @@ function registerIpcHandlers(): void {
   safeIpcHandle("theme:shouldUseDarkColors", () => nativeTheme.shouldUseDarkColors)
 
 
-}
-
-/**
- * 更新任务栏/Dock 进度条
- * 支持 Windows 任务栏和 macOS Dock
- */
-function updateTaskbarProgress(duration: number, currentTime: number): void {
-  if (!mainWindow || mainWindow.isDestroyed()) return
-
-  const progress = duration > 0 ? currentTime / duration : 0
-
-  // Windows 任务栏进度
-  mainWindow.setProgressBar(progress === -1 ? -1 : progress)
-
-  // macOS 不支持直接设置 Dock 进度，但可以设置 Badge
-  if (process.platform === "darwin" && progress >= 0 && progress < 1) {
-    // 可选：在 Dock 显示播放状态图标
-  }
 }
 
 // ==================== 应用生命周期 ====================
