@@ -719,12 +719,6 @@ app.whenReady().then(() => {
   // 设置应用 ID（用于 Windows 跳转列表等）
   electronApp.setAppUserModelId("com.melody-air.app")
 
-  // macOS 设置 Dock 图标
-  if (process.platform === "darwin") {
-    const iconPath = join(__dirname, "../../build/icon.png")
-    app.dock.setIcon(nativeImage.createFromPath(iconPath))
-  }
-
   // 监听窗口创建事件以优化性能
   app.on("browser-window-created", (_, window) => {
     optimizer.watchWindowShortcuts(window)
