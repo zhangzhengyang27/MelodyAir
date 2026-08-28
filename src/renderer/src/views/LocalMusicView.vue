@@ -158,7 +158,7 @@
         <p>暂无歌曲数据</p>
       </div>
       <template v-else>
-        <div class="mb-4 flex gap-3">
+        <div class="mb-4 flex items-center gap-3">
           <CoralButton @click="playAllLocal">播放全部</CoralButton>
           <button
             class="rounded-xl bg-neutral-100 px-4 py-2 text-sm font-medium hover:bg-neutral-200 dark:bg-[#1F1F2E] dark:hover:bg-[#2A2A3A]"
@@ -167,6 +167,15 @@
           >
             {{ localStore.scraping ? '刮削中...' : '自动刮削' }}
           </button>
+          <div class="ml-auto">
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="搜索歌曲..."
+              class="w-48 rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-[#13131C]"
+              @keyup.enter="handleSearch"
+            />
+          </div>
         </div>
         <SongTable :songs="songListForPlayer" @play="handlePlaySong" />
         <!-- 分页控件 -->
@@ -283,6 +292,7 @@ const uploadFileRef = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
 const uploadProgress = ref(0)
 const pageSize = ref(50)
+const searchQuery = ref('')
 // 扫描进度
 const scanProgress = ref<{ status: string; processed: number; total: number; currentFile?: string; result?: any } | null>(null)
 let scanProgressTimer: ReturnType<typeof setInterval> | null = null
@@ -290,12 +300,16 @@ let scanProgressTimer: ReturnType<typeof setInterval> | null = null
 // 分页
 function goToPage(p: number) {
   localStore.page = p
-  localStore.fetchSongs()
+  localStore.fetchSongs({ search: searchQuery.value || undefined })
 }
 function handlePageSizeChange() {
   localStore.limit = pageSize.value
   localStore.page = 1
-  localStore.fetchSongs()
+  localStore.fetchSongs({ search: searchQuery.value || undefined })
+}
+function handleSearch() {
+  localStore.page = 1
+  localStore.fetchSongs({ search: searchQuery.value || undefined })
 }
 
 const tabs = [

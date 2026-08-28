@@ -103,7 +103,7 @@ export const useLocalStore = defineStore('local', () => {
   }
 
   // 歌曲（分页返回 { songs, total, page, limit }）
-  async function fetchSongs(params?: { artistId?: number; page?: number; limit?: number }) {
+  async function fetchSongs(params?: { artistId?: number; page?: number; limit?: number; search?: string }) {
     loading.value = true
     try {
       const p = page.value
