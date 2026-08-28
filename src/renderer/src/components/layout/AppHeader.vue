@@ -82,6 +82,7 @@
           </div>
         </div>
       </Transition>
+      </div>
     </div>
 
     <!-- 右侧：主题 + 用户 -->
