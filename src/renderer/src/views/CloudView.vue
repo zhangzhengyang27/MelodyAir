@@ -53,7 +53,6 @@ import SkeletonSongTable from '@/components/common/skeleton/SkeletonSongTable.vu
 import { usePlayer } from '@/composables/usePlayer'
 import { useUserStore } from '@/stores/user'
 import { showToast } from '@/composables/useToast'
-import { Cloud } from 'lucide-vue-next'
 import type { Song } from '@/stores/player'
 import { logger } from '@/utils/logger'
 
