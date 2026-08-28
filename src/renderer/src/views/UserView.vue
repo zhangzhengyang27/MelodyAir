@@ -2,6 +2,14 @@
   <div class="space-y-6">
     <SkeletonDetail v-if="loading" :rows="8" />
     <template v-else-if="user">
+      <!-- 返回按钮 -->
+      <button
+        class="mb-2 flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-[#FF5A5F] dark:text-[#A1A1B5] dark:hover:bg-white/6"
+        @click="$router.back()"
+      >
+        <ArrowLeft class="h-5 w-5" />
+      </button>
+
       <!-- 用户信息 -->
       <div class="flex items-center gap-4">
         <img :src="user.avatarUrl + '?param=200y200'" alt="" class="h-20 w-20 rounded-full object-cover" />
@@ -98,6 +106,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { ArrowLeft } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
 import { getUserDetail, getUserPlaylist, followUser, getUserRecord } from '@/api/user'
 import CoverImage from '@/components/common/CoverImage.vue'

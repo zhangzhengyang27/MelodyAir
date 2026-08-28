@@ -3,6 +3,14 @@
     <SkeletonDetail v-if="loading" :rows="8" />
 
     <template v-else-if="artist">
+      <!-- 返回按钮 -->
+      <button
+        class="mb-2 flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-[#FF5A5F] dark:text-[#A1A1B5] dark:hover:bg-white/6"
+        @click="$router.back()"
+      >
+        <ArrowLeft class="h-5 w-5" />
+      </button>
+
       <!-- Header -->
       <div class="flex gap-6">
         <div class="h-48 w-48 shrink-0 overflow-hidden rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40),0_0_1px_rgba(255,255,255,0.05)]">
@@ -100,6 +108,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { ArrowLeft } from 'lucide-vue-next'
 import { getArtistDetail, getArtistDetailDynamic, getArtistSongs, getArtistAlbum, getArtistMv, getArtistDesc } from '@/api/artist'
 import { getSimiArtist } from '@/api/simi'
 import SongTable from '@/components/common/SongTable.vue'
