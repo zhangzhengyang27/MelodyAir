@@ -93,6 +93,7 @@ function createWindow(): BrowserWindow {
     minWidth: 1200,
     minHeight: 600,
     show: false,
+    icon: join(__dirname, "../../build/icon.png"),
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
     backgroundColor: "#0a0a14",
     webPreferences: {

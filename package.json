@@ -55,5 +55,37 @@
       "electron-winstaller",
       "esbuild"
     ]
+  },
+  "build": {
+    "appId": "com.melodyair.app",
+    "productName": "MelodyAir",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "build/**/*"
+    ],
+    "mac": {
+      "icon": "build/icon.png",
+      "category": "public.app-category.music",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "AudioVideo",
+      "target": [
+        "AppImage"
+      ]
+    }
   }
 }
