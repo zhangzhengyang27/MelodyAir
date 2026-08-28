@@ -13,6 +13,26 @@
       </div>
     </div>
 
+    <!-- 扫描进度条 -->
+    <div v-if="scanProgress && scanProgress.status === 'running'" class="rounded-2xl bg-neutral-50 p-4 dark:bg-[#1F1F2E]">
+      <div class="mb-2 flex items-center justify-between text-sm">
+        <span class="font-medium text-[#FF5A5F]">正在扫描音乐库...</span>
+        <span class="text-neutral-500">
+          {{ scanProgress.processed }} / {{ scanProgress.total || '?' }}
+          {{ scanProgress.total ? `(${Math.round((scanProgress.processed / scanProgress.total) * 100)}%)` : '' }}
+        </span>
+      </div>
+      <div class="h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-[#252535]">
+        <div
+          class="h-full rounded-full bg-[#FF5A5F] transition-all duration-300"
+          :style="{ width: scanProgress.total ? `${(scanProgress.processed / scanProgress.total) * 100}%` : '50%' }"
+        />
+      </div>
+      <p v-if="scanProgress.currentFile" class="mt-2 truncate text-xs text-neutral-500">
+        当前文件：{{ scanProgress.currentFile }}
+      </p>
+    </div>
+
     <!-- 统计概览 -->
     <div v-if="localStore.stats" class="grid grid-cols-2 gap-3 md:grid-cols-4">
       <div v-for="item in statCards" :key="item.label" class="rounded-2xl bg-neutral-50 p-4 dark:bg-[#1F1F2E]">
@@ -246,6 +266,7 @@ import SkeletonCardGrid from '@/components/common/skeleton/SkeletonCardGrid.vue'
 import SkeletonSongTable from '@/components/common/skeleton/SkeletonSongTable.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import { showToast } from '@/composables/useToast'
+import { startAsyncScan, getScanProgress } from '@/api/local'
 import type { Song } from '@/stores/player'
 
 const localStore = useLocalStore()
@@ -262,6 +283,9 @@ const uploadFileRef = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
 const uploadProgress = ref(0)
 const pageSize = ref(50)
+// 扫描进度
+const scanProgress = ref<{ status: string; processed: number; total: number; currentFile?: string; result?: any } | null>(null)
+let scanProgressTimer: ReturnType<typeof setInterval> | null = null
 
 // 分页
 function goToPage(p: number) {
@@ -322,9 +346,37 @@ function getCoverUrl(coverPath: string): string {
 
 async function handleScan(libraryId: number) {
   try {
-    const result = await localStore.triggerScan(libraryId)
-    showToast(`扫描完成：新增 ${result.added}，更新 ${result.updated}，移除 ${result.removed}`, { type: 'success' })
+    // 启动异步扫描
+    await startAsyncScan(libraryId)
+    localStore.scanning = true
+    scanProgress.value = { status: 'running', processed: 0, total: 0 }
+
+    // 轮询进度
+    scanProgressTimer = setInterval(async () => {
+      try {
+        const res: any = await getScanProgress(libraryId)
+        const data = res?.body ?? res
+        if (data) {
+          scanProgress.value = data
+          if (data.status === 'completed' || data.status === 'failed') {
+            if (scanProgressTimer) clearInterval(scanProgressTimer)
+            scanProgressTimer = null
+            localStore.scanning = false
+            await localStore.fetchStats()
+            if (data.status === 'completed') {
+              const r = data.result
+              showToast(`扫描完成：新增 ${r?.added ?? 0}，更新 ${r?.updated ?? 0}，移除 ${r?.removed ?? 0}`, { type: 'success' })
+            } else {
+              showToast(`扫描失败：${data.error}`, { type: 'error' })
+            }
+          }
+        }
+      } catch (e) {
+        console.error('获取扫描进度失败:', e)
+      }
+    }, 1000)
   } catch (e: any) {
+    localStore.scanning = false
     showToast(`扫描失败：${e.message}`, { type: 'error' })
   }
 }

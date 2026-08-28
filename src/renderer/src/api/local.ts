@@ -17,6 +17,10 @@ export const deleteLibrary = (id: number): Promise<ApiResponse> => request.delet
 
 export const scanLibrary = (id: number): Promise<ApiResponse> => request.post(`/library/${id}/scan`)
 
+export const startAsyncScan = (id: number): Promise<ApiResponse> => request.post(`/library/${id}/scan/async`)
+
+export const getScanProgress = (id: number): Promise<ApiResponse> => request.get(`/library/${id}/scan/progress`)
+
 // ==================== 本地文件 ====================
 
 export const getFiles = (params?: { libraryId?: number; page?: number; limit?: number }) =>
