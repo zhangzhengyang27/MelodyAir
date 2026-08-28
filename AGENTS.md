@@ -39,8 +39,9 @@
 
 本项目已明确使用 Tailwind CSS v4，必须遵守 `.ai/STYLE_GUIDE.md` 中的规则：
 
-- 不要使用旧版自定义 token 类名，如 `bg-coral-*`、`text-coral-*`、`rounded-airbnb`、`shadow-card`
-- 自定义颜色优先使用任意值写法，例如 `bg-[#FF5A5F]`
+- `@theme` 中定义的色板类名（`coral-*`、`neutral-*`）是有效工具类，支持 `hover:`/`dark:` 变体与 `/N` 透明度，优先使用（v4 会从 `@theme` 自动生成 utility class）
+- 不要使用旧版未定义 token 类名，如 `rounded-airbnb`、`rounded-card`、`rounded-cover`、`shadow-card`、`shadow-card-hover`（@theme 无对应 `--radius-*`/`--shadow-*` 变量，不会生成工具类）
+- @theme 色板之外的颜色使用任意值写法，例如 `bg-[#FF5A5F]`
 - 圆角优先使用标准类，例如 `rounded-xl`、`rounded-2xl`、`rounded-lg`
 - 阴影优先使用任意值写法，例如 `shadow-[0_2px_16px_rgba(0,0,0,0.08)]`
 - Vue `<style scoped>` 中尽量避免依赖 `@apply`，优先原生 CSS

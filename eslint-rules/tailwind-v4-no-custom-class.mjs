@@ -1,50 +1,30 @@
 /**
- * ESLint 自定义插件 + 规则：检测 Tailwind v4 中非法的自定义类名
- * 
- * 原理：通过正则表达式直接扫描源码中的非法类名
+ * ESLint 自定义插件 + 规则：检测 Tailwind v4 中无效的自定义类名
+ *
+ * 重要：tailwind.css 的 @theme 中定义的 --color-*（coral-*、neutral-*）
+ * 在 Tailwind v4 会正常生成工具类（含 hover:/dark:/focus: 变体与 /N 透明度），
+ * 已实测编译产物存在 .bg-coral-500 等规则 —— 这些类名有效，不是违规。
+ *
+ * 本规则只拦截 @theme 中没有对应 --radius-* 与 --shadow-* 变量的旧设计 token
+ * （工具类不会生成，属于死类名）。
  */
 
 const FORBIDDEN_PATTERNS = [
-  // === 自定义颜色类名（Tailwind v4 @theme 不生成 utility class）===
-  /bg-coral-\d+/,
-  /text-coral-\d+/,
-  /border-coral-\d+/,
-  /ring-coral-\d+/,
-  /focus:border-coral-/,
-  /focus:ring-coral-/,
-  /hover:bg-coral-/,
-  /hover:text-coral-/,
-  /hover:border-coral-/,
-  /dark:bg-coral-/,
-  /dark:text-coral-/,
-  /peer-checked:bg-coral-/,
-
-  // === 自定义圆角类名（已废弃）===
+  // === 旧版圆角 token（@theme 未定义 --radius-*，不生成工具类）===
   /\brounded-airbnb\b/,
   /\brounded-card\b/,
   /\brounded-cover\b/,
 
-  // === 自定义阴影类名（已废弃）===
+  // === 旧版阴影 token（@theme 未定义 --shadow-*，不生成工具类）===
+  /\bshadow-card\b/,
   /\bshadow-card-hover\b/,
 ]
 
 const REPLACEMENTS = {
-  'bg-coral-50': 'bg-[#FFF5F3]',
-  'bg-coral-100': 'bg-[#FFE8E3]',
-  'bg-coral-500': 'bg-[#FF5A5F]',
-  'bg-coral-600': 'bg-[#E0484D]',
-  'text-coral-500': 'text-[#FF5A5F]',
-  'border-coral-400': 'border-[#FFB0A0]',
-  'ring-coral-200': 'ring-[#FFE8E3]',
-  'ring-coral-800': 'ring-[#9E2F33]',
-  'hover:bg-coral-600': 'hover:bg-[#E0484D]',
-  'hover:text-coral-500': 'hover:text-[#FF5A5F]',
-  'focus:border-coral-400': 'focus:border-[#FFB0A0]',
-  'dark:focus:border-coral-500': 'dark:focus:border-[#FF7F66]',
-  'peer-checked:bg-coral-500': 'peer-checked:bg-[#FF5A5F]',
   'rounded-airbnb': 'rounded-xl (12px)',
   'rounded-card': 'rounded-2xl (16px)',
   'rounded-cover': 'rounded-lg (8px)',
+  'shadow-card': 'shadow-[0_2px_16px_rgba(0,0,0,0.08)]',
   'shadow-card-hover': 'shadow-[0_6px_20px_rgba(0,0,0,0.12)]',
 }
 
@@ -53,7 +33,7 @@ const noCustomClassRule = {
   meta: {
     type: 'problem',
     docs: {
-      description: '禁止使用 Tailwind v4 中无效的自定义类名（@theme 不生成 utility class）',
+      description: '禁止使用 Tailwind v4 中未定义的旧设计 token 类名（@theme 无对应变量，不生成工具类）',
       category: 'Best Practices',
       recommended: true,
     },
