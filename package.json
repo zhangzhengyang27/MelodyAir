@@ -9,6 +9,7 @@
   "scripts": {
     "predev": "bash scripts/replace-dev-icon.sh",
     "dev": "electron-vite dev",
+    "dev:web": "vite --config vite.web.config.ts",
     "build": "electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "pnpm build && electron-builder --dir",

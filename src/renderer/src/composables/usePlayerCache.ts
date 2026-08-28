@@ -94,15 +94,22 @@ export function usePlayerCache(deps: {
 
   /**
    * 释放所有非活跃的 Blob URL（切歌时调用）
+   * 注意：需保留 activeBlobUrl 与预载下一首的 blob（nextTrackUrlCache 仍被引用，
+   * 误释放会导致手动点播预载歌时加载已 revoke 的 URL 而失败跳歌）
    */
   function releaseStaleBlobUrls(): void {
-    const toRelease = deps.createdBlobUrls.filter((url) => url !== deps.activeBlobUrl.value)
+    const keep = new Set<string>()
+    if (deps.activeBlobUrl.value) keep.add(deps.activeBlobUrl.value)
+    if (nextTrackUrlCache && nextTrackUrlCache.startsWith('blob:')) {
+      keep.add(nextTrackUrlCache)
+    }
+    const toRelease = deps.createdBlobUrls.filter((url) => !keep.has(url))
     for (const url of toRelease) {
       URL.revokeObjectURL(url)
     }
     deps.createdBlobUrls.length = 0
-    if (deps.activeBlobUrl.value) {
-      deps.createdBlobUrls.push(deps.activeBlobUrl.value)
+    for (const url of keep) {
+      deps.createdBlobUrls.push(url)
     }
   }
 

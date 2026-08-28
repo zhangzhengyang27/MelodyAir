@@ -294,7 +294,7 @@
           </div>
 
           <div class="controls-right">
-            <button class="ctrl-btn-icon" @click="toggleDesktopLyrics" title="桌面歌词">
+            <button v-if="hasDesktopLyrics" class="ctrl-btn-icon" @click="toggleDesktopLyrics" title="桌面歌词">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
               </svg>
@@ -524,8 +524,9 @@ import PlayQueue from './PlayQueue.vue'
 import { useLyricsSync } from '@/composables/useLyricsSync'
 import { Disc3, AlignLeft, Image as ImageIcon, Activity, Info, Share2, X, SlidersHorizontal, Timer, Shuffle, Repeat, ArrowRight, RotateCcw, AlignCenter, AlignJustify, Minus, Plus } from 'lucide-vue-next'
 import { useEqualizer, type EqualizerPreset } from '@/composables/useEqualizer'
+import { usePlatform } from '@/composables/usePlatform'
 
-defineEmits<{
+const emitClose = defineEmits<{
   close: []
 }>()
 
@@ -534,6 +535,8 @@ const lyricsStore = useLyricsStore()
 const userStore = useUserStore()
 const settingsStore = useSettingsStore()
 const { seek, seekByProgress } = useAudio()
+// Web 端无桌面歌词独立窗口，按钮按平台能力隐藏
+const { hasDesktopLyrics } = usePlatform()
 
 const { syncEngine, seekToIndex, setSeekPause } = useLyricsSync()
 
@@ -1075,7 +1078,22 @@ watch(showVisualizer, (val) => {
 
 onUnmounted(() => {
   stopVisualizer()
+  window.removeEventListener('keydown', handleEscKeydown, true)
 })
+
+// Esc 关闭最上层浮层：先关均衡器面板，再关闭全屏播放器。
+// 使用 capture 阶段 + stopPropagation，避免同一按键同时触发
+// 底栏 AppPlayer 的 Esc 处理器（否则会一次关掉两层）。
+function handleEscKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Escape') return
+  e.stopPropagation()
+  if (showEqualizer.value) {
+    showEqualizer.value = false
+    return
+  }
+  emitClose('close')
+}
+window.addEventListener('keydown', handleEscKeydown, true)
 
 async function toggleDesktopLyrics() {
   try {

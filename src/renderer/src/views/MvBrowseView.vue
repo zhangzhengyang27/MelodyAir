@@ -51,7 +51,7 @@
         @click="$router.push(`/mv/${item.id}`)"
       >
         <div class="relative overflow-hidden rounded-lg">
-          <img :src="item.cover || item.picUrl" :alt="item.name" class="h-36 w-full object-cover transition-transform group-hover:scale-105" />
+          <img :src="(item.cover || item.picUrl) + '?param=400y400'" :alt="item.name" loading="lazy" class="h-36 w-full object-cover transition-transform group-hover:scale-105" />
         </div>
         <p class="mt-2 line-clamp-1 text-sm dark:text-[#A1A1B5]">{{ item.name }}</p>
         <p class="text-xs text-neutral-400">{{ item.artistName }}</p>

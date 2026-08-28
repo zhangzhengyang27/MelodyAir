@@ -93,7 +93,14 @@ class AudioAdapter {
     if (this.isElectron) {
       ;(window as any).electronAPI.audioPlay(url, songId, html5)
     } else if (this.localEngine) {
-      await this.localEngine.play(url, { html5 })
+      // Web 降级：音源 CDN 无 CORS 头，Web Audio 模式的 fetch 请求会被浏览器拦截，
+      // 远程 URL 强制走 HTML5 Audio（audio 标签拉流不受 CORS 限制），
+      // 代价是均衡器/可视化失效；blob:/data: 本地数据仍可走 Web Audio 保留均衡器
+      const forceHtml5 = !url.startsWith('blob:') && !url.startsWith('data:')
+      if (forceHtml5 && !html5) {
+        logger.info('audio-adapter', 'Web 环境：远程音源自动降级为 HTML5 Audio 模式（规避 CORS）')
+      }
+      await this.localEngine.play(url, { html5: html5 || forceHtml5 })
     }
   }
 

@@ -129,7 +129,7 @@
             @click="$router.push(`/artist/${item.id}`)"
           >
             <div class="mx-auto h-24 w-24 overflow-hidden rounded-full shadow-md">
-              <img :src="item.picUrl || item.img1v1Url" :alt="item.name" class="h-full w-full object-cover" />
+              <img :src="(item.picUrl || item.img1v1Url) + '?param=200y200'" :alt="item.name" loading="lazy" class="h-full w-full object-cover" />
             </div>
             <p class="mt-2 line-clamp-1 text-sm">{{ item.name }}</p>
           </div>
@@ -152,7 +152,7 @@
             @click="$router.push(`/mv/${item.vid}`)"
           >
             <div class="overflow-hidden rounded-lg">
-              <img :src="item.coverUrl" :alt="item.title" class="h-32 w-full object-cover" />
+              <img :src="item.coverUrl + '?param=400y400'" :alt="item.title" loading="lazy" class="h-32 w-full object-cover" />
             </div>
             <p class="mt-2 line-clamp-1 text-sm dark:text-[#A1A1B5]">{{ item.title }}</p>
             <p class="text-xs text-neutral-400">{{ item.creator?.map(c => c.userName).join(' / ') }}</p>

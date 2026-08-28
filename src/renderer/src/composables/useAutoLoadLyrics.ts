@@ -124,13 +124,21 @@ export function useAutoLoadLyrics() {
         })
       } else {
         // 播客节目（谈话类）通常没有歌词，显示友好提示
-        lyricsStore.setError(currentSong._streaming ? '播客节目暂无歌词' : '暂无歌词')
+        if (lyricsStore.meta.trackId === songId) {
+          lyricsStore.setError(currentSong._streaming ? '播客节目暂无歌词' : '暂无歌词')
+        }
       }
     } catch (e) {
       logger.error('lyric', 'Failed to fetch lyric:', e)
-      lyricsStore.setError('歌词加载失败')
+      // 竞态守卫：请求期间已切歌时，不污染新歌的状态
+      if (lyricsStore.meta.trackId === songId) {
+        lyricsStore.setError('歌词加载失败')
+      }
     } finally {
-      lyricsStore.setLoading(false)
+      // 竞态守卫：仅当仍是本请求对应的歌曲时才关闭 loading
+      if (lyricsStore.meta.trackId === songId) {
+        lyricsStore.setLoading(false)
+      }
     }
   }
 

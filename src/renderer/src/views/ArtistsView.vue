@@ -59,7 +59,7 @@
         @click="$router.push(`/artist/${item.id}`)"
       >
         <div class="mx-auto h-24 w-24 overflow-hidden rounded-full shadow-md">
-          <img :src="item.picUrl || item.img1v1Url" :alt="item.name" class="h-full w-full object-cover" />
+          <img :src="(item.picUrl || item.img1v1Url) + '?param=200y200'" :alt="item.name" loading="lazy" class="h-full w-full object-cover" />
         </div>
         <p class="mt-2 line-clamp-1 text-sm">{{ item.name }}</p>
       </div>

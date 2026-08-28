@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { cacheManager } from '../utils/db'
+import { throttledPersistStorage } from '../utils/persistStorage'
 import { settingsDefaults, migrateWithDefaults } from './defaults'
 
 /**
@@ -195,6 +196,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 }, {
   persist: {
+    storage: throttledPersistStorage,
     pick: [
       'theme', 'lyricsBackground', 'musicQuality', 'autoPlay', 'fadeDuration', 'playbackSpeed',
       'enableCache', 'cacheLimitMB', 'autoCacheNextTrack', 'enableUnblock',

@@ -81,6 +81,8 @@ async function fetchData(id: number) {
       const raw = detailRes.value as any
       // 兼容两种格式：API 返回 { code, data }，DB 缓存直接返回 MV 对象
       mv.value = raw?.data || (raw?.name ? raw : null)
+      // 同步真实收藏状态（详情接口的 subed 字段），避免已收藏的 MV 按钮仍显示"收藏"
+      isSubbed.value = mv.value?.subed === true
     }
     if (urlRes.status === 'fulfilled') {
       mvUrl.value = (urlRes.value as any)?.data?.url || ''

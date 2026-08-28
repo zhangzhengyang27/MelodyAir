@@ -7,7 +7,13 @@ import { AudioEngine } from './utils/player'
 import type { PlayerStatus } from './utils/player'
 
 // 在隐藏窗口中直接使用 electron（需要 nodeIntegration: true）
-const { ipcRenderer } = require('electron')
+// Web 环境下 require('electron') 会抛异常，顶层降级守卫避免整页报错
+let ipcRenderer: any = null
+try {
+  ipcRenderer = require('electron').ipcRenderer
+} catch {
+  // 非 Electron 环境，音频引擎不会初始化
+}
 
 // 音频引擎单例
 let audioEngine: AudioEngine | null = null
@@ -27,7 +33,8 @@ function startFrequencyCollection() {
   if (frequencyRafId !== null) return
 
   const collect = () => {
-    if (audioEngine) {
+    // 仅播放中才采集与发送，暂停/空闲时不再空转占用 IPC
+    if (audioEngine?.isPlaying()) {
       const now = Date.now()
       if (now - lastFrequencySendTime >= FREQUENCY_SEND_INTERVAL) {
         lastFrequencySendTime = now
@@ -229,25 +236,29 @@ const commandHandlers: Record<string, (params: any) => any> = {
   'audio:stop': stop
 }
 
-// 监听来自主进程的命令
-Object.entries(commandHandlers).forEach(([channel, handler]) => {
-  ipcRenderer.on(channel, async (_event: any, params: any) => {
-    try {
-      const result = await handler(params)
-      // 对于需要返回值的命令，通过 reply 返回
-      if (result !== undefined) {
-        _event.reply(`${channel}:reply`, result)
+if (ipcRenderer) {
+  // 监听来自主进程的命令
+  Object.entries(commandHandlers).forEach(([channel, handler]) => {
+    ipcRenderer.on(channel, async (_event: any, params: any) => {
+      try {
+        const result = await handler(params)
+        // 对于需要返回值的命令，通过 reply 返回
+        if (result !== undefined) {
+          _event.reply(`${channel}:reply`, result)
+        }
+      } catch (error) {
+        console.error(`[AudioEngine] Command ${channel} failed:`, error)
       }
-    } catch (error) {
-      console.error(`[AudioEngine] Command ${channel} failed:`, error)
-    }
+    })
   })
-})
 
-// 初始化
-initAudioEngine()
+  // 初始化
+  initAudioEngine()
 
-// 通知主进程音频引擎已就绪
-ipcRenderer.send('audio:ready')
+  // 通知主进程音频引擎已就绪
+  ipcRenderer.send('audio:ready')
 
-console.log('[AudioEngine] Window loaded, waiting for commands...')
+  console.log('[AudioEngine] Window loaded, waiting for commands...')
+} else {
+  console.warn('[AudioEngine] Electron IPC not available, audio engine disabled')
+}

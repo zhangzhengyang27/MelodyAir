@@ -14,6 +14,7 @@ import { useLyricsStore } from './lyrics'
 import { useUserStore } from './user'
 import { LyricsSyncEngine } from '../utils/o3icsSyncEngine'
 import { getAudioAdapter } from '../utils/audioAdapter'
+import { throttledPersistStorage } from '../utils/persistStorage'
 import { fmTrash } from '../api/fm'
 
 export interface Song {
@@ -86,6 +87,9 @@ export const usePlayerStore = defineStore('player', () => {
   const playNavStack = ref<Song[]>([])
   // 是否正在从导航栈回溯（避免把回溯的歌再压入栈）
   let isNavigatingBack = false
+  // 播放代际令牌：每次发起播放自增，await 音频源返回后校验，
+  // 防止慢响应覆盖更新的播放请求（快速连点切歌时界面与实际播放不一致）
+  let playSequence = 0
 
   // Blob URL 内存管理
   const createdBlobUrls: string[] = []
@@ -305,6 +309,8 @@ export const usePlayerStore = defineStore('player', () => {
   let failSkipToken = 0
 
   async function playSong(song: Song): Promise<void> {
+    // 代际令牌：本次播放请求的序号，await 恢复后校验是否已被更新的请求取代
+    const seq = ++playSequence
     // 切歌时释放旧 Blob URL
     playerCache.releaseStaleBlobUrls()
     // 重置失败跳过令牌，使之前的失败定时器失效
@@ -329,6 +335,8 @@ export const usePlayerStore = defineStore('player', () => {
       markPlayHistory(song)
 
       const url = await playerCache.getAudioSource(song.id, true)
+      // 已被更新的播放请求取代（快速连点切歌），丢弃本次慢响应，避免覆盖新歌
+      if (seq !== playSequence) return
       if (!url) {
         logger.warn('player', `No playable source for "${song.name}" (id=${song.id})`)
         status.value = 'error'
@@ -765,9 +773,15 @@ export const usePlayerStore = defineStore('player', () => {
 
   function togglePlayMode(): void {
     const modes: PlayMode[] = ['sequence', 'loop', 'loopOne', 'random', 'reversed']
+    const labels: Record<PlayMode, string> = {
+      sequence: '顺序播放', loop: '列表循环', loopOne: '单曲循环',
+      random: '随机播放', reversed: '倒序播放',
+    }
     const idx = modes.indexOf(playMode.value)
     playMode.value = modes[(idx + 1) % modes.length]
     if (playMode.value === 'random') generateShuffledList()
+    // 模式切换无图标外反馈，toast 告知当前模式
+    showToast(`播放模式：${labels[playMode.value]}`, { dedupeKey: 'play-mode' })
   }
 
   function setVolume(v: number): void {
@@ -902,7 +916,10 @@ export const usePlayerStore = defineStore('player', () => {
 
     try {
       status.value = 'loading'
+      // 代际守卫：恢复期间用户若手动点了歌，丢弃本次慢响应避免覆盖用户选择
+      const seq = ++playSequence
       const url = await playerCache.getAudioSource(song.id, true)
+      if (seq !== playSequence) return
       if (!url) {
         logger.warn('player', 'Failed to restore playback: no source')
         return
@@ -1047,6 +1064,8 @@ export const usePlayerStore = defineStore('player', () => {
   }
 }, {
   persist: {
+    // 节流存储：播放期间瞬态字段高频变化会触发全量序列化+写盘，去重+500ms 合并写入
+    storage: throttledPersistStorage,
     pick: ['playMode', 'volume', 'muted', 'playlist', 'currentIndex'],
     afterHydrate: (ctx) => {
       try {
@@ -1082,12 +1101,3 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 })
-
-declare global {
-  interface Window {
-    electronAPI?: {
-      sendIpcEvent: (channel: string, data?: unknown) => void
-      onIpcEvent: (channel: string, callback: (...args: unknown[]) => void) => () => void
-    }
-  }
-}

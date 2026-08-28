@@ -483,24 +483,6 @@ function handleAutoLaunchChange(enabled: boolean): void {
   window.electronAPI?.sendIpcEvent?.('app:setAutoLaunch', enabled)
 }
 
-async function handleImportCookie(): Promise<void> {
-  const value = cookieInput.value.trim()
-  if (!value) return
-  isImportingCookie.value = true
-  cookieImportMsg.value = ''
-  try {
-    const result = await userStore.importMusicUCookie(value)
-    cookieImportSuccess.value = result.success
-    cookieImportMsg.value = result.message || (result.success ? '登录成功！' : '登录失败')
-    if (result.success) {
-      cookieInput.value = ''
-      setTimeout(() => { cookieImportMsg.value = '' }, 3000)
-    }
-  } finally {
-    isImportingCookie.value = false
-  }
-}
-
 async function handleLogout(): Promise<void> {
   await userStore.logout()
 }

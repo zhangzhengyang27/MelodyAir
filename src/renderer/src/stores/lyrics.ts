@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { getStorage, setStorage } from '../utils/storage'
+import { throttledPersistStorage } from '../utils/persistStorage'
 import type { LyricsDisplayMode, LyricsSource, LyricsTrackMeta, ParsedLyricLine } from '../types/lyrics'
 
 export interface LoadLyricsPayload {
@@ -61,6 +62,8 @@ export const useLyricsStore = defineStore('lyrics', () => {
   }
 
   function setLyrics(payload: LoadLyricsPayload) {
+    // 竞态守卫：快速切歌时，旧的慢响应不得覆盖新歌已重置的歌词状态
+    if (meta.value.trackId !== null && meta.value.trackId !== payload.trackId) return
     meta.value = {
       trackId: payload.trackId,
       trackName: payload.trackName,
@@ -187,6 +190,7 @@ export const useLyricsStore = defineStore('lyrics', () => {
   }
 }, {
   persist: {
+    storage: throttledPersistStorage,
     pick: [
       'displayMode',
       'fontSize',

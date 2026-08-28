@@ -55,6 +55,9 @@ const ACCOUNT_REQUIRED_APIS = [
   '/album/sublist',
   // 排行榜详情（需要登录获取用户收藏状态）
   '/toplist/detail',
+  // 登录状态校验（必须携带 cookie 才能区分"已登录"与"匿名"，
+  // 否则后端永远返回匿名 profile:null，导致启动时误判过期并清除登录态）
+  '/login/status',
 ]
 
 /**

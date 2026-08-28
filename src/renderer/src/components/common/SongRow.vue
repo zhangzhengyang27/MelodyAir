@@ -142,7 +142,8 @@ function handleInsertNext() {
 
 function handleAddToPlaylist() {
   playerStore.addToPlaylist(props.song)
-  showToast(`已添加到播放列表：${props.song.name}`)
+  // addToPlaylist 会立即开始播放，文案需如实告知
+  showToast(`已加入播放列表并播放：${props.song.name}`)
 }
 
 function handleContextMenu(event: MouseEvent) {

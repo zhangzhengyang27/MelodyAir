@@ -84,20 +84,22 @@
       </div>
 
       <div class="flex w-full max-w-xl items-center gap-2 text-xs text-neutral-400">
-        <span class="w-10 text-right">{{ formatTime(playerStore.currentTime) }}</span>
+        <span class="w-10 text-right tabular-nums">{{ formatTime(dragProgress !== null ? dragProgress * playerStore.duration : playerStore.currentTime) }}</span>
         <div
+          ref="progressTrackRef"
           class="group relative h-1.5 flex-1 cursor-pointer rounded-full bg-neutral-200 dark:bg-[#252535]"
-          @click="handleProgressClick"
+          @mousedown.prevent="handleProgressDragStart"
           @mousemove="handleProgressHover"
           @mouseleave="hoverTime = null"
         >
           <div
-            class="absolute left-0 top-0 h-full rounded-full bg-[#FF5A5F] transition-[width] duration-100"
-            :style="{ width: (playerStore.progress * 100) + '%' }"
+            class="absolute left-0 top-0 h-full rounded-full bg-[#FF5A5F]"
+            :class="dragProgress === null ? 'transition-[width] duration-100' : ''"
+            :style="{ width: (displayProgress * 100) + '%' }"
           />
           <div
             class="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#FF5A5F] opacity-0 shadow transition-opacity group-hover:opacity-100"
-            :style="{ left: (playerStore.progress * 100) + '%' }"
+            :style="{ left: (displayProgress * 100) + '%' }"
           />
           <div
             v-if="hoverTime !== null"
@@ -345,13 +347,6 @@ async function toggleMiniPlayer() {
   }
 }
 
-function handleProgressClick(e: MouseEvent) {
-  const el = e.currentTarget as HTMLElement
-  const rect = el.getBoundingClientRect()
-  const progress = (e.clientX - rect.left) / rect.width
-  seekByProgress(Math.max(0, Math.min(1, progress)))
-}
-
 function handleProgressHover(e: MouseEvent) {
   const el = e.currentTarget as HTMLElement
   const rect = el.getBoundingClientRect()
@@ -359,18 +354,75 @@ function handleProgressHover(e: MouseEvent) {
   hoverTime.value = hoverProgress.value * playerStore.duration
 }
 
+// —— 底栏进度条拖动（借鉴 ProgressBar 组件模式：拖动中仅预览，松手才真正 seek）——
+const progressTrackRef = ref<HTMLElement | null>(null)
+const dragProgress = ref<number | null>(null)
+
+const displayProgress = computed(() => dragProgress.value ?? playerStore.progress)
+
+function progressFromEvent(e: MouseEvent): number {
+  const el = progressTrackRef.value
+  if (!el) return 0
+  const rect = el.getBoundingClientRect()
+  return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+}
+
+function handleProgressDragStart(e: MouseEvent) {
+  dragProgress.value = progressFromEvent(e)
+  hoverProgress.value = dragProgress.value
+  hoverTime.value = dragProgress.value * playerStore.duration
+  document.addEventListener('mousemove', handleProgressDragMove)
+  document.addEventListener('mouseup', handleProgressDragEnd)
+}
+
+function handleProgressDragMove(e: MouseEvent) {
+  if (dragProgress.value === null) return
+  dragProgress.value = progressFromEvent(e)
+  hoverProgress.value = dragProgress.value
+  hoverTime.value = dragProgress.value * playerStore.duration
+}
+
+function handleProgressDragEnd(e: MouseEvent) {
+  if (dragProgress.value === null) return
+  const target = progressFromEvent(e)
+  dragProgress.value = null
+  document.removeEventListener('mousemove', handleProgressDragMove)
+  document.removeEventListener('mouseup', handleProgressDragEnd)
+  seekByProgress(target)
+}
+
 function handleWindowResize() {
   popupPositionTick.value++
+}
+
+// Esc 关闭底栏浮层（从最上层开始）。
+// 全屏播放器打开时由 PlayerFull 在 capture 阶段处理并 stopPropagation，不会走到这里。
+function handleEscKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Escape') return
+  if (showQualityPopup.value) {
+    showQualityPopup.value = false
+    return
+  }
+  if (showMoreMenu.value) {
+    showMoreMenu.value = false
+    return
+  }
+  if (showPlaylist.value) {
+    showPlaylist.value = false
+  }
 }
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   window.addEventListener('resize', handleWindowResize)
+  window.addEventListener('keydown', handleEscKeydown)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
   window.removeEventListener('resize', handleWindowResize)
+  document.removeEventListener('mousemove', handleProgressDragMove)
+  document.removeEventListener('mouseup', handleProgressDragEnd)
 })
 </script>
 

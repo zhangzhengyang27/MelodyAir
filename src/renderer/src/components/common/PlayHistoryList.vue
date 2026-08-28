@@ -119,7 +119,8 @@ function handleInsertNext(song: Song) {
 
 function handleAddToPlaylist(song: Song) {
   playerStore.addToPlaylist(song)
-  showToast(`已添加到播放列表：${song.name}`)
+  // addToPlaylist 会立即开始播放，文案需如实告知
+  showToast(`已加入播放列表并播放：${song.name}`)
 }
 
 function handleRemove(songId: number) {

@@ -15,11 +15,12 @@ import { getUserPlaylist, getUserAccount, getLikeList, likeSong } from '@/api/us
 import { getPlaylistDetail, subscribePlaylist, createPlaylist, deletePlaylist, playlistTracks, updatePlaylist, getPlaylistDetailDynamic } from '@/api/playlist'
 import { subAlbum, getAlbumSublist, getAlbumDetailDynamic } from '@/api/album'
 import { subArtist, getArtistSublist, getArtistDetailDynamic } from '@/api/artist'
-import { subMv, getMvSublist } from '@/api/mv'
+import { subMv, getMvSublist, getMvDetail } from '@/api/mv'
 import { userDefaults, migrateWithDefaults } from './defaults'
 import { mapPlaylist, mapUserProfile } from '@/utils/mappers'
 import { parseAndStoreCookies } from '@/api/cookie'
 import { logger } from '@/utils/logger'
+import { throttledPersistStorage } from '@/utils/persistStorage'
 import type { UserProfile, Playlist } from '@/types/api'
 import type {
   LoginResponse,
@@ -412,13 +413,24 @@ export const useUserStore = defineStore('user', () => {
   /** 收藏/取消收藏 MV */
   async function toggleSubMv(id: number): Promise<boolean> {
     try {
-      const listRes = await getMvSublist()
-      const dataList = listRes?.data ?? []
-      const isSubbed = Array.isArray(dataList) && dataList.some(
-        (item: unknown) => item && typeof item === 'object' &&
-        ('vid' in item ? (item as { vid: number }).vid === id :
-         'id' in item ? (item as { id: number }).id === id : false)
-      )
+      // 优先用 MV 详情接口的 subed 字段判断（动态、准确），
+      // 避免 sublist 仅返回 25 条导致超过 25 个收藏后误判方向
+      let isSubbed: boolean | undefined
+      try {
+        const detail = await getMvDetail(id)
+        isSubbed = (detail as unknown as { subed?: boolean })?.subed
+      } catch {
+        // 详情接口失败时走列表兜底
+      }
+      if (isSubbed === undefined) {
+        const listRes = await getMvSublist()
+        const dataList = listRes?.data ?? []
+        isSubbed = Array.isArray(dataList) && dataList.some(
+          (item: unknown) => item && typeof item === 'object' &&
+          ('vid' in item ? (item as { vid: number }).vid === id :
+           'id' in item ? (item as { id: number }).id === id : false)
+        )
+      }
       const subRes = await subMv(id, isSubbed ? 2 : 1)
       return subRes?.code === 200
     } catch { return false }
@@ -573,6 +585,7 @@ export const useUserStore = defineStore('user', () => {
   }
 }, {
   persist: {
+    storage: throttledPersistStorage,
     pick: ['profile', 'cookie', 'likedSongIds', 'loginMode', 'likedSongPlaylistId', 'lastRefreshCookieDate'],
     afterHydrate: (ctx) => {
       try {

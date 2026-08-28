@@ -98,10 +98,16 @@
       </div>
 
       <!-- Songs tab -->
-      <SongTable v-if="activeTab === 'songs'" :songs="results.songs" :loading="searchLoading" @play="handlePlaySong" />
+      <SongTable v-if="activeTab === 'songs' && !searchFailed" :songs="results.songs" :loading="searchLoading" @play="handlePlaySong" />
+      <div v-if="activeTab === 'songs' && !searchFailed && !searchLoading && results.songs.length === 0" class="py-10 text-center text-sm text-neutral-400">
+        没有找到相关歌曲
+      </div>
 
       <!-- Artists tab -->
-      <div v-if="activeTab === 'artists'" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+      <div v-if="activeTab === 'artists' && !searchFailed && !searchLoading && results.artists.length === 0" class="py-10 text-center text-sm text-neutral-400">
+        没有找到相关歌手
+      </div>
+      <div v-if="activeTab === 'artists' && !searchFailed" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
         <div
           v-for="artist in results.artists"
           :key="artist.id"
@@ -109,14 +115,17 @@
           @click="$router.push(`/artist/${artist.id}`)"
         >
           <div class="mx-auto h-28 w-28 overflow-hidden rounded-full">
-            <img v-if="artist.picUrl" :src="artist.picUrl + '?param=200y200'" alt="" class="h-full w-full object-cover" />
+            <img v-if="artist.picUrl" :src="artist.picUrl + '?param=200y200'" alt="" loading="lazy" class="h-full w-full object-cover" />
           </div>
           <p class="mt-2 text-sm">{{ artist.name }}</p>
         </div>
       </div>
 
       <!-- Albums tab -->
-      <div v-if="activeTab === 'albums'" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+      <div v-if="activeTab === 'albums' && !searchFailed && !searchLoading && results.albums.length === 0" class="py-10 text-center text-sm text-neutral-400">
+        没有找到相关专辑
+      </div>
+      <div v-if="activeTab === 'albums' && !searchFailed" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
         <div
           v-for="album in results.albums"
           :key="album.id"
@@ -130,7 +139,10 @@
       </div>
 
       <!-- Playlists tab -->
-      <div v-if="activeTab === 'playlists'" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+      <div v-if="activeTab === 'playlists' && !searchFailed && !searchLoading && results.playlists.length === 0" class="py-10 text-center text-sm text-neutral-400">
+        没有找到相关歌单
+      </div>
+      <div v-if="activeTab === 'playlists' && !searchFailed" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
         <div
           v-for="pl in results.playlists"
           :key="pl.id"
@@ -141,6 +153,18 @@
           <p class="mt-2 line-clamp-2 text-sm">{{ pl.name }}</p>
         </div>
       </div>
+
+      <!-- 全部请求失败 -->
+      <div v-if="searchFailed" class="flex flex-col items-center gap-3 rounded-2xl border border-neutral-200 py-10 dark:border-white/10">
+        <SearchX class="h-10 w-10 text-neutral-300 dark:text-[#3A3A4D]" />
+        <p class="text-sm text-neutral-500 dark:text-[#A1A1B5]">搜索失败，请检查网络或后端服务</p>
+        <button
+          class="rounded-full bg-[#FF5A5F] px-5 py-1.5 text-sm text-white transition-colors hover:bg-[#E0484D]"
+          @click="doSearch"
+        >
+          重试
+        </button>
+      </div>
     </section>
   </div>
 </template>
@@ -150,11 +174,12 @@ import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { cloudSearch, getSearchHotDetail, getSearchSuggest } from '@/api/search'
 import CoverImage from '@/components/common/CoverImage.vue'
-import { X } from 'lucide-vue-next'
+import { X, SearchX } from 'lucide-vue-next'
 import SongTable from '@/components/common/SongTable.vue'
 import { usePlayerStore } from '@/stores/player'
 import { usePlayer } from '@/composables/usePlayer'
 import { useSearchHistory } from '@/composables/useSearchHistory'
+import { showToast } from '@/composables/useToast'
 import type { Song } from '@/stores/player'
 
 const route = useRoute()
@@ -165,6 +190,7 @@ const { history: searchHistory, addToHistory, removeFromHistory, clearHistory } 
 const query = ref('')
 const hasSearched = ref(false)
 const searchLoading = ref(false)
+const searchFailed = ref(false)
 const hotSearches = ref<any[]>([])
 const suggestions = ref<any[]>([])
 const activeTab = ref('songs')
@@ -240,6 +266,7 @@ async function doSearch() {
 
   hasSearched.value = true
   searchLoading.value = true
+  searchFailed.value = false
   suggestions.value = []
 
   try {
@@ -264,6 +291,13 @@ async function doSearch() {
     if (artistsRes.status === 'fulfilled') results.value.artists = (artistsRes.value as any)?.result?.artists || []
     if (albumsRes.status === 'fulfilled') results.value.albums = (albumsRes.value as any)?.result?.albums || []
     if (playlistsRes.status === 'fulfilled') results.value.playlists = (playlistsRes.value as any)?.result?.playlists || []
+
+    // 四路请求全部失败时给出明确错误提示（此前表现为静默空白），且不写入搜索历史
+    if ([songsRes, artistsRes, albumsRes, playlistsRes].every(r => r.status === 'rejected')) {
+      searchFailed.value = true
+      showToast('搜索失败，请检查网络或后端服务', { type: 'error' })
+      return
+    }
 
     // Add to search history with result count
     const totalResults = results.value.songs.length + results.value.artists.length + results.value.albums.length + results.value.playlists.length

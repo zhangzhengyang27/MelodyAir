@@ -108,7 +108,7 @@
 
                 <!-- 封面 -->
                 <div class="h-9 w-9 shrink-0 overflow-hidden rounded bg-neutral-200 dark:bg-[#1F1F2E]">
-                  <img v-if="song.album?.picUrl" :src="song.album.picUrl + '?param=80y80'" alt="" class="h-full w-full object-cover" />
+                  <img v-if="song.album?.picUrl" :src="song.album.picUrl + '?param=80y80'" alt="" loading="lazy" class="h-full w-full object-cover" />
                 </div>
 
                 <!-- 歌曲信息 -->
@@ -150,7 +150,7 @@
                   <span class="text-xs text-neutral-400">{{ idx + 1 }}</span>
                 </div>
                 <div class="h-9 w-9 shrink-0 overflow-hidden rounded bg-neutral-200 dark:bg-[#1F1F2E]">
-                  <img v-if="song.album?.picUrl" :src="song.album.picUrl + '?param=80y80'" alt="" class="h-full w-full object-cover" />
+                  <img v-if="song.album?.picUrl" :src="song.album.picUrl + '?param=80y80'" alt="" loading="lazy" class="h-full w-full object-cover" />
                 </div>
                 <div class="min-w-0 flex-1">
                   <p class="truncate text-sm">{{ song.name }}</p>
@@ -193,7 +193,7 @@
                   <span class="text-xs text-neutral-400">{{ idx + 1 }}</span>
                 </div>
                 <div class="h-9 w-9 shrink-0 overflow-hidden rounded bg-neutral-200 dark:bg-[#1F1F2E]">
-                  <img v-if="song.album?.picUrl" :src="song.album.picUrl + '?param=80y80'" alt="" class="h-full w-full object-cover" />
+                  <img v-if="song.album?.picUrl" :src="song.album.picUrl + '?param=80y80'" alt="" loading="lazy" class="h-full w-full object-cover" />
                 </div>
                 <div class="min-w-0 flex-1">
                   <p class="truncate text-sm">{{ song.name }}</p>
