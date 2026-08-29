@@ -10,15 +10,26 @@ permissions:
 
 jobs:
   build:
-    name: Build & Publish (${{ matrix.os }})
+    name: Build & Publish (${{ matrix.target }})
     strategy:
       fail-fast: false
       matrix:
         include:
+          # macOS Apple Silicon（macos-latest 为 ARM64 runner）
           - os: macos-latest
             script: build:mac
+            args: --arm64
+            target: mac-arm64
+          # macOS Intel（macos-13 为 Intel x64 runner）
+          - os: macos-13
+            script: build:mac
+            args: --x64
+            target: mac-x64
+          # Windows x64
           - os: windows-latest
             script: build:win
+            args: --x64
+            target: win-x64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -42,4 +53,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # 跳过代码签名（本仓库未配置签名证书/公证）
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: pnpm ${{ matrix.script }} --publish always
+        run: pnpm ${{ matrix.script }} --publish always ${{ matrix.args }}

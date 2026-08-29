@@ -27,6 +27,7 @@
     "@electron/remote": "^2.1",
     "axios": "^1.15",
     "dexie": "^4.4.2",
+    "electron-updater": "^6.8.9",
     "howler": "^2.2.4",
     "lucide-vue-next": "^1.0.0",
     "pinia": "^3.0",
@@ -39,6 +40,7 @@
     "@bns2/eslint-plugin-tailwind-v4": "^1.0.6",
     "@tailwindcss/vite": "^4.1",
     "@types/howler": "^2.2.12",
+    "@types/node": "^26.4.0",
     "@types/qrcode": "^1.5.6",
     "@typescript-eslint/parser": "^8.58.1",
     "@vitejs/plugin-vue": "^6.0",
@@ -90,6 +92,11 @@
       "target": [
         "AppImage"
       ]
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "zhangzhengyang27",
+      "repo": "MelodyAir"
     }
   }
 }

@@ -240,6 +240,66 @@ const api = {
   setLyricsWindowIgnoreMouse: (ignore: boolean): Promise<boolean> =>
     ipcRenderer.invoke('lyricsWindow:setIgnoreMouse', ignore),
 
+  // ==================== 应用更新 ====================
+
+  /** 手动触发一次更新检查（Windows 检查 electron-updater，macOS 检测 GitHub 最新版） */
+  checkForUpdates: (): Promise<boolean> =>
+    ipcRenderer.invoke('update:check-now'),
+
+  /** 开始下载更新（Windows） */
+  downloadUpdate: (): Promise<boolean> =>
+    ipcRenderer.invoke('update:download'),
+
+  /** 下载完成后安装并重启（Windows） */
+  installUpdate: (): Promise<boolean> =>
+    ipcRenderer.invoke('update:install'),
+
+  /** 打开 GitHub Releases 页面 */
+  openReleases: (): Promise<boolean> =>
+    ipcRenderer.invoke('update:open-releases'),
+
+  /** 监听：发现可用更新（Windows electron-updater） */
+  onUpdateAvailable: (callback: (info: { version: string; currentVersion: string }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, info: { version: string; currentVersion: string }) => callback(info)
+    ipcRenderer.on('update:available', handler)
+    return () => ipcRenderer.removeListener('update:available', handler)
+  },
+
+  /** 监听：下载进度 */
+  onUpdateDownloadProgress: (callback: (data: { percent: number; transferred: number; total: number; bytesPerSecond: number }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { percent: number; transferred: number; total: number; bytesPerSecond: number }) => callback(data)
+    ipcRenderer.on('update:download-progress', handler)
+    return () => ipcRenderer.removeListener('update:download-progress', handler)
+  },
+
+  /** 监听：下载完成 */
+  onUpdateDownloaded: (callback: (info: { version: string }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, info: { version: string }) => callback(info)
+    ipcRenderer.on('update:downloaded', handler)
+    return () => ipcRenderer.removeListener('update:downloaded', handler)
+  },
+
+  /** 监听：macOS 发现新版本（提示去 GitHub 下载） */
+  onMacUpdateAvailable: (callback: (info: { version: string; currentVersion: string; downloadUrl: string; releasesUrl: string }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, info: { version: string; currentVersion: string; downloadUrl: string; releasesUrl: string }) => callback(info)
+    ipcRenderer.on('update:mac-available', handler)
+    return () => ipcRenderer.removeListener('update:mac-available', handler)
+  },
+
+  /** 监听：更新过程状态（checking / not-available） */
+  onUpdateStatus: (callback: (data: { state: string; version?: string }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { state: string; version?: string }) => callback(data)
+    ipcRenderer.on('update:status', handler)
+    return () => ipcRenderer.removeListener('update:status', handler)
+  },
+
+  /** 监听：更新出错 */
+  onUpdateError: (callback: (data: { message: string }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { message: string }) => callback(data)
+    ipcRenderer.on('update:error', handler)
+    return () => ipcRenderer.removeListener('update:error', handler)
+  },
+
   // ==================== 主题同步 ====================
 
   /** 向主进程同步暗色模式设置 */

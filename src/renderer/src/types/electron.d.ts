@@ -60,6 +60,18 @@ export interface ElectronAPI {
   setLyricsWindowLocked: (locked: boolean) => Promise<boolean>
   setLyricsWindowIgnoreMouse: (ignore: boolean) => Promise<boolean>
 
+  // 应用更新
+  checkForUpdates: () => Promise<boolean>
+  downloadUpdate: () => Promise<boolean>
+  installUpdate: () => Promise<boolean>
+  openReleases: () => Promise<boolean>
+  onUpdateAvailable: (callback: (info: { version: string; currentVersion: string }) => void) => () => void
+  onUpdateDownloadProgress: (callback: (data: { percent: number; transferred: number; total: number; bytesPerSecond: number }) => void) => () => void
+  onUpdateDownloaded: (callback: (info: { version: string }) => void) => () => void
+  onMacUpdateAvailable: (callback: (info: { version: string; currentVersion: string; downloadUrl: string; releasesUrl: string }) => void) => () => void
+  onUpdateStatus: (callback: (data: { state: string; version?: string }) => void) => () => void
+  onUpdateError: (callback: (data: { message: string }) => void) => () => void
+
   // 主题同步
   setDarkMode: (isDark: boolean) => void
   shouldUseDarkColors: () => Promise<boolean>

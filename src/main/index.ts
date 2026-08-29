@@ -13,6 +13,7 @@ import {
 import { join } from "path"
 import { electronApp, optimizer, is } from "@electron-toolkit/utils"
 import { createTouchBar, updateTouchBarLyrics, updateTouchBarPlayState, updateTouchBarLikeState } from "./touchBar"
+import { initUpdater } from "./updater"
 
 // ==================== 类型定义 ====================
 
@@ -746,6 +747,8 @@ app.whenReady().then(() => {
   createWindow()
   createTray()
   registerGlobalShortcuts()
+  // 初始化自动更新（Windows 自动更新 / macOS 新版本提示）
+  initUpdater(() => mainWindow)
 
   // macOS 特殊行为：点击 dock 图标重新激活
   app.on("activate", function () {

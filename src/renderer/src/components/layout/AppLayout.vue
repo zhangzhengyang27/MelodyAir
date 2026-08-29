@@ -46,6 +46,8 @@
 
     <!-- Toast notifications -->
     <ToastContainer />
+    <!-- 应用更新提示（Windows 自动更新 / macOS 手动下载引导） -->
+    <UpdateNotice />
   </div>
 </template>
 
@@ -58,6 +60,7 @@ import AppPlayer from './AppPlayer.vue'
 import TabBar from './TabBar.vue'
 import PlayerFull from '@/components/player/PlayerFull.vue'
 import ToastContainer from '@/components/common/ToastContainer.vue'
+import UpdateNotice from '@/components/common/UpdateNotice.vue'
 import { useLyricsSync } from '@/composables/useLyricsSync'
 import { useAutoLoadLyrics } from '@/composables/useAutoLoadLyrics'
 
