@@ -11,18 +11,15 @@
         <ArrowLeft class="h-5 w-5" />
       </button>
 
-      <!-- Header（纯文字排版） -->
-      <div class="flex min-w-0 flex-col gap-1.5 border-l-2 border-[#FF5A5F] pl-4">
+      <!-- Header（纯文字排版：标题一行 + 元信息一行） -->
+      <div class="flex min-w-0 flex-col gap-2 border-l-2 border-[#FF5A5F] pl-4">
         <h1 class="text-display font-semibold leading-snug">{{ mv.name }}</h1>
-        <div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-neutral-500 dark:text-[#A1A1B5]">
+        <div class="flex flex-wrap items-center gap-x-2.5 gap-y-2">
           <span class="rounded-md bg-[#FF5A5F]/10 px-1.5 py-0.5 text-[11px] font-semibold text-[#FF5A5F] dark:text-[#FF7F66]">MV</span>
-          <span>{{ mv.artistName }}</span>
-        </div>
-        <p class="text-xs text-neutral-400">{{ formatPlayCount(mv.playCount) }}次播放</p>
-        <p v-if="mv.desc" class="mt-1 line-clamp-3 text-xs leading-relaxed text-neutral-400">{{ mv.desc }}</p>
-        <div class="mt-3 flex gap-3">
+          <span class="text-sm text-neutral-500 dark:text-[#A1A1B5]">{{ mv.artistName }}</span>
+          <span class="text-xs text-neutral-400">{{ formatPlayCount(mv.playCount) }}次播放</span>
           <button
-            class="rounded-full px-5 py-1.5 text-sm font-medium transition-colors"
+            class="ml-auto rounded-full px-4 py-1 text-xs font-medium transition-colors"
             :class="isSubbed ? 'bg-neutral-100 text-neutral-600 dark:bg-[#1F1F2E] dark:text-[#A1A1B5]' : 'border border-[#FF5A5F] text-[#FF5A5F] hover:bg-[#FFF5F3] dark:border-[#FF7F66] dark:text-[#FF7F66] dark:hover:bg-[rgba(255,90,95,0.10)]'"
             :disabled="subLoading"
             @click="handleSubMv"
