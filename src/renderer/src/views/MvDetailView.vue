@@ -11,36 +11,24 @@
         <ArrowLeft class="h-5 w-5" />
       </button>
 
-      <!-- Header（移动端上下堆叠，桌面端左右布局） -->
-      <div class="flex flex-col gap-4 md:flex-row md:gap-6">
-        <div class="relative aspect-video w-full shrink-0 overflow-hidden rounded-2xl bg-neutral-100 shadow-[0_2px_16px_rgba(0,0,0,0.08)] dark:bg-[#1F1F2E] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40),0_0_1px_rgba(255,255,255,0.05)] md:h-48 md:w-80 md:aspect-auto">
-          <!-- 封面：压缩 CDN 尺寸，加载失败显示占位 -->
-          <img
-            v-if="coverSrc && !coverFailed"
-            :src="coverSrc"
-            alt=""
-            class="h-full w-full object-cover"
-            @error="coverFailed = true"
-          />
-          <div v-else class="flex h-full w-full items-center justify-center">
-            <Film class="h-10 w-10 text-neutral-300 dark:text-white/15" />
-          </div>
+      <!-- Header（纯文字排版） -->
+      <div class="flex min-w-0 flex-col gap-1.5 border-l-2 border-[#FF5A5F] pl-4">
+        <h1 class="text-display font-semibold leading-snug">{{ mv.name }}</h1>
+        <div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-neutral-500 dark:text-[#A1A1B5]">
+          <span class="rounded-md bg-[#FF5A5F]/10 px-1.5 py-0.5 text-[11px] font-semibold text-[#FF5A5F] dark:text-[#FF7F66]">MV</span>
+          <span>{{ mv.artistName }}</span>
         </div>
-        <div class="flex min-w-0 flex-col justify-center">
-          <h1 class="text-display">{{ mv.name }}</h1>
-          <p class="mt-2 text-sm text-neutral-500 dark:text-[#A1A1B5]">{{ mv.artistName }}</p>
-          <p class="mt-1 text-xs text-neutral-400">{{ formatPlayCount(mv.playCount) }}次播放</p>
-          <p v-if="mv.desc" class="mt-2 line-clamp-3 text-xs text-neutral-400">{{ mv.desc }}</p>
-          <div class="mt-4 flex gap-3">
-            <button
-              class="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition-colors"
-              :class="isSubbed ? 'bg-neutral-100 text-neutral-600 dark:bg-[#1F1F2E] dark:text-[#A1A1B5]' : 'border border-[#FF5A5F] text-[#FF5A5F] hover:bg-[#FFF5F3] dark:border-[#FF7F66] dark:text-[#FF7F66] dark:hover:bg-[rgba(255,90,95,0.10)]'"
-              :disabled="subLoading"
-              @click="handleSubMv"
-            >
-              {{ isSubbed ? '已收藏' : '收藏' }}
-            </button>
-          </div>
+        <p class="text-xs text-neutral-400">{{ formatPlayCount(mv.playCount) }}次播放</p>
+        <p v-if="mv.desc" class="mt-1 line-clamp-3 text-xs leading-relaxed text-neutral-400">{{ mv.desc }}</p>
+        <div class="mt-3 flex gap-3">
+          <button
+            class="rounded-full px-5 py-1.5 text-sm font-medium transition-colors"
+            :class="isSubbed ? 'bg-neutral-100 text-neutral-600 dark:bg-[#1F1F2E] dark:text-[#A1A1B5]' : 'border border-[#FF5A5F] text-[#FF5A5F] hover:bg-[#FFF5F3] dark:border-[#FF7F66] dark:text-[#FF7F66] dark:hover:bg-[rgba(255,90,95,0.10)]'"
+            :disabled="subLoading"
+            @click="handleSubMv"
+          >
+            {{ isSubbed ? '已收藏' : '收藏' }}
+          </button>
         </div>
       </div>
 
@@ -49,7 +37,6 @@
         <video
           v-if="mvUrl"
           :src="mvUrl"
-          :poster="coverSrc"
           controls
           class="h-auto w-full"
         />
@@ -59,9 +46,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowLeft, Film } from 'lucide-vue-next'
+import { ArrowLeft } from 'lucide-vue-next'
 import { getMvDetail, getMvUrl } from '@/api/mv'
 import SkeletonDetail from '@/components/common/skeleton/SkeletonDetail.vue'
 import { useUserStore } from '@/stores/user'
@@ -78,21 +65,10 @@ const mvId = ref(0)
 const mv = ref<any>(null)
 const mvUrl = ref('')
 
-/** 封面加载失败标记 */
-const coverFailed = ref(false)
-
-/** 封面地址：网易云 CDN 压缩到 640×360，避免原图过大 */
-const coverSrc = computed(() => {
-  const url = mv.value?.cover || ''
-  if (!url) return ''
-  return url.includes('?') ? url : `${url}?param=640y360`
-})
-
 async function fetchData(id: number) {
   loading.value = true
   mvId.value = id
   isSubbed.value = false
-  coverFailed.value = false
   try {
     const [detailRes, urlRes] = await Promise.allSettled([
       getMvDetail(id),

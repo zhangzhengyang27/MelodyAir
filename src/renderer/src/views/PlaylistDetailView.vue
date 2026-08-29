@@ -25,8 +25,8 @@
 
       <!-- Header -->
       <div class="flex gap-6">
-        <div class="h-48 w-48 shrink-0 overflow-hidden rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40),0_0_1px_rgba(255,255,255,0.05)]">
-          <img :src="playlist.coverImgUrl + '?param=400y400'" alt="" class="h-full w-full object-cover" />
+        <div class="h-32 w-32 shrink-0 overflow-hidden rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40),0_0_1px_rgba(255,255,255,0.05)] md:h-48 md:w-48">
+          <img :src="playlist.coverImgUrl + '?param=300y300'" alt="" class="h-full w-full object-cover" />
         </div>
         <div class="flex flex-col justify-center">
           <h1 class="text-display">{{ playlist.name }}</h1>
