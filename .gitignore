@@ -8,3 +8,5 @@ out/
 .claude/settings.local.json
 # 本地 MCP 配置，含 API Key / Token，禁止入库
 .mcp.json
+# 内部开发文档（仅本地保留，不公开）
+docs/
