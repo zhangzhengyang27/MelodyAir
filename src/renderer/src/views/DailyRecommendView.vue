@@ -17,6 +17,13 @@
     </div>
 
     <template v-else>
+      <!-- 推荐歌曲 -->
+      <section>
+        <SectionHeader title="推荐歌曲" />
+        <SkeletonSongTable v-if="loading" :rows="8" />
+        <SongTable v-else :songs="songs" @play="handlePlaySong" />
+      </section>
+
       <!-- 推荐歌单 -->
       <section v-if="playlists.length > 0">
         <SectionHeader title="推荐歌单" />
@@ -31,13 +38,6 @@
             <p class="mt-2 line-clamp-2 text-sm dark:text-[#A1A1B5]">{{ item.name }}</p>
           </div>
         </div>
-      </section>
-
-      <!-- 推荐歌曲 -->
-      <section>
-        <SectionHeader title="推荐歌曲" />
-        <SkeletonSongTable v-if="loading" :rows="8" />
-        <SongTable v-else :songs="songs" @play="handlePlaySong" />
       </section>
     </template>
   </div>

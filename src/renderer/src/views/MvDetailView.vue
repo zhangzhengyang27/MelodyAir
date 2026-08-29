@@ -11,12 +11,22 @@
         <ArrowLeft class="h-5 w-5" />
       </button>
 
-      <!-- Header -->
-      <div class="flex gap-6">
-        <div class="h-48 w-80 shrink-0 overflow-hidden rounded-2xl shadow-[0_2px_16px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40),0_0_1px_rgba(255,255,255,0.05)]">
-          <img :src="mv.cover" alt="" class="h-full w-full object-cover" />
+      <!-- Header（移动端上下堆叠，桌面端左右布局） -->
+      <div class="flex flex-col gap-4 md:flex-row md:gap-6">
+        <div class="relative aspect-video w-full shrink-0 overflow-hidden rounded-2xl bg-neutral-100 shadow-[0_2px_16px_rgba(0,0,0,0.08)] dark:bg-[#1F1F2E] dark:shadow-[0_4px_20px_rgba(0,0,0,0.40),0_0_1px_rgba(255,255,255,0.05)] md:h-48 md:w-80 md:aspect-auto">
+          <!-- 封面：压缩 CDN 尺寸，加载失败显示占位 -->
+          <img
+            v-if="coverSrc && !coverFailed"
+            :src="coverSrc"
+            alt=""
+            class="h-full w-full object-cover"
+            @error="coverFailed = true"
+          />
+          <div v-else class="flex h-full w-full items-center justify-center">
+            <Film class="h-10 w-10 text-neutral-300 dark:text-white/15" />
+          </div>
         </div>
-        <div class="flex flex-col justify-center">
+        <div class="flex min-w-0 flex-col justify-center">
           <h1 class="text-display">{{ mv.name }}</h1>
           <p class="mt-2 text-sm text-neutral-500 dark:text-[#A1A1B5]">{{ mv.artistName }}</p>
           <p class="mt-1 text-xs text-neutral-400">{{ formatPlayCount(mv.playCount) }}次播放</p>
@@ -39,6 +49,7 @@
         <video
           v-if="mvUrl"
           :src="mvUrl"
+          :poster="coverSrc"
           controls
           class="h-auto w-full"
         />
@@ -48,9 +59,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ArrowLeft } from 'lucide-vue-next'
+import { ArrowLeft, Film } from 'lucide-vue-next'
 import { getMvDetail, getMvUrl } from '@/api/mv'
 import SkeletonDetail from '@/components/common/skeleton/SkeletonDetail.vue'
 import { useUserStore } from '@/stores/user'
@@ -67,10 +78,21 @@ const mvId = ref(0)
 const mv = ref<any>(null)
 const mvUrl = ref('')
 
+/** 封面加载失败标记 */
+const coverFailed = ref(false)
+
+/** 封面地址：网易云 CDN 压缩到 640×360，避免原图过大 */
+const coverSrc = computed(() => {
+  const url = mv.value?.cover || ''
+  if (!url) return ''
+  return url.includes('?') ? url : `${url}?param=640y360`
+})
+
 async function fetchData(id: number) {
   loading.value = true
   mvId.value = id
   isSubbed.value = false
+  coverFailed.value = false
   try {
     const [detailRes, urlRes] = await Promise.allSettled([
       getMvDetail(id),
