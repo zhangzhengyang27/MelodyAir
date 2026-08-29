@@ -13,18 +13,38 @@
       </button>
     </div>
 
-    <!-- 分类标签 -->
-    <div class="flex flex-wrap gap-2">
+    <!-- 分类标签（默认折叠两行，避免占满一屏） -->
+    <div class="relative">
+      <div class="flex flex-wrap gap-2 overflow-hidden" :class="filtersExpanded ? 'max-h-[800px]' : 'max-h-[60px]'">
+        <button
+          v-for="cat in categories"
+          :key="cat.name"
+          class="rounded-full px-3 py-1 text-xs transition-colors"
+          :class="selectedCat === cat.name
+            ? 'bg-[#FF5A5F] text-white'
+            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-[#1F1F2E] dark:text-[#A1A1B5] dark:hover:bg-[rgba(255,255,255,0.08)]'"
+          @click="selectedCat = cat.name; resetAndFetch()"
+        >
+          {{ cat.name }}
+        </button>
+        <!-- 展开状态：流内收起按钮 -->
+        <button
+          v-if="filtersExpanded"
+          class="flex items-center gap-1 rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-600 transition-colors hover:bg-neutral-200 dark:bg-[#1F1F2E] dark:text-[#A1A1B5] dark:hover:bg-[rgba(255,255,255,0.08)]"
+          @click="filtersExpanded = false"
+        >
+          收起
+          <ChevronUp class="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <!-- 折叠状态：右下角展开按钮 -->
       <button
-        v-for="cat in categories"
-        :key="cat.name"
-        class="rounded-full px-3 py-1 text-xs transition-colors"
-        :class="selectedCat === cat.name
-          ? 'bg-[#FF5A5F] text-white'
-          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-[#1F1F2E] dark:text-[#A1A1B5] dark:hover:bg-[rgba(255,255,255,0.08)]'"
-        @click="selectedCat = cat.name; resetAndFetch()"
+        v-if="!filtersExpanded && categories.length > 6"
+        class="absolute bottom-0 right-0 flex items-center gap-1 rounded-full bg-neutral-100 py-1 pl-3 pr-2 text-xs text-neutral-600 shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-colors hover:bg-neutral-200 dark:bg-[#1F1F2E] dark:text-[#A1A1B5] dark:hover:bg-[rgba(255,255,255,0.08)]"
+        @click="filtersExpanded = true"
       >
-        {{ cat.name }}
+        展开
+        <ChevronDown class="h-3.5 w-3.5" />
       </button>
     </div>
 
@@ -58,10 +78,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { ChevronDown, ChevronUp } from 'lucide-vue-next'
 import { getTopPlaylist, getPlaylistCatlist, getPlaylistHot, getTopPlaylistHighquality } from '@/api/playlist'
 import CoverImage from '@/components/common/CoverImage.vue'
 import SkeletonCardGrid from '@/components/common/skeleton/SkeletonCardGrid.vue'
 import { formatPlayCount } from '@/utils/format'
+
+/** 分类筛选是否展开（默认折叠两行） */
+const filtersExpanded = ref(false)
 
 const tabs = [
   { label: '全部歌单', value: 'all' },

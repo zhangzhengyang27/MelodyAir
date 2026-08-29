@@ -7,19 +7,13 @@
         </div>
         <h2 class="text-subtitle font-semibold">登录后查看</h2>
         <p class="mt-2 text-sm text-neutral-500">登录后即可查看你的个人音乐库</p>
-        <div class="mt-4 flex gap-3">
+        <div class="mt-4 flex justify-center gap-3">
           <RouterLink
             to="/login"
             class="inline-block rounded-xl bg-coral-500 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-coral-600"
           >
             去登录
           </RouterLink>
-          <button
-            class="rounded-xl border-2 border-coral-500 px-6 py-2 text-sm font-medium text-coral-500 transition-colors hover:bg-coral-50 dark:hover:bg-coral-500/10"
-            @click="handleMockLogin"
-          >
-            模拟登录
-          </button>
         </div>
       </div>
     </div>
@@ -37,17 +31,50 @@
         </div>
       </div>
 
-      <!-- Tabs -->
-      <div class="flex gap-1 rounded-xl bg-neutral-100 p-1 dark:bg-[#13131C]">
+      <!-- Tabs（3 个高频标签 + 「更多」下拉收纳低频入口，仿网易云，无需滚动） -->
+      <div class="relative flex gap-1 rounded-xl bg-neutral-100 p-1 dark:bg-[#13131C]">
         <button
-          v-for="tab in tabs"
+          v-for="tab in primaryTabs"
           :key="tab.value"
-          class="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
+          class="flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
           :class="activeTab === tab.value ? 'bg-white text-coral-500 shadow-sm dark:bg-[#1F1F2E] dark:text-coral-400' : 'text-neutral-500 dark:text-[#A1A1B5]'"
           @click="switchTab(tab.value)"
         >
           {{ tab.label }}
         </button>
+        <!-- 第四格：当前选中「更多」项时显示其名称，否则显示「更多」 -->
+        <button
+          ref="moreTabsBtnRef"
+          class="flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
+          :class="activeMoreTab ? 'bg-white text-coral-500 shadow-sm dark:bg-[#1F1F2E] dark:text-coral-400' : 'text-neutral-500 dark:text-[#A1A1B5]'"
+          @click="showMoreTabs = !showMoreTabs"
+        >
+          {{ activeMoreTab ? activeMoreTab.label : '更多' }}
+          <ChevronDown class="h-3.5 w-3.5 transition-transform" :class="{ 'rotate-180': showMoreTabs }" />
+        </button>
+
+        <!-- 更多标签下拉 -->
+        <Teleport to="body">
+          <div v-if="showMoreTabs" class="fixed inset-0 z-40" @click="showMoreTabs = false" />
+          <Transition name="fade">
+            <div
+              v-if="showMoreTabs"
+              class="fixed z-50 w-36 overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-lg dark:border-white/10 dark:bg-[#171722] dark:shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
+              :style="moreTabsStyle"
+            >
+              <button
+                v-for="tab in moreTabs"
+                :key="tab.value"
+                class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors"
+                :class="activeTab === tab.value ? 'text-[#FF5A5F] dark:text-[#FF7F66]' : 'text-neutral-600 dark:text-[#A1A1B5]'"
+                @click="switchTab(tab.value); showMoreTabs = false"
+              >
+                <component :is="tab.icon" class="h-4 w-4 shrink-0" />
+                {{ tab.label }}
+              </button>
+            </div>
+          </Transition>
+        </Teleport>
       </div>
 
       <!-- Liked songs -->
@@ -187,7 +214,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { usePlayerStore } from '@/stores/player'
@@ -196,7 +223,7 @@ import { getSongDetail } from '@/api/song'
 import { getRecentSong } from '@/api/record'
 import SongTable from '@/components/common/SongTable.vue'
 import PlayHistoryList from '@/components/common/PlayHistoryList.vue'
-import { Music } from 'lucide-vue-next'
+import { Music, ChevronDown, Clock, Disc3, Mic2, Clapperboard } from 'lucide-vue-next'
 import CoverImage from '@/components/common/CoverImage.vue'
 import SkeletonCardGrid from '@/components/common/skeleton/SkeletonCardGrid.vue'
 import SkeletonArtistGrid from '@/components/common/skeleton/SkeletonArtistGrid.vue'
@@ -247,15 +274,38 @@ const showCreateDialog = ref(false)
 const newPlaylistName = ref('')
 const createLoading = ref(false)
 
-const tabs = [
+/** 常驻高频标签（其余收进「更多」下拉，仿网易云） */
+const primaryTabs = [
   { label: '我喜欢的', value: 'liked' },
   { label: '我的歌单', value: 'playlists' },
-  { label: '播放历史', value: 'history' },
-  { label: '最近播放', value: 'recent' },
-  { label: '收藏专辑', value: 'albums' },
-  { label: '关注歌手', value: 'artists' },
-  { label: '收藏MV', value: 'mvs' }
+  { label: '播放历史', value: 'history' }
 ]
+
+const moreTabs = [
+  { label: '最近播放', value: 'recent', icon: Clock },
+  { label: '收藏专辑', value: 'albums', icon: Disc3 },
+  { label: '关注歌手', value: 'artists', icon: Mic2 },
+  { label: '收藏MV', value: 'mvs', icon: Clapperboard }
+]
+
+const tabs = [...primaryTabs, ...moreTabs]
+
+/** 「更多」下拉展开状态 */
+const showMoreTabs = ref(false)
+const moreTabsBtnRef = ref<HTMLElement | null>(null)
+
+/** 下拉面板定位：贴齐第四格按钮下方 */
+const moreTabsStyle = computed(() => {
+  const rect = moreTabsBtnRef.value?.getBoundingClientRect()
+  if (!rect) return { top: '0px', left: '0px' }
+  return {
+    top: `${rect.bottom + 6}px`,
+    left: `${Math.max(12, Math.min(rect.left, window.innerWidth - 12 - 144))}px`
+  }
+})
+
+/** 当前选中的是否为「更多」内的标签 */
+const activeMoreTab = computed(() => moreTabs.find(t => t.value === activeTab.value))
 
 async function switchTab(tab: string) {
   activeTab.value = tab
@@ -378,107 +428,5 @@ async function handleCreatePlaylist() {
   }
 }
 
-async function handleMockLogin() {
-  try {
-    const mockData = {
-      "loginType": 1,
-      "code": 200,
-      "profile": {
-        "userType": 0,
-        "avatarUrl": "https://p3.music.126.net/wDDKNwywdQwAMuZ1M9PqWA==/109951172613561799.jpg",
-        "vipType": 0,
-        "authStatus": 0,
-        "djStatus": 0,
-        "detailDescription": "",
-        "experts": {},
-        "expertTags": null,
-        "accountStatus": 0,
-        "nickname": "helloWorld25",
-        "birthday": 743702400000,
-        "gender": 1,
-        "province": 320000,
-        "city": 320100,
-        "avatarImgId": 109951172613561800,
-        "backgroundImgId": 109951164477713310,
-        "defaultAvatar": false,
-        "mutual": false,
-        "remarkName": null,
-        "followed": false,
-        "backgroundUrl": "https://p4.music.126.net/10cEpw3X_clq47u4IFjoMw==/109951164477713315.jpg",
-        "avatarImgIdStr": "109951172613561799",
-        "backgroundImgIdStr": "109951164477713315",
-        "description": "",
-        "userId": 251784601,
-        "signature": "……",
-        "authority": 0,
-        "followeds": 0,
-        "follows": 31,
-        "eventCount": 3,
-        "avatarDetail": null,
-        "playlistCount": 14,
-        "playlistBeSubscribedCount": 1
-      },
-      "cookie": "MUSIC_U=mock_token_for_dev"
-    }
-
-    // 模拟登录成功的处理流程
-    const cookieStr = mockData.cookie
-    userStore.setCookies(cookieStr)
-    userStore.cookie = cookieStr
-    userStore.loginMode = 'account'
-
-    // 设置用户信息
-    if (mockData.profile) {
-      userStore.setProfile(mockData.profile as any)
-    }
-
-    showToast('模拟登录成功！')
-
-    // 刷新当前页面数据
-    if (userStore.profile) {
-      loading.value = true
-      const uid = userStore.profile.userId
-      try {
-        const [playlistRes, likeRes, recentRes] = await Promise.allSettled([
-          getUserPlaylist(uid),
-          getLikeList(uid),
-          getRecentSong()
-        ])
-
-        if (playlistRes.status === 'fulfilled') {
-          playlists.value = (playlistRes.value as any)?.playlist || []
-        }
-
-        if (likeRes.status === 'fulfilled') {
-          const ids = (likeRes.value as any)?.ids || []
-          if (ids.length > 0) {
-            const idsStr = ids.slice(0, 50).join(',')
-            const songRes: any = await getSongDetail(idsStr)
-            likedSongs.value = (songRes?.songs || []).map(mapSongDetail)
-          }
-        }
-
-        if (recentRes.status === 'fulfilled') {
-          recentSongs.value = ((recentRes.value as any)?.data?.list || []).map((item: any) => {
-            const s = item.data
-            return {
-              id: s.id,
-              name: s.name,
-              artists: s.ar?.map((a: any) => ({ id: a.id, name: a.name })) || [],
-              album: { id: s.al?.id || 0, name: s.al?.name || '', picUrl: s.al?.picUrl || '' },
-              duration: s.dt || 0,
-              fee: s.fee || 0
-            }
-          })
-        }
-      } finally {
-        loading.value = false
-      }
-    }
-  } catch (error) {
-    console.error('模拟登录失败:', error)
-    showToast('模拟登录失败', { type: 'error' })
-  }
-}
-
 </script>
+
