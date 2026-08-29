@@ -38,7 +38,7 @@
             {{ item.keyword }}
           </span>
           <button
-            class="text-neutral-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+            class="text-neutral-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 pointer-coarse:opacity-100"
             @click.stop="removeFromHistory(item.keyword)"
             title="删除"
           >

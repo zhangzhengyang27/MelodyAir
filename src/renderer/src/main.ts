@@ -64,12 +64,15 @@ if (savedTheme) {
 
 // ★ Feature 3: 恢复上次播放状态（异步，不阻塞渲染）
 // 只在主窗口恢复播放，桌面歌词窗口和迷你窗口跳过，避免重复播放
+// 移动端浏览器受 autoplay 策略限制，启动时无法出声，只恢复队列/历史，待用户首次操作后再播放
+const isWebMobile = !window.electronAPI && window.matchMedia('(pointer: coarse)').matches
 const isSecondaryWindow = window.location.hash.includes('/desktop-lyrics') || window.location.hash.includes('/mini-player')
 if (!isSecondaryWindow) {
   import('@/stores/player').then(({ usePlayerStore }) => {
     const playerStore = usePlayerStore()
     // 先恢复持久化状态（睡眠定时、播放历史）
     playerStore.loadPersistentState()
+    if (isWebMobile) return
     // 等待音频引擎就绪后恢复播放，带兜底超时
     let restored = false
     const tryRestore = () => {

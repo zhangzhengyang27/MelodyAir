@@ -1,10 +1,10 @@
 <template>
-  <footer class="flex h-20 shrink-0 items-center border-t border-neutral-200 bg-white px-4 dark:border-white/10 dark:bg-[#0F0F14]" style="-webkit-app-region: no-drag;">
+  <footer ref="footerRef" class="relative flex h-[4.5rem] shrink-0 items-center border-t border-neutral-200 bg-white px-2.5 dark:border-white/10 dark:bg-[#0F0F14] md:h-16 md:px-4" style="-webkit-app-region: no-drag;">
     <!-- Song info -->
-    <div class="flex w-72 items-center gap-3">
+    <div class="flex min-w-0 flex-1 items-center gap-2 md:w-72 md:flex-none md:gap-3">
       <div
         v-if="playerStore.currentSong"
-        class="group relative h-12 w-12 shrink-0 cursor-pointer overflow-hidden rounded-lg bg-neutral-200 dark:bg-[#1F1F2E]"
+        class="group relative h-11 w-11 shrink-0 cursor-pointer overflow-hidden rounded-lg bg-neutral-200 dark:bg-[#1F1F2E] md:h-10 md:w-10"
         @click="openFullPlayer"
       >
         <img
@@ -26,7 +26,7 @@
       <!-- 喜欢按钮 -->
       <button
         v-if="playerStore.currentSong"
-        class="like-btn shrink-0"
+        class="like-btn hide-on-mobile shrink-0"
         :class="{ 'liked': isCurrentSongLiked }"
         :title="isCurrentSongLiked ? '取消喜欢' : '喜欢'"
         @click="toggleLike"
@@ -36,19 +36,20 @@
       <p v-else class="text-sm text-neutral-400">未在播放</p>
     </div>
 
-    <!-- Controls -->
-    <div class="flex flex-1 flex-col items-center gap-1">
-      <div class="flex items-center gap-4">
-        <button class="player-btn" @click="playerStore.togglePlayMode" :title="playModeLabel">
+    <!-- Controls（移动端收缩为自适应宽度，使播放键紧邻右侧播放列表） -->
+    <div class="flex flex-none flex-col items-center gap-1 max-md:mr-1 md:flex-1">
+      <div class="flex items-center gap-2 md:gap-4">
+        <!-- 移动端精简：隐藏播放模式与上一首 -->
+        <button class="player-btn hide-on-mobile" @click="playerStore.togglePlayMode" :title="playModeLabel">
           <component :is="playModeIcon" class="h-[18px] w-[18px]" />
         </button>
-        <button class="player-btn" @click="playerStore.playPrev">
+        <button class="player-btn hide-on-mobile" @click="playerStore.playPrev">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
             <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
           </svg>
         </button>
         <button
-          class="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF5A5F] text-white transition-colors hover:bg-[#E0484D]"
+          class="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF5A5F] text-white shadow-[0_2px_8px_rgba(255,90,95,0.35)] transition-transform hover:scale-105 active:scale-95 md:h-9 md:w-9"
           @click="playerStore.togglePlaying"
         >
           <svg v-if="!playerStore.playing" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -58,15 +59,18 @@
             <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
           </svg>
         </button>
-        <button class="player-btn" @click="playerStore.playNext">
+        <button class="player-btn hide-on-mobile" @click="playerStore.playNext">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
             <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
           </svg>
         </button>
 
-        <SleepTimerButton />
+        <!-- 移动端使用硬件音量，隐藏睡眠定时与音量控件 -->
+        <div class="hidden md:block">
+          <SleepTimerButton />
+        </div>
 
-        <div class="volume-group relative flex items-center">
+        <div class="volume-group relative hidden items-center md:flex">
           <button class="player-btn" @click="toggleMute" :title="playerStore.muted ? '取消静音' : '静音'">
             <VolumeX v-if="playerStore.muted" class="h-[18px] w-[18px]" />
             <Volume2 v-else class="h-[18px] w-[18px]" />
@@ -83,39 +87,44 @@
         </div>
       </div>
 
-      <div class="flex w-full max-w-xl items-center gap-2 text-xs text-neutral-400">
-        <span class="w-10 text-right tabular-nums">{{ formatTime(dragProgress !== null ? dragProgress * playerStore.duration : playerStore.currentTime) }}</span>
+      <!-- 进度条：移动端不展示（去全屏播放页操作），仅桌面端显示 -->
+      <div class="hidden w-full max-w-xl items-center gap-2 text-xs text-neutral-400 md:flex">
+        <span class="w-9 text-right tabular-nums md:w-10">{{ formatTime(dragProgress !== null ? dragProgress * playerStore.duration : playerStore.currentTime) }}</span>
         <div
           ref="progressTrackRef"
-          class="group relative h-1.5 flex-1 cursor-pointer rounded-full bg-neutral-200 dark:bg-[#252535]"
+          class="group relative -my-3 flex-1 cursor-pointer py-3"
           @mousedown.prevent="handleProgressDragStart"
           @mousemove="handleProgressHover"
           @mouseleave="hoverTime = null"
+          @touchstart.prevent="handleProgressTouchStart"
         >
-          <div
-            class="absolute left-0 top-0 h-full rounded-full bg-[#FF5A5F]"
-            :class="dragProgress === null ? 'transition-[width] duration-100' : ''"
-            :style="{ width: (displayProgress * 100) + '%' }"
-          />
-          <div
-            class="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#FF5A5F] opacity-0 shadow transition-opacity group-hover:opacity-100"
-            :style="{ left: (displayProgress * 100) + '%' }"
-          />
+          <!-- 视觉轨道（细条）；外层仅负责扩大触摸/悬停热区，背景不能放在外层否则会被 padding 撑厚 -->
+          <div class="relative h-1.5 w-full rounded-full bg-neutral-200 dark:bg-[#252535]">
+            <div
+              class="absolute left-0 top-0 h-full rounded-full bg-[#FF5A5F]"
+              :class="dragProgress === null ? 'transition-[width] duration-100' : ''"
+              :style="{ width: (displayProgress * 100) + '%' }"
+            />
+            <div
+              class="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#FF5A5F] opacity-0 shadow transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100"
+              :style="{ left: (displayProgress * 100) + '%' }"
+            />
+          </div>
           <div
             v-if="hoverTime !== null"
-            class="absolute -top-7 -translate-x-1/2 rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] text-white"
+            class="absolute -top-4 -translate-x-1/2 rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] text-white"
             :style="{ left: (hoverProgress * 100) + '%' }"
           >
             {{ formatTime(hoverTime) }}
           </div>
         </div>
-        <span class="w-10">{{ formatTime(playerStore.duration) }}</span>
+        <span class="w-9 md:w-10">{{ formatTime(playerStore.duration) }}</span>
       </div>
     </div>
 
-    <!-- Right area -->
-    <div class="flex w-72 items-center justify-end gap-2">
-      <div class="relative" ref="qualityPopupRef">
+    <!-- Right area（移动端隐藏音质标签） -->
+    <div class="flex items-center justify-end gap-1 md:w-72 md:gap-2">
+      <div class="relative max-md:hidden" ref="qualityPopupRef">
         <button
           class="player-btn whitespace-nowrap text-[11px] font-medium leading-tight"
           :class="{ 'text-[#FF5A5F]': effectiveQuality !== 'exhigh' }"
@@ -128,7 +137,7 @@
           <Transition name="fade-scale">
             <div
               v-if="showQualityPopup"
-              class="fixed bottom-[5.75rem] z-50 w-44 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg dark:border-white/10 dark:bg-[#171722] dark:shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
+              class="fixed bottom-24 z-50 w-44 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg dark:border-white/10 dark:bg-[#171722] dark:shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
               :style="qualityPopupStyle"
             >
               <div class="border-b border-neutral-100 px-3 py-2 dark:border-white/6">
@@ -171,7 +180,7 @@
           <Transition name="fade-scale">
             <div
               v-if="showMoreMenu"
-              class="fixed bottom-[5.75rem] z-50 w-44 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg dark:border-white/10 dark:bg-[#171722] dark:shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
+              class="fixed bottom-24 z-50 w-44 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg dark:border-white/10 dark:bg-[#171722] dark:shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
               :style="moreMenuStyle"
             >
               <div class="border-b border-neutral-100 px-3 py-2 dark:border-white/6">
@@ -255,6 +264,7 @@ const showQualityPopup = ref(false)
 const showMoreMenu = ref(false)
 const moreMenuRef = ref<HTMLElement | null>(null)
 const qualityPopupRef = ref<HTMLElement | null>(null)
+const footerRef = ref<HTMLElement | null>(null)
 const popupPositionTick = ref(0) // 窗口 resize 时递增，触发 computed 重新计算
 
 const qualityShortLabel = computed(() => {
@@ -284,15 +294,18 @@ const qualityPopupStyle = computed(() => {
   // 依赖 popupPositionTick 以在窗口 resize 时重新计算
   void popupPositionTick.value
   const rect = qualityPopupRef.value?.getBoundingClientRect()
-  if (!rect) return { right: '1rem', bottom: '5.75rem' }
-  return { left: `${Math.max(16, rect.left - 110)}px`, bottom: '5.75rem' }
+  // 锚定播放条顶边：桌面端/移动端（底部还有 tab 栏）都自适应
+  const footerTop = footerRef.value?.getBoundingClientRect().top ?? window.innerHeight - 80
+  if (!rect) return { right: '1rem', bottom: `${window.innerHeight - footerTop + 8}px` }
+  return { left: `${Math.max(16, rect.left - 110)}px`, bottom: `${window.innerHeight - footerTop + 8}px` }
 })
 
 const moreMenuStyle = computed(() => {
   void popupPositionTick.value
   const rect = moreMenuRef.value?.getBoundingClientRect()
-  if (!rect) return { right: '1rem', bottom: '5.75rem' }
-  return { left: `${Math.max(16, rect.left - 110)}px`, bottom: '5.75rem' }
+  const footerTop = footerRef.value?.getBoundingClientRect().top ?? window.innerHeight - 80
+  if (!rect) return { right: '1rem', bottom: `${window.innerHeight - footerTop + 8}px` }
+  return { left: `${Math.max(16, rect.left - 110)}px`, bottom: `${window.innerHeight - footerTop + 8}px` }
 })
 
 function handleClickOutside(e: MouseEvent) {
@@ -366,11 +379,12 @@ const dragProgress = ref<number | null>(null)
 
 const displayProgress = computed(() => dragProgress.value ?? playerStore.progress)
 
-function progressFromEvent(e: MouseEvent): number {
+function progressFromEvent(e: MouseEvent | TouchEvent): number {
   const el = progressTrackRef.value
   if (!el) return 0
   const rect = el.getBoundingClientRect()
-  return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+  const clientX = 'touches' in e ? e.touches[0]?.clientX ?? e.changedTouches?.[0]?.clientX ?? 0 : e.clientX
+  return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
 }
 
 function handleProgressDragStart(e: MouseEvent) {
@@ -394,6 +408,28 @@ function handleProgressDragEnd(e: MouseEvent) {
   dragProgress.value = null
   document.removeEventListener('mousemove', handleProgressDragMove)
   document.removeEventListener('mouseup', handleProgressDragEnd)
+  seekByProgress(target)
+}
+
+// —— 触摸拖动（参照 PlayerFull：move 需 preventDefault 阻止页面滚动）——
+function handleProgressTouchStart(e: TouchEvent) {
+  dragProgress.value = progressFromEvent(e)
+  document.addEventListener('touchmove', handleProgressTouchMove, { passive: false })
+  document.addEventListener('touchend', handleProgressTouchEnd)
+}
+
+function handleProgressTouchMove(e: TouchEvent) {
+  if (dragProgress.value === null) return
+  e.preventDefault()
+  dragProgress.value = progressFromEvent(e)
+}
+
+function handleProgressTouchEnd() {
+  if (dragProgress.value === null) return
+  const target = dragProgress.value
+  dragProgress.value = null
+  document.removeEventListener('touchmove', handleProgressTouchMove)
+  document.removeEventListener('touchend', handleProgressTouchEnd)
   seekByProgress(target)
 }
 
@@ -429,6 +465,8 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleWindowResize)
   document.removeEventListener('mousemove', handleProgressDragMove)
   document.removeEventListener('mouseup', handleProgressDragEnd)
+  document.removeEventListener('touchmove', handleProgressTouchMove)
+  document.removeEventListener('touchend', handleProgressTouchEnd)
 })
 </script>
 
@@ -586,5 +624,12 @@ onUnmounted(() => {
 .fade-scale-leave-to {
   opacity: 0;
   transform: translateY(8px) scale(0.95);
+}
+
+/* 移动端隐藏的控件（置于样式块末尾，确保覆盖上方 .player-btn/.like-btn 的 display:flex） */
+@media (max-width: 767.98px) {
+  .hide-on-mobile {
+    display: none;
+  }
 }
 </style>

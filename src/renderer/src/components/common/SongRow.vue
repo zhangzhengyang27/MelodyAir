@@ -65,7 +65,7 @@
     </div>
 
     <!-- Hover actions -->
-    <div class="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+    <div class="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100">
       <button
         class="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-coral-50 hover:text-coral-500 dark:hover:bg-[rgba(255,90,95,0.18)] dark:text-[#6B6B80] dark:group-hover:text-[#A1A1B5]"
         @click="handlePlay"

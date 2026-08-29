@@ -1,5 +1,14 @@
 <template>
-  <header class="app-header-drag flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 bg-white px-6 dark:border-white/10 dark:bg-[#0F0F14]">
+  <header class="app-header-drag flex h-14 shrink-0 items-center justify-between border-b border-neutral-200 bg-white px-3 dark:border-white/10 dark:bg-[#0F0F14] md:px-6">
+    <!-- 移动端：打开侧边栏抽屉 -->
+    <button
+      class="mr-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-[#A1A1B5] dark:hover:bg-white/6 md:hidden"
+      title="菜单"
+      @click="emit('toggle-sidebar')"
+    >
+      <Menu class="h-5 w-5" />
+    </button>
+
     <!-- Search -->
     <div class="relative flex-1 max-w-lg" ref="searchContainerRef">
       <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -169,7 +178,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Sun, Moon, Library, Cloud, Settings, LogOut, Search, Info, RefreshCw, MessageSquare, Code2 } from 'lucide-vue-next'
+import { Sun, Moon, Library, Cloud, Settings, LogOut, Search, Info, RefreshCw, MessageSquare, Code2, Menu } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
 import { useSettingsStore } from '@/stores/settings'
 import { usePlatform } from '@/composables/usePlatform'
@@ -181,6 +190,10 @@ const router = useRouter()
 const userStore = useUserStore()
 const settingsStore = useSettingsStore()
 const { isElectron } = usePlatform()
+
+const emit = defineEmits<{
+  'toggle-sidebar': []
+}>()
 
 const searchQuery = ref('')
 const showUserMenu = ref(false)

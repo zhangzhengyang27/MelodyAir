@@ -19,13 +19,13 @@
 
         <!-- 左右切换箭头 -->
         <button
-          class="banner-arrow absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 group-hover:opacity-100"
+          class="banner-arrow absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 group-hover:opacity-100 pointer-coarse:opacity-100"
           @click="prevBanner"
         >
           <ChevronLeft class="h-5 w-5" />
         </button>
         <button
-          class="banner-arrow absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 group-hover:opacity-100"
+          class="banner-arrow absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 group-hover:opacity-100 pointer-coarse:opacity-100"
           @click="nextBanner"
         >
           <ChevronRight class="h-5 w-5" />

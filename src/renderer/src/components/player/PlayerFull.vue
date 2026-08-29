@@ -18,7 +18,7 @@
     </div>
 
     <!-- Header -->
-    <header class="relative flex items-center justify-between px-6 py-4" style="-webkit-app-region: drag;">
+    <header class="relative flex items-center justify-between px-4 py-3 md:px-6 md:py-4" style="-webkit-app-region: drag;">
       <button
         class="header-btn"
         style="-webkit-app-region: no-drag;"
@@ -30,7 +30,7 @@
       </button>
       <div class="flex items-center gap-2">
         <span class="playing-dot" :class="{ active: playerStore.playing }" />
-        <span class="text-xs font-medium tracking-wider text-white/60 uppercase">Now Playing</span>
+        <span class="max-md:hidden whitespace-nowrap text-xs font-medium tracking-wider text-white/60 uppercase">Now Playing</span>
       </div>
       <!-- 功能按钮组 -->
       <div class="flex items-center gap-1" style="-webkit-app-region: no-drag;">
@@ -306,7 +306,7 @@
               </svg>
             </button>
 
-            <button class="ctrl-btn-icon" @click="toggleMute" :title="playerStore.muted ? '取消静音' : '静音'">
+            <button class="ctrl-btn-icon mute-btn" @click="toggleMute" :title="playerStore.muted ? '取消静音' : '静音'">
               <svg v-if="playerStore.muted" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
@@ -453,9 +453,6 @@
             <LoadingSpinner />
           </div>
           <div v-else-if="songDetail" class="detail-body">
-            <div class="detail-cover">
-              <img :src="songDetail.album?.picUrl + '?param=300y300'" alt="" class="detail-cover-img" />
-            </div>
             <div class="detail-info">
               <div class="detail-row">
                 <span class="detail-label">歌曲名称</span>
@@ -1491,23 +1488,9 @@ onUnmounted(() => {
 
 .detail-body {
   padding: 20px;
-  display: flex;
-  gap: 20px;
-}
-
-.detail-cover {
-  flex-shrink: 0;
-}
-
-.detail-cover-img {
-  width: 140px;
-  height: 140px;
-  border-radius: 12px;
-  object-fit: cover;
 }
 
 .detail-info {
-  flex: 1;
   min-width: 0;
 }
 
@@ -2613,29 +2596,39 @@ onUnmounted(() => {
     height: 48px;
   }
 
-  .play-btn-main {
+  .play-btn-large {
     width: 3.25rem;
     height: 3.25rem;
   }
 
-  .ctrl-btn {
-    width: 2.5rem;
-    height: 2.5rem;
+  .ctrl-btn-icon {
+    width: 2.25rem;
+    height: 2.25rem;
   }
 
   .controls-bottom {
     padding: 12px 20px 20px;
   }
 
+  /* 移动端控制按钮收成一行：居中排列，隐藏音量控件（用硬件音量） */
   .controls-bar {
-    flex-direction: column;
-    gap: 12px;
+    justify-content: center;
+    gap: 10px;
   }
 
   .controls-left,
   .controls-right {
-    width: 100%;
-    justify-content: center;
+    flex: 0 0 auto;
+    gap: 10px;
+  }
+
+  .controls-center {
+    gap: 14px;
+  }
+
+  .mute-btn,
+  .volume-slider {
+    display: none;
   }
 }
 </style>

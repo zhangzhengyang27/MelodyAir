@@ -48,7 +48,7 @@
             <p class="truncate text-xs text-neutral-400">{{ song.artists.map(a => a.name).join(' / ') }}</p>
           </div>
           <button
-            class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium text-neutral-500 opacity-0 transition-all hover:bg-[#FF5A5F]/10 hover:text-[#FF5A5F] group-hover:opacity-100"
+            class="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium text-neutral-500 opacity-0 transition-all hover:bg-[#FF5A5F]/10 hover:text-[#FF5A5F] group-hover:opacity-100 pointer-coarse:opacity-100"
             title="不感兴趣"
             @click="handleTrash(song, index)"
           >
@@ -56,7 +56,7 @@
             不感兴趣
           </button>
           <button
-            class="rounded-full bg-[#FF5A5F] px-4 py-1.5 text-xs font-medium text-white opacity-0 transition-opacity hover:bg-[#E0484D] group-hover:opacity-100"
+            class="rounded-full bg-[#FF5A5F] px-4 py-1.5 text-xs font-medium text-white opacity-0 transition-opacity hover:bg-[#E0484D] group-hover:opacity-100 pointer-coarse:opacity-100"
             @click="handlePlay(index)"
           >
             播放

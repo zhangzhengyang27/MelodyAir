@@ -100,7 +100,7 @@
                 <div class="flex w-6 shrink-0 items-center justify-center">
                   <GripVertical
                     v-if="idx !== playerStore.currentIndex"
-                    class="h-4 w-4 cursor-grab text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-white/20"
+                    class="h-4 w-4 cursor-grab text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100 dark:text-white/20"
                   />
                   <Play v-else class="h-3.5 w-3.5 text-[#FF5A5F]" />
                   <span v-if="idx !== playerStore.currentIndex" class="text-xs text-neutral-400">{{ idx + 1 }}</span>
@@ -122,7 +122,7 @@
 
                 <!-- 移除按钮 -->
                 <button
-                  class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-300 opacity-0 transition-opacity hover:bg-neutral-100 hover:text-red-500 group-hover:opacity-100 dark:text-white/20 dark:hover:bg-white/5"
+                  class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-300 opacity-0 transition-opacity hover:bg-neutral-100 hover:text-red-500 group-hover:opacity-100 pointer-coarse:opacity-100 dark:text-white/20 dark:hover:bg-white/5"
                   title="从队列移除"
                   @click.stop="handleRemoveFromQueue(idx)"
                 >
@@ -158,7 +158,7 @@
                 </div>
                 <span class="shrink-0 text-xs text-neutral-400">{{ formatDuration(song.duration) }}</span>
                 <button
-                  class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-300 opacity-0 transition-opacity hover:bg-neutral-100 hover:text-red-500 group-hover:opacity-100 dark:text-white/20 dark:hover:bg-white/5"
+                  class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-300 opacity-0 transition-opacity hover:bg-neutral-100 hover:text-red-500 group-hover:opacity-100 pointer-coarse:opacity-100 dark:text-white/20 dark:hover:bg-white/5"
                   title="移除"
                   @click.stop="handleRemoveFromNext(idx)"
                 >
@@ -200,7 +200,7 @@
                   <p class="truncate text-xs text-neutral-400">{{ song.artists?.map(a => a.name).join(' / ') }}</p>
                 </div>
                 <button
-                  class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-300 opacity-0 transition-opacity hover:bg-neutral-100 hover:text-[#FF5A5F] group-hover:opacity-100 dark:text-white/20 dark:hover:bg-white/5"
+                  class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-300 opacity-0 transition-opacity hover:bg-neutral-100 hover:text-[#FF5A5F] group-hover:opacity-100 pointer-coarse:opacity-100 dark:text-white/20 dark:hover:bg-white/5"
                   title="下一首播放"
                   @click.stop="handleAddToNext(song)"
                 >

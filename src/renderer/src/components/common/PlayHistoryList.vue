@@ -36,7 +36,7 @@
       </div>
 
       <!-- Actions -->
-      <div class="flex shrink-0 items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+      <div class="flex shrink-0 items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100">
         <button
           class="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-coral-50 hover:text-coral-500 dark:hover:bg-[rgba(255,90,95,0.18)]"
           @click="handlePlay(item.song)"
