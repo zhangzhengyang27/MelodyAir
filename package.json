@@ -1,7 +1,7 @@
 {
   "name": "melody-air",
   "type": "module",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "A music desktop app with Airbnb-style UI",
   "main": "./out/main/index.js",
   "author": "MelodyAir",
@@ -71,7 +71,26 @@
     "files": [
       "out/**/*",
       "build/**/*",
-      "package.json"
+      "package.json",
+      {
+        "from": "node_modules",
+        "to": "node_modules",
+        "filter": [
+          "**/*",
+          "!**/*.{md,markdown}",
+          "!**/*.{map,tsbuildinfo}",
+          "!**/*.{d.ts,d.ts.map}",
+          "!**/test/**",
+          "!**/__tests__/**",
+          "!**/tests/**",
+          "!**/powered-test/**",
+          "!**/example/**",
+          "!**/examples/**",
+          "!**/docs/**",
+          "!**/.bin/**",
+          "!**/{CHANGELOG,README,readme,history}{,.md,.markdown}"
+        ]
+      }
     ],
     "mac": {
       "icon": "build/icon.icns",
