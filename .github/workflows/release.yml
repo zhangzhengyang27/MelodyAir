@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Publish (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            script: build:mac
+          - os: windows-latest
+            script: build:win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build & publish to GitHub Releases
+        env:
+          # electron-builder 读取 GH_TOKEN 上传产物到 GitHub Releases
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 跳过代码签名（本仓库未配置签名证书/公证）
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: pnpm ${{ matrix.script }} --publish always
