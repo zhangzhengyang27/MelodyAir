@@ -12,6 +12,7 @@
 - **多窗口**：主窗口、迷你播放器、桌面歌词
 - **macOS TouchBar** 支持
 - **主题**：跟随系统 / 浅色 / 深色切换
+- **自动更新**：Windows 自动更新；macOS 检测新版本并引导下载
 
 ## 技术栈
 
@@ -99,7 +100,14 @@ docs/          # 需求、设计、验收文档
 项目使用 GitHub Actions 自动完成校验与发布，详见 `.github/workflows/`：
 
 - **CI 校验**（`ci.yml`）：主分支 / PR 触发，执行安装、lint、构建，保证代码质量
-- **发布**（`release.yml`）：推送 `v*` 标签时，在 macOS 与 Windows 上构建安装包并上传到 [GitHub Releases](https://github.com/zhangzhengyang27/MelodyAir/releases)
+- **发布**（`release.yml`）：推送 `v*` 标签时构建安装包并上传到 [GitHub Releases](https://github.com/zhangzhengyang27/MelodyAir/releases)
+  - macOS：Apple Silicon（arm64）+ Intel（x64）
+  - Windows：x64
+
+## 自动更新
+
+- **Windows**：应用启动后自动检查更新，发现新版本提示下载，下载完成一键重启安装（基于 `electron-updater`，免签名）
+- **macOS**：应用启动后检测 GitHub 最新版本，发现新版本提示前往 GitHub 下载安装包（当前未签名，不启用自动安装）
 
 触发发布：
 
