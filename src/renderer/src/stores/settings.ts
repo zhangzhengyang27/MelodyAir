@@ -98,7 +98,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const shortcutNext = ref('MediaNextTrack')
 
   // 网络设置（统一直连后端，不再走 Vite proxy）
-  const apiBase = ref('http://localhost:3000')
+  // Web 构建（.env.web / build:web）默认指向线上 API；Electron/本地开发默认 localhost
+  const apiBase = ref(import.meta.env.VITE_API_BASE || 'http://localhost:3001')
 
   // ★ 初始化时同步缓存大小到 CacheManager
   cacheManager.setMaxCacheSize(cacheLimitMB.value)

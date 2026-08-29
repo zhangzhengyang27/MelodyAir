@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHistory, createWebHashHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 
 const routes: RouteRecordRaw[] = [
@@ -143,7 +143,10 @@ const routes: RouteRecordRaw[] = [
 ]
 
 const router = createRouter({
-  history: createWebHashHistory(),
+  // Web 部署（--mode web，.env.web）用 history 模式，需 Nginx try_files 回退到 /index.html；
+  // Electron 保持 hash：生产走 file:// 协议，且主进程以 #/mini-player、#/desktop-lyrics 打开子窗口
+  history:
+    import.meta.env.VITE_ROUTER_MODE === 'history' ? createWebHistory() : createWebHashHistory(),
   routes
 })
 

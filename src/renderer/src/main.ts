@@ -17,6 +17,17 @@ app.use(pinia)
 app.use(router)
 app.mount('#app')
 
+// Umami 访问统计：仅在 Web 构建注入（VITE_ROUTER_MODE=history，见 .env.web）。
+// Electron 桌面版不注入，避免 file:// 环境的页览污染线上数据。
+// umami script.js 自带 SPA 支持，会跟踪 history.pushState/replaceState 路由跳转。
+if (import.meta.env.VITE_ROUTER_MODE === 'history') {
+  const umami = document.createElement('script')
+  umami.defer = true
+  umami.src = 'https://analytics.zhangzhengyang.com/script.js'
+  umami.setAttribute('data-website-id', '7ad68d7c-b004-4945-afe1-efb4682dcc20')
+  document.head.appendChild(umami)
+}
+
 // Listen for player actions from Electron main process (media keys, tray)
 window.electronAPI?.onPlayerAction?.((action: string) => {
   // Dynamic import to avoid circular dependency at module init time

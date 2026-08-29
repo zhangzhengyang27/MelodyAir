@@ -23,7 +23,7 @@ export const settingsDefaults = {
   minimizeToTray: true,
   globalShortcut: true,
   autoLaunch: false,
-  apiBase: 'http://localhost:3000',
+  apiBase: (import.meta.env.VITE_API_BASE as string) || 'http://localhost:3001',
 }
 
 export const playerDefaults = {

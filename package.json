@@ -9,8 +9,9 @@
   "scripts": {
     "predev": "bash scripts/replace-dev-icon.sh",
     "dev": "electron-vite dev",
-    "dev:web": "vite --config vite.web.config.ts",
+    "dev:web": "vite --config vite.web.config.ts --mode web",
     "build": "electron-vite build",
+    "build:web": "VITE_API_BASE=https://music-api.zhangzhengyang.com vite build --config vite.web.config.ts --mode web",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "pnpm build && electron-builder --dir",
     "build:win": "pnpm build && electron-builder --win",
