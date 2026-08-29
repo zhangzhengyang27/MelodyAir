@@ -17,6 +17,7 @@
         <div class="flex flex-wrap items-center gap-x-2.5 gap-y-2">
           <span class="rounded-md bg-[#FF5A5F]/10 px-1.5 py-0.5 text-[11px] font-semibold text-[#FF5A5F] dark:text-[#FF7F66]">MV</span>
           <span class="text-sm text-neutral-500 dark:text-[#A1A1B5]">{{ mv.artistName }}</span>
+          <span class="text-xs text-neutral-400">·</span>
           <span class="text-xs text-neutral-400">{{ formatPlayCount(mv.playCount) }}次播放</span>
           <button
             class="ml-auto rounded-full px-4 py-1 text-xs font-medium transition-colors"
