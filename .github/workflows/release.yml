@@ -20,8 +20,8 @@ jobs:
             script: build:mac
             args: --arm64
             target: mac-arm64
-          # macOS Intel（macos-13 为 Intel x64 runner）
-          - os: macos-13
+          # macOS Intel（macos-15-intel 为 Intel x64 runner）
+          - os: macos-15-intel
             script: build:mac
             args: --x64
             target: mac-x64
