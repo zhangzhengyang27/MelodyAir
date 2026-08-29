@@ -1,6 +1,6 @@
 # MelodyAir 🎵
 
-一个基于 **Electron + Vue 3 + TypeScript** 的桌面音乐播放器，UI 采用 Airbnb 风格，覆盖网易云音乐核心能力，支持 macOS / Windows / Linux。
+一个基于 **Electron + Vue 3 + TypeScript** 的桌面音乐播放器，UI 采用 Airbnb 风格，覆盖主流音乐播放器的核心能力，支持 macOS / Windows / Linux。
 
 ## 功能特性
 
@@ -29,9 +29,6 @@
 
 - [Node.js](https://nodejs.org/) ≥ 20
 - [pnpm](https://pnpm.io/) ≥ 9
-- 后端服务 `music-backend`（本仓库同级目录），默认接口地址 `http://localhost:3001`
-
-> 本项目依赖网易云音乐 API 后端（`music-backend`），需先启动后端才能正常使用登录、歌单、歌词等功能。
 
 ## 快速开始
 
@@ -110,10 +107,6 @@ docs/          # 需求、设计、验收文档
 git tag v1.0.0
 git push origin v1.0.0
 ```
-
-## 相关项目
-
-- `music-backend`：网易云音乐 API 后端（NestJS），本项目的数据服务，部署于 `music-backend/` 目录（与前端分离的 Git 仓库）
 
 ## License
 
