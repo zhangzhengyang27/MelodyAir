@@ -6,3 +6,5 @@ out/
 *.local
 .pnpm-store/
 .claude/settings.local.json
+# 本地 MCP 配置，含 API Key / Token，禁止入库
+.mcp.json
