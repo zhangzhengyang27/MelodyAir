@@ -7,7 +7,11 @@
  */
 
 import { app, ipcMain, BrowserWindow, shell } from 'electron'
-import { autoUpdater } from 'electron-updater'
+// electron-updater 是 CommonJS 模块，主进程被 electron-vite 打包为 ESM，
+// 命名导入在 ESM loader 下会报 "Named export not found"。
+// 改用默认导入 + 解构绕过该问题。
+import electronUpdater from 'electron-updater'
+const { autoUpdater } = electronUpdater
 
 /** 当前仓库的最新 release 检测地址（macOS 手动下载用） */
 const GITHUB_LATEST_API = 'https://api.github.com/repos/zhangzhengyang27/MelodyAir/releases/latest'
