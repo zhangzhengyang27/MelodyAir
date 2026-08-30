@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import type { PlayMode, PlayerStatus } from '../utils/player'
 import { showToast } from '../composables/useToast'
 import { logger } from '../utils/logger'
+import { isMainWindow } from '../utils/windowRole'
 import { playerDefaults, migrateWithDefaults } from './defaults'
 import { usePlayerCache } from '../composables/usePlayerCache'
 import { useScrobble } from '../composables/useScrobble'
@@ -99,6 +100,7 @@ export const usePlayerStore = defineStore('player', () => {
   let lastProgressIpcTime = 0
   let lastLyricsIpcTime = 0
   let lastLyricText = ''
+  let lastHasLyrics = false
   const PROGRESS_IPC_INTERVAL = 300  // 任务栏进度 300ms
   const LYRICS_IPC_INTERVAL = 500    // Touch Bar 歌词 500ms
 
@@ -174,6 +176,13 @@ export const usePlayerStore = defineStore('player', () => {
 
   // ==================== 音频引擎事件监听 ====================
   function initAudioEventListeners(): void {
+    // 子窗口（桌面歌词 / 迷你播放器）有独立的 Pinia 实例，绝不能参与播放状态的生产：
+    // 否则会用自己的空歌词状态反向广播，与主窗口互相覆盖导致歌词闪烁。
+    if (!isMainWindow()) {
+      logger.info('player', 'Skip audio listeners: secondary window (own Pinia instance)')
+      return
+    }
+
     // 时间更新
     audioTimeUpdateCleanup = audioAdapter.on('timeUpdate', (data) => {
       currentTime.value = data.currentTime
@@ -184,8 +193,6 @@ export const usePlayerStore = defineStore('player', () => {
       const nearEnd = duration.value > 0 && currentTime.value >= duration.value - 0.25
       if (nearEnd && playing.value) {
         if (endDetectTimer === null) {
-          // [TEMP-DEBUG]
-          logger.warn('player', `[TEMP-DEBUG] arm endDetect (cur=${data.currentTime.toFixed(2)}, dur=${data.duration.toFixed(2)})`)
           endDetectTimer = window.setTimeout(() => {
             endDetectTimer = null
             if (playing.value && duration.value > 0 && currentTime.value >= duration.value - 0.25) {
@@ -206,8 +213,10 @@ export const usePlayerStore = defineStore('player', () => {
       }
 
       // 全局歌词同步（不依赖组件，所有页面都生效）
+      // 这里是 currentIndex 的唯一写入方：组件层不得再自行同步，
+      // 否则多个 LyricsSyncEngine 会互相把 currentIndex 重置为 -1 造成歌词闪烁
       const lyricsStore = useLyricsStore()
-      if (lyricsStore.hasLyrics && !lyricsStore.isDraggingProgress) {
+      if (lyricsStore.hasLyrics && !lyricsStore.isDraggingProgress && !lyricsStore.isSyncSuppressed()) {
         const result = lyricsSyncEngine.update(data.currentTime * 1000)
         if (result.changed) {
           lyricsStore.setCurrentIndex(result.index)
@@ -219,7 +228,7 @@ export const usePlayerStore = defineStore('player', () => {
       scrobbleHelper.checkAndSubmitScrobble()
       mediaSessionHelper.updateMediaSessionPlaybackState()
 
-      // Send progress and lyrics to Touch Bar（节流，避免每帧 IPC）
+      // Send progress and lyrics to Touch Bar / 子窗口（节流，避免每帧 IPC）
       if (window.electronAPI?.sendIpcEvent) {
         const now = Date.now()
         if (now - lastProgressIpcTime >= PROGRESS_IPC_INTERVAL) {
@@ -227,14 +236,29 @@ export const usePlayerStore = defineStore('player', () => {
           window.electronAPI.sendIpcEvent('player:updateProgress', data.currentTime)
         }
 
-        const lyricText = lyricsStore.currentLine?.text || ''
-        // 歌词变化时立即发送，否则按间隔节流
-        if (lyricText !== lastLyricText || now - lastLyricsIpcTime >= LYRICS_IPC_INTERVAL) {
+        const currentLine = lyricsStore.currentLine
+        const lyricText = currentLine?.text || ''
+        const hasLyricsNow = lyricsStore.hasLyrics
+        // 歌词文本或有无歌词状态变化时立即发送，否则按间隔节流
+        if (
+          lyricText !== lastLyricText ||
+          hasLyricsNow !== lastHasLyrics ||
+          now - lastLyricsIpcTime >= LYRICS_IPC_INTERVAL
+        ) {
           lastLyricsIpcTime = now
           lastLyricText = lyricText
+          lastHasLyrics = hasLyricsNow
+
+          // 桌面歌词窗口本地渲染需要译文、上下句与逐字时间轴，
+          // 一次性带上可避免子窗口回查主窗口状态。
           window.electronAPI.sendIpcEvent('player:updateLyrics', {
             currentText: lyricText,
-            hasLyrics: lyricsStore.hasLyrics
+            translation: settingsStore.showLyricTranslation ? currentLine?.translation : undefined,
+            prevText: lyricsStore.prevLine?.text,
+            nextText: lyricsStore.nextLine?.text,
+            hasLyrics: hasLyricsNow,
+            lineTime: currentLine?.time,
+            words: settingsStore.enableEnhancedLyric ? currentLine?.words : undefined,
           })
         }
       }
@@ -253,16 +277,12 @@ export const usePlayerStore = defineStore('player', () => {
 
     // 状态变化
     audioStateChangeCleanup = audioAdapter.on('stateChange', (data) => {
-      // [TEMP-DEBUG]
-      logger.warn('player', `[TEMP-DEBUG] stateChange: ${data.status}`)
       status.value = data.status as PlayerStatus
       playing.value = data.status === 'playing'
     })
 
     // 播放结束
     audioEndedCleanup = audioAdapter.on('ended', () => {
-      // [TEMP-DEBUG]
-      logger.warn('player', '[TEMP-DEBUG] received ENDED event -> handlePlayEnd')
       handlePlayEnd()
     })
 
@@ -365,12 +385,14 @@ export const usePlayerStore = defineStore('player', () => {
 
       // Electron IPC
       if (window.electronAPI?.sendIpcEvent) {
+        // 注意：song.duration 是网易云的毫秒字段，
+        // 而 audio:timeUpdate / player:updateProgress 用的是秒，子窗口要统一按秒处理
         window.electronAPI.sendIpcEvent('player:updateTrack', {
           title: song.name,
           artist: song.artists.map(a => a.name).join(', '),
           album: song.album.name,
           cover: song.album.picUrl,
-          duration: song.duration
+          duration: song.duration / 1000
         })
 
         // Reset Touch Bar lyrics for new track
@@ -945,7 +967,7 @@ export const usePlayerStore = defineStore('player', () => {
           artist: song.artists.map(a => a.name).join(', '),
           album: song.album.name,
           cover: song.album.picUrl,
-          duration: song.duration
+          duration: song.duration / 1000
         })
       }
     } catch (e) {
@@ -1043,12 +1065,27 @@ export const usePlayerStore = defineStore('player', () => {
     lyricsLinesWatcher?.()
   }
 
-  // Watch playing state and send to main process for Touch Bar
-  watch(playing, (isPlaying) => {
-    if (window.electronAPI?.sendIpcEvent) {
-      window.electronAPI.sendIpcEvent('player:updatePlayState', isPlaying)
-    }
-  })
+  // 播放状态的对外广播只由主窗口发出。
+  // 子窗口的 Pinia 是独立实例，广播的是自己的默认值，会污染主进程缓存并覆盖真实状态。
+  if (isMainWindow()) {
+    // Watch playing state and send to main process for Touch Bar
+    watch(playing, (isPlaying) => {
+      if (window.electronAPI?.sendIpcEvent) {
+        window.electronAPI.sendIpcEvent('player:updatePlayState', isPlaying)
+      }
+    })
+
+    // 同步音量/静音到子窗口（迷你播放器需要显示与调节音量）
+    watch(
+      [volume, muted],
+      ([v, m]) => {
+        if (window.electronAPI?.sendIpcEvent) {
+          window.electronAPI.sendIpcEvent('player:updateVolume', { volume: v, muted: m })
+        }
+      },
+      { immediate: true }
+    )
+  }
 
   return {
     playlist, currentIndex, playing, playMode, currentTime, duration,

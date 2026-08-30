@@ -2,6 +2,36 @@
 // 与 src/preload/index.ts 暴露的 api 一一对应，新增 preload 方法时需同步更新此处
 import type { ElectronAPI as ToolkitElectronAPI } from '@electron-toolkit/preload'
 
+/** 桌面歌词同步载荷（含译文与逐字时间轴） */
+export interface DesktopLyricPayload {
+  currentText: string
+  translation?: string
+  prevText?: string
+  nextText?: string
+  hasLyrics: boolean
+  /** 当前行起始时间（毫秒） */
+  lineTime?: number
+  /** 逐字时间轴（毫秒，绝对时间） */
+  words?: Array<{ time: number; text: string }>
+}
+
+/** 桌面歌词偏好（持久化在主进程 userData/window-state.json） */
+export interface LyricsWindowPrefs {
+  locked: boolean
+  fontSize: number
+  alwaysOnTop: boolean
+  showTranslation: boolean
+}
+
+/** 推送给子窗口的曲目信息，duration 单位为秒 */
+export interface WindowTrackInfo {
+  title: string
+  artist: string
+  album: string
+  cover?: string
+  duration: number
+}
+
 export interface ElectronAPI {
   // 窗口控制
   windowMinimize: () => void
@@ -9,13 +39,21 @@ export interface ElectronAPI {
   windowClose: () => void
   windowIsMaximized: () => Promise<boolean>
   windowFocus: () => void
+  /** 唤起主窗口（子窗口使用） */
+  windowShowMain: () => void
 
   // 播放器通信
   sendIpcEvent: (channel: string, data?: unknown) => void
   onIpcEvent: (channel: string, callback: (...args: any[]) => void) => () => void
   onPlayerAction: (callback: (action: 'toggle' | 'next' | 'prev' | 'toggleLike') => void) => () => void
-  onTrackUpdated: (callback: (track: { title: string; artist: string; album: string; cover?: string; duration: number }) => void) => () => void
+  /** 发送控制动作到主窗口：toggle | prev | next | toggleLike | toggleMute | seek:<秒> | volume:<0~1> */
+  sendPlayerAction: (action: string) => void
+  onTrackUpdated: (callback: (track: WindowTrackInfo) => void) => () => void
   onPlayStateUpdated: (callback: (isPlaying: boolean) => void) => () => void
+  onLikeStateUpdated: (callback: (liked: boolean) => void) => () => void
+  onProgressUpdated: (callback: (currentTime: number) => void) => () => void
+  onVolumeUpdated: (callback: (data: { volume: number; muted: boolean }) => void) => () => void
+  onLyricsUpdated: (callback: (data: DesktopLyricPayload) => void) => () => void
 
   // 音频引擎控制
   audioPlay: (url: string, songId: string | number, html5?: boolean) => void
@@ -56,6 +94,8 @@ export interface ElectronAPI {
   setLyricsWindowAlwaysOnTop: (flag: boolean) => Promise<boolean>
   setLyricsWindowLocked: (locked: boolean) => Promise<boolean>
   setLyricsWindowIgnoreMouse: (ignore: boolean) => Promise<boolean>
+  getLyricsWindowPrefs: () => Promise<LyricsWindowPrefs>
+  setLyricsWindowPrefs: (patch: Partial<LyricsWindowPrefs>) => Promise<boolean>
 
   // 应用更新
   checkForUpdates: () => Promise<boolean>

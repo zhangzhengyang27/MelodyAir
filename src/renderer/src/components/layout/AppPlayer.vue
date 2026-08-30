@@ -190,18 +190,20 @@
                 <button
                   v-if="hasDesktopLyrics"
                   class="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] transition-colors hover:bg-neutral-50 dark:hover:bg-white/5"
+                  :class="{ 'text-[#FF5A5F]': lyricsWindowOpen }"
                   @click="toggleDesktopLyrics(); showMoreMenu = false"
                 >
-                  <MonitorPlay class="h-4 w-4 text-neutral-400" />
-                  <span>桌面歌词</span>
+                  <MonitorPlay class="h-4 w-4" :class="lyricsWindowOpen ? 'text-[#FF5A5F]' : 'text-neutral-400'" />
+                  <span>{{ lyricsWindowOpen ? '关闭桌面歌词' : '桌面歌词' }}</span>
                 </button>
                 <button
                   v-if="hasMiniPlayer"
                   class="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] transition-colors hover:bg-neutral-50 dark:hover:bg-white/5"
+                  :class="{ 'text-[#FF5A5F]': miniWindowOpen }"
                   @click="toggleMiniPlayer(); showMoreMenu = false"
                 >
-                  <AppWindow class="h-4 w-4 text-neutral-400" />
-                  <span>迷你播放器</span>
+                  <AppWindow class="h-4 w-4" :class="miniWindowOpen ? 'text-[#FF5A5F]' : 'text-neutral-400'" />
+                  <span>{{ miniWindowOpen ? '关闭迷你播放器' : '迷你播放器' }}</span>
                 </button>
               </div>
             </div>
@@ -216,7 +218,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Shuffle, Repeat, Repeat1, ListOrdered, Volume2, VolumeX, Heart, MoreHorizontal, MonitorPlay, AppWindow, ArrowLeftRight } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 import { useSettingsStore } from '@/stores/settings'
@@ -338,15 +340,34 @@ function onVolumeInput(v: number) {
   if (v > 0 && playerStore.muted) playerStore.toggleMute()
 }
 
+/** 子窗口当前是否打开（用于「更多」菜单的选中态） */
+const lyricsWindowOpen = ref(false)
+const miniWindowOpen = ref(false)
+
+async function refreshWindowStates(): Promise<void> {
+  const api = window.electronAPI
+  if (!api) return
+  try {
+    const [lyricsOpen, miniOpen] = await Promise.all([
+      api.isLyricsWindowOpen?.() ?? false,
+      api.isMiniWindowOpen?.() ?? false,
+    ])
+    lyricsWindowOpen.value = lyricsOpen
+    miniWindowOpen.value = miniOpen
+  } catch {
+    // 查询失败时保持上一次状态，不影响菜单可用性
+  }
+}
+
 async function toggleDesktopLyrics() {
   try {
     if (!window.electronAPI?.openLyricsWindow) return
-    const isOpen = await window.electronAPI.isLyricsWindowOpen()
-    if (isOpen) {
+    if (lyricsWindowOpen.value) {
       await window.electronAPI.closeLyricsWindow()
     } else {
       await window.electronAPI.openLyricsWindow()
     }
+    await refreshWindowStates()
   } catch (e) {
     console.error('toggleDesktopLyrics failed:', e)
   }
@@ -355,16 +376,21 @@ async function toggleDesktopLyrics() {
 async function toggleMiniPlayer() {
   try {
     if (!window.electronAPI?.openMiniWindow) return
-    const isOpen = await window.electronAPI.isMiniWindowOpen()
-    if (isOpen) {
+    if (miniWindowOpen.value) {
       await window.electronAPI.closeMiniWindow()
     } else {
       await window.electronAPI.openMiniWindow()
     }
+    await refreshWindowStates()
   } catch (e) {
     console.error('toggleMiniPlayer failed:', e)
   }
 }
+
+// 展开「更多」菜单时刷新一次子窗口状态
+watch(showMoreMenu, (open) => {
+  if (open) void refreshWindowStates()
+})
 
 function handleProgressHover(e: MouseEvent) {
   const el = e.currentTarget as HTMLElement

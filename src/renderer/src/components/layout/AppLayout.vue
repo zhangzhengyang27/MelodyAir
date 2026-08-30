@@ -61,7 +61,6 @@ import TabBar from './TabBar.vue'
 import PlayerFull from '@/components/player/PlayerFull.vue'
 import ToastContainer from '@/components/common/ToastContainer.vue'
 import UpdateNotice from '@/components/common/UpdateNotice.vue'
-import { useLyricsSync } from '@/composables/useLyricsSync'
 import { useAutoLoadLyrics } from '@/composables/useAutoLoadLyrics'
 
 const showFullPlayer = ref(false)
@@ -76,9 +75,8 @@ watch(() => route.path, () => {
   mobileSidebarOpen.value = false
 })
 
-// Initialize global lyrics sync for Touch Bar
-useLyricsSync()
 // 全局自动加载歌词（确保所有页面都能加载歌词，桌面歌词/Touch Bar 才能同步）
+// 歌词的自动高亮同步由 player store 的 timeUpdate 统一驱动，此处无需再初始化同步引擎
 useAutoLoadLyrics()
 </script>
 

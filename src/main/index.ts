@@ -11,9 +11,21 @@ import {
   screen
 } from "electron"
 import { join } from "path"
+import { existsSync, readFileSync, writeFileSync } from "fs"
 import { electronApp, optimizer, is } from "@electron-toolkit/utils"
 import { createTouchBar, updateTouchBarLyrics, updateTouchBarPlayState, updateTouchBarLikeState } from "./touchBar"
 import { initUpdater } from "./updater"
+
+/**
+ * 置顶层级：macOS 用 screen-saver 可盖住全屏应用；其它平台退化为 pop-up-menu。
+ * 直接用字符串字面量类型，避免依赖 Electron 版本间不稳定的 AlwaysOnTopLevel 导出。
+ */
+type AlwaysOnTopLevel =
+  | 'normal' | 'floating' | 'torn-off-menu' | 'modal-panel'
+  | 'main-menu' | 'status' | 'pop-up-menu' | 'screen-saver'
+
+const ALWAYS_ON_TOP_LEVEL: AlwaysOnTopLevel =
+  process.platform === "darwin" ? "screen-saver" : "pop-up-menu"
 
 // ==================== 类型定义 ====================
 
@@ -22,16 +34,81 @@ interface PlayerTrackInfo {
   artist: string
   album: string
   cover?: string
+  /** 时长，单位：秒（与 audio:timeUpdate 的 currentTime 保持一致） */
   duration: number
   /** 播放状态（用于托盘菜单显示） */
   isPlaying?: boolean
+}
+
+/** 逐字歌词单元，time 为相对歌曲开头的绝对毫秒 */
+interface LyricWord {
+  time: number
+  text: string
+}
+
+/**
+ * 歌词同步载荷
+ * 相比只推一行文本，额外带上译文与逐字时间轴，
+ * 使桌面歌词窗口可以本地做双行展示和逐字进度，无需回查主窗口。
+ */
+interface LyricPayload {
+  currentText: string
+  translation?: string
+  prevText?: string
+  nextText?: string
+  hasLyrics: boolean
+  /** 当前行起始时间（毫秒） */
+  lineTime?: number
+  /** 逐字时间轴（毫秒） */
+  words?: LyricWord[]
 }
 
 interface TrayState {
   isPlaying: boolean
   currentTrack: PlayerTrackInfo | null
   liked: boolean
+  /** 音量 0~1 */
+  volume: number
+  muted: boolean
+  /** 最近一次歌词（新开窗口时用于补齐历史状态） */
+  lyric: LyricPayload | null
+  /** 最近一次播放进度（秒） */
+  progress: number
 }
+
+// ---------- 窗口持久化 ----------
+
+interface WindowBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+interface LyricsPrefs {
+  /** 锁定（鼠标穿透 / 禁止拖动） */
+  locked: boolean
+  /** 歌词字号（px） */
+  fontSize: number
+  /** 是否置顶 */
+  alwaysOnTop: boolean
+  /** 是否显示译文 */
+  showTranslation: boolean
+}
+
+interface WindowStateFile {
+  /** 布局版本号：桌面歌词的排版/默认尺寸调整后需递增，用于丢弃旧版失效的 bounds */
+  version?: number
+  lyrics?: { bounds?: WindowBounds } & Partial<LyricsPrefs>
+  mini?: { bounds?: WindowBounds }
+}
+
+/**
+ * 布局版本。桌面歌词改版（如高度从 160 压到 120）后递增此值，
+ * 否则用户磁盘上残留的旧 bounds 会让新排版直接失效，用户只能手动拖窗口。
+ * 注意：只丢弃 bounds，歌词偏好（字号/锁定/置顶/译文）仍然保留。
+ */
+const WINDOW_STATE_VERSION = 3
 
 // ==================== 全局状态 ====================
 
@@ -53,8 +130,16 @@ let isQuittingApp = false
 const trayState: TrayState = {
   isPlaying: false,
   currentTrack: null,
-  liked: false
+  liked: false,
+  volume: 1,
+  muted: false,
+  lyric: null,
+  progress: 0
 }
+
+/** 窗口位置 / 歌词偏好（持久化到 userData/window-state.json） */
+let windowState: WindowStateFile = {}
+let windowStateSaveTimer: NodeJS.Timeout | null = null
 
 // ==================== 辅助函数（提前声明供其他函数使用）====================
 
@@ -64,6 +149,158 @@ const trayState: TrayState = {
 function sendPlayerAction(action: string): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("player:action", action)
+  }
+}
+
+// ==================== 窗口状态持久化 ====================
+
+function getWindowStatePath(): string {
+  return join(app.getPath("userData"), "window-state.json")
+}
+
+function loadWindowState(): WindowStateFile {
+  try {
+    const filePath = getWindowStatePath()
+    if (existsSync(filePath)) {
+      const parsed = JSON.parse(readFileSync(filePath, "utf-8")) as WindowStateFile
+      // 布局版本不匹配：丢弃失效的 bounds，保留歌词偏好
+      if (parsed.version !== WINDOW_STATE_VERSION) {
+        return {
+          version: WINDOW_STATE_VERSION,
+          lyrics: parsed.lyrics ? { ...parsed.lyrics, bounds: undefined } : undefined,
+          mini: parsed.mini ? { ...parsed.mini, bounds: undefined } : undefined,
+        }
+      }
+      return parsed
+    }
+  } catch (error) {
+    console.error("[WindowState] load failed:", error)
+  }
+  return { version: WINDOW_STATE_VERSION }
+}
+
+function saveWindowState(immediate = false): void {
+  if (windowStateSaveTimer) {
+    clearTimeout(windowStateSaveTimer)
+    windowStateSaveTimer = null
+  }
+  const doSave = (): void => {
+    windowStateSaveTimer = null
+    try {
+      const payload: WindowStateFile = { ...windowState, version: WINDOW_STATE_VERSION }
+      writeFileSync(getWindowStatePath(), JSON.stringify(payload, null, 2), "utf-8")
+    } catch (error) {
+      console.error("[WindowState] save failed:", error)
+    }
+  }
+  if (immediate) doSave()
+  else windowStateSaveTimer = setTimeout(doSave, 400)
+}
+
+/**
+ * 判断历史 bounds 是否仍落在某块屏幕的可视区域内。
+ * 避免拔掉外接显示器后窗口被还原到屏幕外而无法找回。
+ */
+function isBoundsVisible(bounds: WindowBounds): boolean {
+  return screen.getAllDisplays().some((d) => {
+    const area = d.workArea
+    return (
+      bounds.x + bounds.width > area.x + 40 &&
+      bounds.x < area.x + area.width - 40 &&
+      bounds.y + bounds.height > area.y + 20 &&
+      bounds.y < area.y + area.height - 20
+    )
+  })
+}
+
+/**
+ * 默认位置：跟随主窗口所在屏幕，底部居中（主窗口不可用时退化为第一块屏）。
+ * 使用 display.workArea（含原点坐标）而非 workAreaSize，避免非主屏坐标偏移。
+ */
+function defaultBottomBounds(width: number, height: number, margin = 8): WindowBounds {
+  const display =
+    mainWindow && !mainWindow.isDestroyed()
+      ? screen.getDisplayMatching(mainWindow.getBounds())
+      : screen.getPrimaryDisplay()
+  const area = display.workArea
+  return {
+    x: Math.floor(area.x + (area.width - width) / 2),
+    y: Math.floor(area.y + area.height - height - margin),
+    width,
+    height,
+  }
+}
+
+/** 取历史 bounds，不可用时回退到默认底部居中 */
+function resolveBounds(
+  key: "lyrics" | "mini",
+  defaultWidth: number,
+  defaultHeight: number
+): WindowBounds {
+  const saved = windowState[key]?.bounds
+  if (saved && isBoundsVisible(saved)) return saved
+  return defaultBottomBounds(defaultWidth, defaultHeight)
+}
+
+/** 监听移动/缩放，自动写回磁盘 */
+function persistBounds(win: BrowserWindow, key: "lyrics" | "mini"): void {
+  const handler = (): void => {
+    if (win.isDestroyed()) return
+    windowState[key] = { ...(windowState[key] ?? {}), bounds: win.getBounds() }
+    saveWindowState()
+  }
+  win.on("moved", handler)
+  win.on("resized", handler)
+}
+
+/**
+ * 把缓存的播放状态一次性推送给指定窗口。
+ * 子窗口是后打开的，收不到之前已经发生过的 track/lyric/state 事件，
+ * 必须在 did-finish-load 时补齐，否则要等到下一次状态变化才显示。
+ */
+function pushPlayerStateToWindow(
+  win: BrowserWindow | null,
+  options: { includeLyrics?: boolean } = {},
+): void {
+  if (!win || win.isDestroyed()) return
+
+  if (trayState.currentTrack) {
+    win.webContents.send("player:trackUpdated", trayState.currentTrack)
+  }
+  win.webContents.send("player:playStateUpdated", trayState.isPlaying)
+  win.webContents.send("player:likeStateUpdated", trayState.liked)
+  win.webContents.send("player:volumeUpdated", {
+    volume: trayState.volume,
+    muted: trayState.muted,
+  })
+  win.webContents.send("player:progressUpdated", trayState.progress)
+
+  if (options.includeLyrics && trayState.lyric) {
+    win.webContents.send("lyrics:update", trayState.lyric)
+  }
+}
+
+/**
+ * 应用桌面歌词锁定状态。
+ * macOS 使用鼠标穿透（forward: true 让 mousemove 仍能到达渲染层，从而可以临时解锁）；
+ * 其它平台不做穿透，仅靠渲染层的 CSS 禁用拖拽，保证解锁按钮始终可点。
+ */
+function applyLyricsLock(locked: boolean): void {
+  if (!lyricsWindow || lyricsWindow.isDestroyed()) return
+  if (process.platform === "darwin") {
+    lyricsWindow.setIgnoreMouseEvents(locked, { forward: true })
+  } else {
+    lyricsWindow.setIgnoreMouseEvents(false)
+  }
+}
+
+/** 把播放状态广播到迷你窗口和桌面歌词窗口 */
+function broadcastToSecondaryWindows(channel: string, payload: unknown): void {
+  if (miniWindow && !miniWindow.isDestroyed()) {
+    miniWindow.webContents.send(channel, payload)
+  }
+  if (lyricsWindow && !lyricsWindow.isDestroyed()) {
+    lyricsWindow.webContents.send(channel, payload)
   }
 }
 
@@ -143,19 +380,24 @@ function createWindow(): BrowserWindow {
 /**
  * 创建迷你悬浮窗
  */
+const MINI_DEFAULT_WIDTH = 340
+// 内容高度 = 96(封面) + 12*2(padding) = 120，再留 4px 余量避免 overflow 裁切
+const MINI_DEFAULT_HEIGHT = 124
+
 function createMiniWindow(): BrowserWindow {
   // 如果已存在，先关闭
   if (miniWindow && !miniWindow.isDestroyed()) {
     miniWindow.close()
   }
 
+  const bounds = resolveBounds("mini", MINI_DEFAULT_WIDTH, MINI_DEFAULT_HEIGHT)
+
   miniWindow = new BrowserWindow({
-    width: 320,
-    height: 80,
-    minWidth: 320,
-    minHeight: 80,
-    maxWidth: 400,
-    maxHeight: 150,
+    ...bounds,
+    minWidth: 300,
+    minHeight: MINI_DEFAULT_HEIGHT,
+    maxWidth: 520,
+    maxHeight: 220,
     show: false,
     frame: false,
     transparent: true,
@@ -172,9 +414,23 @@ function createMiniWindow(): BrowserWindow {
     }
   })
 
+  // 固定置顶层级，避免全屏应用盖住悬浮窗
+  miniWindow.setAlwaysOnTop(true, ALWAYS_ON_TOP_LEVEL)
+  persistBounds(miniWindow, "mini")
+
   // 窗口准备好后显示
   miniWindow.on("ready-to-show", () => {
     miniWindow!.show()
+  })
+
+  // 窗口销毁时清理引用，避免 isDestroyed() 之前读到野指针
+  miniWindow.on("closed", () => {
+    miniWindow = null
+  })
+
+  // 页面加载完成后补齐当前播放状态（后打开的窗口收不到历史事件）
+  miniWindow.webContents.on("did-finish-load", () => {
+    pushPlayerStateToWindow(miniWindow)
   })
 
   // 加载迷你窗口页面
@@ -199,25 +455,41 @@ function closeMiniWindow(): void {
   }
 }
 
+/** 切换迷你悬浮窗（托盘菜单 / 全局入口复用） */
+function toggleMiniWindow(): void {
+  if (miniWindow && !miniWindow.isDestroyed()) {
+    closeMiniWindow()
+  } else {
+    createMiniWindow()
+  }
+  updateTrayMenu()
+}
+
 /**
  * 创建桌面歌词窗口
  */
+// 默认给足宽度：歌词单行不换行，窄了会截断
+// 高度按「上一句 + 当前句 + 译文」在默认字号 24 下的实测内容高度取紧凑值
+const LYRICS_DEFAULT_WIDTH = 880
+const LYRICS_DEFAULT_HEIGHT = 104
+
 function createLyricsWindow(): BrowserWindow {
   // 如果已存在，先关闭
   if (lyricsWindow && !lyricsWindow.isDestroyed()) {
     lyricsWindow.close()
   }
 
+  const prefs = windowState.lyrics ?? {}
+  const bounds = resolveBounds("lyrics", LYRICS_DEFAULT_WIDTH, LYRICS_DEFAULT_HEIGHT)
+
   lyricsWindow = new BrowserWindow({
-    width: 600,
-    height: 80,
+    ...bounds,
     minWidth: 300,
-    minHeight: 60,
-    maxHeight: 120,
+    minHeight: 70,
     show: false,
     frame: false,
     transparent: true,
-    alwaysOnTop: true,
+    alwaysOnTop: prefs.alwaysOnTop ?? true,
     skipTaskbar: true,
     resizable: true,
     backgroundColor: '#00000000',
@@ -230,26 +502,23 @@ function createLyricsWindow(): BrowserWindow {
     }
   })
 
-  // 设置默认位置：屏幕下方居中（任务栏/Dock 上方）
-  const display = screen.getPrimaryDisplay()
-  const workArea = display.workAreaSize
-  const windowWidth = 600
-  const windowHeight = 80
-  const x = Math.floor((workArea.width - windowWidth) / 2)
-  const y = workArea.height - windowHeight // 紧贴底部
-  lyricsWindow.setPosition(x, y)
+  // 固定置顶层级，避免全屏应用盖住桌面歌词
+  lyricsWindow.setAlwaysOnTop(prefs.alwaysOnTop ?? true, ALWAYS_ON_TOP_LEVEL)
+  persistBounds(lyricsWindow, "lyrics")
 
   // 窗口准备好后显示
   lyricsWindow.on("ready-to-show", () => {
     lyricsWindow!.show()
   })
 
-  // 窗口加载完成后，主动推送当前歌曲和播放状态（解决后打开窗口收不到历史事件的问题）
+  // 窗口销毁时清理引用
+  lyricsWindow.on("closed", () => {
+    lyricsWindow = null
+  })
+
+  // 窗口加载完成后，主动推送完整播放状态（解决后打开窗口收不到历史事件的问题）
   lyricsWindow.webContents.on("did-finish-load", () => {
-    if (trayState.currentTrack) {
-      lyricsWindow!.webContents.send("player:trackUpdated", trayState.currentTrack)
-    }
-    lyricsWindow!.webContents.send("player:playStateUpdated", trayState.isPlaying)
+    pushPlayerStateToWindow(lyricsWindow, { includeLyrics: true })
   })
 
   // 加载桌面歌词窗口页面
@@ -272,6 +541,16 @@ function closeLyricsWindow(): void {
     lyricsWindow.close()
     lyricsWindow = null
   }
+}
+
+/** 切换桌面歌词窗口（托盘菜单 / 渲染层入口复用） */
+function toggleLyricsWindow(): void {
+  if (lyricsWindow && !lyricsWindow.isDestroyed()) {
+    closeLyricsWindow()
+  } else {
+    createLyricsWindow()
+  }
+  updateTrayMenu()
 }
 
 /**
@@ -378,6 +657,14 @@ function updateTrayMenu(): void {
     },
     { type: "separator" },
     { label: "🎵 显示 Melody Air", click: () => mainWindow?.show() },
+    {
+      label: lyricsWindow && !lyricsWindow.isDestroyed() ? "✅ 关闭桌面歌词" : "💬 桌面歌词",
+      click: () => toggleLyricsWindow()
+    },
+    {
+      label: miniWindow && !miniWindow.isDestroyed() ? "✅ 关闭迷你播放器" : "🪟 迷你播放器",
+      click: () => toggleMiniWindow()
+    },
     { type: "separator" },
     {
       label: trayState.isPlaying ? "⏸ 暂停" : "▶ 播放",
@@ -481,7 +768,7 @@ function registerIpcHandlers(): void {
     })
   })
 
-  // 音频引擎窗口 -> 所有窗口 的状态广播
+  // 音频引擎窗口 -> 主窗口 的状态广播
   const audioStateEvents = [
     'audio:ready', 'audio:timeUpdate', 'audio:stateChange',
     'audio:ended', 'audio:error', 'audio:buffered', 'audio:frequencyData'
@@ -489,12 +776,13 @@ function registerIpcHandlers(): void {
 
   audioStateEvents.forEach((channel) => {
     ipcMain.on(channel, (_event, data) => {
-      // 广播到所有窗口（除了音频引擎窗口自己）
-      BrowserWindow.getAllWindows().forEach((win) => {
-        if (win !== audioEngineWindow && !win.isDestroyed()) {
-          win.webContents.send(channel, data)
-        }
-      })
+      // 只推给主窗口。
+      // 子窗口（桌面歌词 / 迷你播放器）是独立 BrowserWindow，各自有独立的 Pinia 实例，
+      // 若也收到 timeUpdate，会用自己那份空的歌词状态反向广播 player:updateLyrics，
+      // 与主窗口的真实状态交替覆盖，导致桌面歌词持续闪烁。
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(channel, data)
+      }
     })
   })
 
@@ -520,6 +808,32 @@ function registerIpcHandlers(): void {
   safeIpcHandle("window:isMaximized", () => mainWindow?.isMaximized() ?? false)
 
   ipcMain.on("window:focus", () => mainWindow?.focus())
+
+  // 从子窗口（迷你播放器）唤起主窗口
+  ipcMain.on("window:showMain", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      createWindow()
+      return
+    }
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+  })
+
+  // ========== 播放器动作（子窗口 -> 主窗口）==========
+  // 迷你播放器 / 其它子窗口的控制指令经主进程中转给主窗口的 player store。
+  // 协议沿用字符串：toggle | prev | next | toggleLike | toggleMute | seek:<秒> | volume:<0~1>
+  ipcMain.on("player:action", (_event, action: string) => {
+    if (typeof action !== "string" || !action) return
+    sendPlayerAction(action)
+  })
+
+  // 子窗口启动后主动拉取一次全量播放状态（比 did-finish-load 推送更可靠，
+  // 因为渲染层要等 Pinia 初始化完成才注册好监听）
+  ipcMain.on("player:requestState", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    pushPlayerStateToWindow(win, { includeLyrics: true })
+  })
 
   // ========== 应用设置 ==========
   safeIpcHandle("app:setAutoLaunch", (_event, enable: boolean) => {
@@ -560,8 +874,11 @@ function registerIpcHandlers(): void {
     if (!miniWindow || miniWindow.isDestroyed()) {
       createMiniWindow()
     } else {
-      miniWindow.show()
-      miniWindow.focus()
+      // 页面仍在加载时不要提前 show，否则会闪出一个空白窗口
+      if (!miniWindow.webContents.isLoading()) {
+        miniWindow.show()
+        miniWindow.focus()
+      }
     }
     return true
   })
@@ -580,8 +897,11 @@ function registerIpcHandlers(): void {
     if (!lyricsWindow || lyricsWindow.isDestroyed()) {
       createLyricsWindow()
     } else {
-      lyricsWindow.show()
-      lyricsWindow.focus()
+      // 页面仍在加载时不要提前 show，否则会闪出一个空白窗口
+      if (!lyricsWindow.webContents.isLoading()) {
+        lyricsWindow.show()
+        lyricsWindow.focus()
+      }
     }
     return true
   })
@@ -596,49 +916,85 @@ function registerIpcHandlers(): void {
   })
 
   safeIpcHandle("lyricsWindow:setAlwaysOnTop", (_event, flag: boolean) => {
+    windowState.lyrics = { ...(windowState.lyrics ?? {}), alwaysOnTop: flag }
+    saveWindowState(true)
     if (lyricsWindow && !lyricsWindow.isDestroyed()) {
-      lyricsWindow.setAlwaysOnTop(flag)
+      lyricsWindow.setAlwaysOnTop(flag, ALWAYS_ON_TOP_LEVEL)
       return true
     }
-    return false
+    // 窗口未创建时也记录偏好，下次 createLyricsWindow 生效
+    return true
   })
 
+  /**
+   * 锁定桌面歌词。
+   * setIgnoreMouseEvents 的 forward 选项只在 macOS 生效，
+   * Windows/Linux 下窗口会彻底收不到鼠标事件，导致用户永远点不到解锁按钮。
+   * 因此非 macOS 平台锁定只禁用拖拽（由渲染层用 -webkit-app-region: no-drag 实现），
+   * 保持窗口可点击。
+   */
   safeIpcHandle("lyricsWindow:setLocked", (_event, locked: boolean) => {
+    windowState.lyrics = { ...(windowState.lyrics ?? {}), locked }
+    saveWindowState(true)
     if (lyricsWindow && !lyricsWindow.isDestroyed()) {
-      lyricsWindow.setIgnoreMouseEvents(locked, { forward: true })
+      applyLyricsLock(locked)
       return true
     }
-    return false
+    return true
   })
 
-  // 临时设置是否忽略鼠标事件（用于锁定状态下控制栏交互）
+  // 临时切换是否忽略鼠标事件（锁定状态下鼠标移入控制栏时临时恢复点击）
   safeIpcHandle("lyricsWindow:setIgnoreMouse", (_event, ignore: boolean) => {
     if (lyricsWindow && !lyricsWindow.isDestroyed()) {
-      if (ignore) {
-        lyricsWindow.setIgnoreMouseEvents(true, { forward: true })
-      } else {
-        lyricsWindow.setIgnoreMouseEvents(false)
-      }
+      lyricsWindow.setIgnoreMouseEvents(ignore, { forward: true })
       return true
     }
     return false
+  })
+
+  // 桌面歌词偏好（字号 / 锁定 / 置顶 / 译文）持久化到主进程
+  safeIpcHandle("lyricsWindow:getPrefs", () => {
+    const prefs = windowState.lyrics ?? {}
+    return {
+      locked: prefs.locked ?? false,
+      fontSize: prefs.fontSize ?? 24,
+      alwaysOnTop: prefs.alwaysOnTop ?? true,
+      // 译文默认关闭：桌面歌词以简洁为优先，需要时由控制栏/设置页开关打开
+      showTranslation: prefs.showTranslation ?? false,
+    }
+  })
+
+  safeIpcHandle("lyricsWindow:setPrefs", (_event, patch: Partial<LyricsPrefs>) => {
+    windowState.lyrics = { ...(windowState.lyrics ?? {}), ...patch }
+    saveWindowState(true)
+
+    if (lyricsWindow && !lyricsWindow.isDestroyed()) {
+      if (patch.alwaysOnTop !== undefined) {
+        lyricsWindow.setAlwaysOnTop(patch.alwaysOnTop, ALWAYS_ON_TOP_LEVEL)
+      }
+      if (patch.locked !== undefined) {
+        applyLyricsLock(patch.locked)
+      }
+    }
+
+    // 设置页改字号时同步给已打开的歌词窗口，实现即时预览
+    if (lyricsWindow && !lyricsWindow.isDestroyed()) {
+      lyricsWindow.webContents.send("lyrics:prefsChanged", windowState.lyrics)
+    }
+    return true
   })
 
   // ========== 播放器状态同步（渲染进程 -> 主进程）==========
   ipcMain.on("player:updateTrack", (_event, trackInfo: PlayerTrackInfo) => {
     trayState.currentTrack = trackInfo
     trayState.isPlaying = true
+    trayState.progress = 0
     updateTrayMenu()
 
-    // 同步到迷你窗口
-    if (miniWindow && !miniWindow.isDestroyed()) {
-      miniWindow.webContents.send("player:trackUpdated", trackInfo)
-    }
-
-    // 同步到桌面歌词窗口
-    if (lyricsWindow && !lyricsWindow.isDestroyed()) {
-      lyricsWindow.webContents.send("player:trackUpdated", trackInfo)
-    }
+    // 切歌时清空上一首的歌词，避免桌面歌词残留旧文本
+    trayState.lyric = { currentText: "", hasLyrics: false }
+    broadcastToSecondaryWindows("player:trackUpdated", trackInfo)
+    broadcastToSecondaryWindows("lyrics:update", trayState.lyric)
   })
 
   ipcMain.on("player:updatePlayState", (_event, isPlaying: boolean) => {
@@ -650,15 +1006,7 @@ function registerIpcHandlers(): void {
       updateTouchBarPlayState(isPlaying)
     }
 
-    // 同步到迷你窗口
-    if (miniWindow && !miniWindow.isDestroyed()) {
-      miniWindow.webContents.send("player:playStateUpdated", isPlaying)
-    }
-
-    // 同步到桌面歌词窗口
-    if (lyricsWindow && !lyricsWindow.isDestroyed()) {
-      lyricsWindow.webContents.send("player:playStateUpdated", isPlaying)
-    }
+    broadcastToSecondaryWindows("player:playStateUpdated", isPlaying)
   })
 
   ipcMain.on("player:updateLikeState", (_event, liked: boolean) => {
@@ -670,31 +1018,32 @@ function registerIpcHandlers(): void {
       updateTouchBarLikeState(liked)
     }
 
-    // 同步到迷你窗口
-    if (miniWindow && !miniWindow.isDestroyed()) {
-      miniWindow.webContents.send("player:likeStateUpdated", liked)
-    }
+    broadcastToSecondaryWindows("player:likeStateUpdated", liked)
+  })
+
+  ipcMain.on("player:updateVolume", (_event, data: { volume: number; muted: boolean }) => {
+    trayState.volume = data?.volume ?? 1
+    trayState.muted = data?.muted ?? false
+    broadcastToSecondaryWindows("player:volumeUpdated", {
+      volume: trayState.volume,
+      muted: trayState.muted,
+    })
   })
 
   ipcMain.on("player:updateProgress", (_event, progress: number) => {
-    // 同步到迷你窗口
-    if (miniWindow && !miniWindow.isDestroyed()) {
-      miniWindow.webContents.send("player:progressUpdated", progress)
-    }
-
-    // 同步到桌面歌词窗口
-    if (lyricsWindow && !lyricsWindow.isDestroyed()) {
-      lyricsWindow.webContents.send("player:progressUpdated", progress)
-    }
+    trayState.progress = progress
+    broadcastToSecondaryWindows("player:progressUpdated", progress)
   })
 
-  // ========== Touch Bar 歌词同步 ==========
-  ipcMain.on("player:updateLyrics", (_event, data: { currentText: string; hasLyrics: boolean }) => {
+  // ========== 歌词同步（Touch Bar + 桌面歌词窗口）==========
+  ipcMain.on("player:updateLyrics", (_event, data: LyricPayload) => {
     if (process.platform === "darwin") {
       updateTouchBarLyrics(data.currentText, data.hasLyrics)
     }
 
-    // 同步到桌面歌词窗口
+    // 缓存最新歌词，供后打开的窗口补齐状态
+    trayState.lyric = data
+
     if (lyricsWindow && !lyricsWindow.isDestroyed()) {
       lyricsWindow.webContents.send("lyrics:update", data)
     }
@@ -722,25 +1071,10 @@ app.whenReady().then(() => {
   // 监听窗口创建事件以优化性能
   app.on("browser-window-created", (_, window) => {
     optimizer.watchWindowShortcuts(window)
-    // [TEMP-DEBUG] 转发所有窗口 console 到主进程 stdout（诊断播放结束问题用，诊断后删除）
-    window.webContents.on("console-message" as any, (...cbArgs: any[]) => {
-      try {
-        const first = cbArgs[0]
-        let text: string
-        if (first && typeof first === "object" && "message" in first) {
-          text = String(first.message)
-        } else {
-          text = String(cbArgs[2] ?? "")
-        }
-        const shortUrl = String(window.webContents.getURL()).split("/").pop() || "?"
-        console.log(`[CONSOLE][${shortUrl}] ${text.slice(0, 300)}`)
-      } catch {
-        // 忽略转发失败
-      }
-    })
   })
 
   // 初始化核心模块
+  windowState = loadWindowState()
   createAudioEngineWindow()
   registerIpcHandlers()
   createWindow()
@@ -772,6 +1106,7 @@ app.on("before-quit", () => {
   unregisterGlobalShortcuts()
   closeMiniWindow()
   closeLyricsWindow()
+  saveWindowState(true)
 })
 
 // 防止多实例运行

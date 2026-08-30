@@ -40,6 +40,13 @@ export const useLyricsStore = defineStore('lyrics', () => {
   const isHovering = ref(false)
   const isDraggingProgress = ref(false)
 
+  /**
+   * 跳转歌词后短暂抑制自动同步的截止时间戳（epoch ms）。
+   * 调用 seek() 到音频引擎回传新时间点之间存在空窗，
+   * 期间 timeUpdate 仍会带着旧时间触发，会把高亮行拽回跳转前的位置。
+   */
+  let syncSuppressedUntil = 0
+
   const hasLyrics = computed(() => lines.value.length > 0)
   const currentLine = computed(() => currentIndex.value >= 0 ? lines.value[currentIndex.value] ?? null : null)
   const prevLine = computed(() => currentIndex.value > 0 ? lines.value[currentIndex.value - 1] ?? null : null)
@@ -142,6 +149,16 @@ export const useLyricsStore = defineStore('lyrics', () => {
     isDraggingProgress.value = value
   }
 
+  /** 抑制歌词自动同步一段时间（默认 900ms） */
+  function suppressSync(ms = 900) {
+    syncSuppressedUntil = Date.now() + Math.max(0, ms)
+  }
+
+  /** 当前是否处于自动同步抑制期（非响应式，按调用时刻求值） */
+  function isSyncSuppressed(): boolean {
+    return Date.now() < syncSuppressedUntil
+  }
+
   function copyCurrentText() {
     const line = currentLine.value
     return line?.text ?? ''
@@ -186,6 +203,8 @@ export const useLyricsStore = defineStore('lyrics', () => {
     setCompactByWidth,
     setHovering,
     setDraggingProgress,
+    suppressSync,
+    isSyncSuppressed,
     copyCurrentText,
   }
 }, {

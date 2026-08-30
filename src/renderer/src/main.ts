@@ -5,6 +5,7 @@ import router from './router'
 import App from './App.vue'
 import './assets/styles/tailwind.css'
 import { cleanupInvalidCookieEntries } from './api/cookie'
+import { isMainWindow } from './utils/windowRole'
 
 // 启动时清理历史上被错误存储的 cookie 属性项（必须在任何 API 请求之前执行）
 cleanupInvalidCookieEntries()
@@ -28,12 +29,20 @@ if (import.meta.env.VITE_ROUTER_MODE === 'history') {
   document.head.appendChild(umami)
 }
 
-// Listen for player actions from Electron main process (media keys, tray)
+// Listen for player actions from Electron main process
+// 来源：全局媒体键、系统托盘菜单、迷你播放器窗口、桌面歌词窗口
+// 协议：toggle | prev | next | toggleLike | toggleMute | seek:<秒> | volume:<0~1>
 window.electronAPI?.onPlayerAction?.((action: string) => {
   // Dynamic import to avoid circular dependency at module init time
   import('@/stores/player').then(({ usePlayerStore }) => {
     const playerStore = usePlayerStore()
-    switch (action) {
+
+    // 带参数的动作统一走 `name:value` 形式
+    const separatorIndex = action.indexOf(':')
+    const name = separatorIndex === -1 ? action : action.slice(0, separatorIndex)
+    const value = separatorIndex === -1 ? '' : action.slice(separatorIndex + 1)
+
+    switch (name) {
       case 'toggle':
         playerStore.togglePlaying()
         break
@@ -44,7 +53,6 @@ window.electronAPI?.onPlayerAction?.((action: string) => {
         playerStore.playNext()
         break
       case 'toggleLike':
-        // Import userStore for like functionality
         import('@/stores/user').then(({ useUserStore }) => {
           const userStore = useUserStore()
           if (playerStore.currentSong) {
@@ -52,6 +60,24 @@ window.electronAPI?.onPlayerAction?.((action: string) => {
           }
         })
         break
+      case 'toggleMute':
+        playerStore.toggleMute()
+        break
+      case 'volume': {
+        const volume = Number(value)
+        if (Number.isFinite(volume)) {
+          playerStore.setVolume(Math.min(1, Math.max(0, volume)))
+          if (volume > 0 && playerStore.muted) playerStore.toggleMute()
+        }
+        break
+      }
+      case 'seek': {
+        const time = Number(value)
+        if (Number.isFinite(time) && time >= 0) {
+          playerStore.seek(time)
+        }
+        break
+      }
     }
   })
 })
@@ -77,8 +103,7 @@ if (savedTheme) {
 // 只在主窗口恢复播放，桌面歌词窗口和迷你窗口跳过，避免重复播放
 // 移动端浏览器受 autoplay 策略限制，启动时无法出声，只恢复队列/历史，待用户首次操作后再播放
 const isWebMobile = !window.electronAPI && window.matchMedia('(pointer: coarse)').matches
-const isSecondaryWindow = window.location.hash.includes('/desktop-lyrics') || window.location.hash.includes('/mini-player')
-if (!isSecondaryWindow) {
+if (isMainWindow()) {
   import('@/stores/player').then(({ usePlayerStore }) => {
     const playerStore = usePlayerStore()
     // 先恢复持久化状态（睡眠定时、播放历史）

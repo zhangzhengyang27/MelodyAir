@@ -27,6 +27,9 @@ const api = {
   /** 聚焦窗口 */
   windowFocus: () => ipcRenderer.send('window:focus'),
 
+  /** 唤起主窗口（子窗口使用，最小化/隐藏到托盘时也能拉回） */
+  windowShowMain: () => ipcRenderer.send('window:showMain'),
+
   // ==================== 播放器通信 ====================
 
   /**
@@ -70,6 +73,12 @@ const api = {
   },
 
   /**
+   * 发送播放器控制动作到主窗口（迷你播放器等子窗口使用）
+   * 协议：toggle | prev | next | toggleLike | toggleMute | seek:<秒> | volume:<0~1>
+   */
+  sendPlayerAction: (action: string) => ipcRenderer.send('player:action', action),
+
+  /**
    * 监听当前播放歌曲信息更新（主窗口 -> 其他窗口）
    */
   onTrackUpdated: (callback: (track: { title: string; artist: string; album: string; cover?: string; duration: number }) => void): (() => void) => {
@@ -92,6 +101,60 @@ const api = {
     ipcRenderer.on('player:playStateUpdated', handler)
     return () => {
       ipcRenderer.removeListener('player:playStateUpdated', handler)
+    }
+  },
+
+  /** 监听收藏状态更新（主窗口 -> 其他窗口） */
+  onLikeStateUpdated: (callback: (liked: boolean) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, liked: boolean) => callback(liked)
+    ipcRenderer.on('player:likeStateUpdated', handler)
+    return () => {
+      ipcRenderer.removeListener('player:likeStateUpdated', handler)
+    }
+  },
+
+  /** 监听播放进度更新（单位：秒） */
+  onProgressUpdated: (callback: (currentTime: number) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, currentTime: number) => callback(currentTime)
+    ipcRenderer.on('player:progressUpdated', handler)
+    return () => {
+      ipcRenderer.removeListener('player:progressUpdated', handler)
+    }
+  },
+
+  /** 监听音量/静音状态更新 */
+  onVolumeUpdated: (callback: (data: { volume: number; muted: boolean }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { volume: number; muted: boolean }) => callback(data)
+    ipcRenderer.on('player:volumeUpdated', handler)
+    return () => {
+      ipcRenderer.removeListener('player:volumeUpdated', handler)
+    }
+  },
+
+  /** 监听桌面歌词更新（含译文与逐字时间轴） */
+  onLyricsUpdated: (
+    callback: (data: {
+      currentText: string
+      translation?: string
+      prevText?: string
+      nextText?: string
+      hasLyrics: boolean
+      lineTime?: number
+      words?: Array<{ time: number; text: string }>
+    }) => void
+  ): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: {
+      currentText: string
+      translation?: string
+      prevText?: string
+      nextText?: string
+      hasLyrics: boolean
+      lineTime?: number
+      words?: Array<{ time: number; text: string }>
+    }) => callback(data)
+    ipcRenderer.on('lyrics:update', handler)
+    return () => {
+      ipcRenderer.removeListener('lyrics:update', handler)
     }
   },
 
@@ -233,6 +296,22 @@ const api = {
   /** 临时设置桌面歌词窗口是否忽略鼠标事件（用于锁定状态下控制栏交互） */
   setLyricsWindowIgnoreMouse: (ignore: boolean): Promise<boolean> =>
     ipcRenderer.invoke('lyricsWindow:setIgnoreMouse', ignore),
+
+  /** 读取桌面歌词偏好（锁定 / 字号 / 置顶 / 译文） */
+  getLyricsWindowPrefs: (): Promise<{
+    locked: boolean
+    fontSize: number
+    alwaysOnTop: boolean
+    showTranslation: boolean
+  }> => ipcRenderer.invoke('lyricsWindow:getPrefs'),
+
+  /** 写入桌面歌词偏好（增量合并，持久化到主进程） */
+  setLyricsWindowPrefs: (patch: {
+    locked?: boolean
+    fontSize?: number
+    alwaysOnTop?: boolean
+    showTranslation?: boolean
+  }): Promise<boolean> => ipcRenderer.invoke('lyricsWindow:setPrefs', patch),
 
   // ==================== 应用更新 ====================
 
