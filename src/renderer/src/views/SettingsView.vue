@@ -202,6 +202,56 @@
     </section>
 
     <section class="settings-card">
+      <h2 class="card-title"><HardDrive class="h-5 w-5 text-[#FF5A5F]" /> 存储与缓存</h2>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">启用缓存</p>
+          <p class="setting-description">缓存已播放的音频，二次播放与离线更快</p>
+        </div>
+        <ToggleSwitch v-model="settingsStore.enableCache" />
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">自动缓存下一首</p>
+          <p class="setting-description">播放时提前缓存下一首，减少切歌等待</p>
+        </div>
+        <ToggleSwitch v-model="settingsStore.autoCacheNextTrack" />
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">缓存上限</p>
+          <p class="setting-description">超出后按最旧数据自动清理（100 - 5000 MB）</p>
+        </div>
+        <input
+          type="number"
+          min="100"
+          max="5000"
+          step="100"
+          class="number-field w-28"
+          :value="settingsStore.cacheLimitMB"
+          @change="onCacheLimitChange"
+        />
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">已用缓存</p>
+          <p class="setting-description">{{ cacheSizeLabel }}</p>
+        </div>
+        <button
+          class="danger-button"
+          :disabled="isClearingCache || cacheSizeUsed === 0"
+          @click="handleClearCache"
+        >
+          {{ isClearingCache ? '清除中…' : '清除缓存' }}
+        </button>
+      </div>
+    </section>
+
+    <section class="settings-card">
       <h2 class="card-title"><Info class="h-5 w-5 text-[#FF5A5F]" /> 关于</h2>
 
       <div class="setting-row">
@@ -213,14 +263,6 @@
         <button v-if="isElectron" class="primary-button" :disabled="checkingUpdate" @click="handleCheckUpdate">
           {{ checkingUpdate ? '检查中…' : '检查更新' }}
         </button>
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-info">
-          <p class="setting-label">意见反馈</p>
-          <p class="setting-description">遇到问题或有功能建议，欢迎反馈</p>
-        </div>
-        <button class="primary-button" @click="handleFeedback">提交反馈</button>
       </div>
 
       <div v-if="isElectron" class="setting-row">
@@ -343,11 +385,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
-import { Music, Settings, Monitor, Info } from 'lucide-vue-next'
+import { Music, Settings, Monitor, Info, HardDrive } from 'lucide-vue-next'
 import { useSettingsStore } from '@/stores/settings'
 import { usePlayerStore } from '@/stores/player'
 import { useLyricsStore } from '@/stores/lyrics'
 import { logger } from '@/utils/logger'
+import { cacheManager } from '@/utils/db'
 import { usePlatform } from '@/composables/usePlatform'
 import { showToast } from '@/composables/useToast'
 import ToggleSwitch from '@/components/common/ToggleSwitch.vue'
@@ -378,6 +421,52 @@ const tempShortcuts = ref({
 })
 const recordingKey = ref<'playPause' | 'prev' | 'next' | null>(null)
 const shortcutError = ref('')
+
+// ---------- 存储与缓存 ----------
+
+const cacheSizeUsed = ref(0)
+const isClearingCache = ref(false)
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.min(sizes.length - 1, Math.floor(Math.log(bytes) / Math.log(k)))
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
+}
+
+const cacheSizeLabel = computed(() =>
+  cacheSizeUsed.value > 0 ? formatBytes(cacheSizeUsed.value) : '暂无缓存数据'
+)
+
+async function refreshCacheSize(): Promise<void> {
+  try {
+    cacheSizeUsed.value = await cacheManager.getCacheSize()
+  } catch (error) {
+    logger.error('settings', 'Failed to get cache size:', error)
+  }
+}
+
+function onCacheLimitChange(event: Event): void {
+  const value = Number((event.target as HTMLInputElement).value)
+  // 上限由 settings store 的 watch 同步给 CacheManager
+  settingsStore.cacheLimitMB = Math.max(100, Math.min(5000, Math.round(value)))
+}
+
+async function handleClearCache(): Promise<void> {
+  if (!confirm('确定要清除所有缓存的音频数据吗？此操作不可恢复。')) return
+  isClearingCache.value = true
+  try {
+    await cacheManager.clearTrackSources()
+    await refreshCacheSize()
+    showToast('缓存已清除', { type: 'success' })
+  } catch (error) {
+    logger.error('settings', 'Failed to clear cache:', error)
+    showToast('清除缓存失败，请重试', { type: 'error' })
+  } finally {
+    isClearingCache.value = false
+  }
+}
 
 function handleQualityChange(): void {
   logger.info('settings', 'Quality changed to:', settingsStore.currentQualityLabel)
@@ -485,9 +574,8 @@ async function onToggleLyricsTranslation(): Promise<void> {
 }
 
 /**
- * 注意：这里不能用 settingsStore.toggleMinimizeToTray()。
- * ToggleSwitch 的 v-model 已经把新值写回 store，再 toggle 一次会把状态翻回原值，
- * 表现为「开关点了又弹回去」。显式赋值保证幂等。
+ * ToggleSwitch 的 v-model 已经把新值写回 store，handler 里再用 toggle 类方法会把状态翻回原值，
+ * 表现为「开关点了又弹回去」。这里只做显式赋值 + 下发主进程，保证幂等。
  */
 function handleMinimizeToTrayChange(enabled: boolean): void {
   settingsStore.minimizeToTray = enabled
@@ -549,10 +637,6 @@ onBeforeUnmount(() => {
   if (updateCheckTimer) clearTimeout(updateCheckTimer)
   updateCheckTimer = null
 })
-
-function handleFeedback(): void {
-  showToast('反馈功能开发中，敬请期待')
-}
 
 function handleOpenDevTools(): void {
   window.electronAPI?.openDevTools?.()
@@ -671,6 +755,7 @@ async function saveShortcuts(): Promise<void> {
 onMounted(async () => {
   // 进入设置页时同步子窗口状态（用户可能已从托盘/播放栏打开过）
   await refreshWindowStates()
+  await refreshCacheSize()
 })
 </script>
 

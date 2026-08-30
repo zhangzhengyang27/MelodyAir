@@ -131,18 +131,6 @@ export const useSettingsStore = defineStore('settings', () => {
     apiBase.value = url
   }
 
-  function toggleMinimizeToTray(): void {
-    minimizeToTray.value = !minimizeToTray.value
-  }
-
-  function toggleGlobalShortcut(): void {
-    globalShortcut.value = !globalShortcut.value
-  }
-
-  function toggleAutoLaunch(): void {
-    autoLaunch.value = !autoLaunch.value
-  }
-
   return {
     // State
     theme,
@@ -172,9 +160,6 @@ export const useSettingsStore = defineStore('settings', () => {
     setTheme,
     setMusicQuality,
     setApiBase,
-    toggleMinimizeToTray,
-    toggleGlobalShortcut,
-    toggleAutoLaunch,
 
     // Labels
     qualityLabels
