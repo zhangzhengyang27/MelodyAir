@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- 防 403 防盗链：音频请求不发送 Referer -->
     <meta name="referrer" content="no-referrer">
+    <!-- favicon：兼容主流浏览器与 iOS 添加到主屏 -->
+    <!-- 必须用绝对路径：Web 端为 history 路由，子路径（/playlist/1、/settings）刷新时
+         相对路径会解析成 /playlist/favicon.ico 而 404。Electron 端窗口图标由
+         BrowserWindow.icon 指定，不读取 favicon，绝对路径的加载失败无副作用。 -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <title>Melody Air</title>
   </head>
   <body>
