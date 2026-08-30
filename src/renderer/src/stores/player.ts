@@ -49,6 +49,9 @@ interface PlayerState {
   currentSongCache: Song | null
 }
 
+/** 无播放歌曲时的默认标签页标题 */
+const DEFAULT_DOCUMENT_TITLE = 'MelodyAir'
+
 /** 模块级纯函数：由歌曲列表构建随机播放列表（generateShuffledList 与 afterHydrate 共用） */
 function buildShuffledList(songs: Song[]): Song[] {
   const list = [...songs]
@@ -424,10 +427,17 @@ export const usePlayerStore = defineStore('player', () => {
 
   function updateCurrentSongCache(song: Song): void {
     currentSongCache.value = song
-    if (document.title !== `MelodyAir - ${song.name}`) {
-      document.title = `MelodyAir - ${song.name}`
+    if (document.title !== `${DEFAULT_DOCUMENT_TITLE} - ${song.name}`) {
+      document.title = `${DEFAULT_DOCUMENT_TITLE} - ${song.name}`
     }
   }
+
+  // 清空队列 / 停止播放后标签页标题会停留在上一首歌名，需要恢复默认
+  watch(currentSong, (song) => {
+    if (!song) {
+      document.title = DEFAULT_DOCUMENT_TITLE
+    }
+  })
 
   function markPlayHistory(song: Song): void {
     if (!song || typeof song.id !== 'number') return
@@ -660,12 +670,12 @@ export const usePlayerStore = defineStore('player', () => {
 
   // ==================== 播放控制 ====================
   async function playNext(): Promise<void> {
-    // [TEMP-DEBUG]
-    logger.warn('player', `[TEMP-DEBUG] playNext entry: mode=${playMode.value}, playlist=${playlist.value.length}, shuffled=${shuffledList.value.length}, curIdx=${currentIndex.value}, fm=${isPersonalFM.value}, playNextList=${playNextList.value.length}`)
     if (playNextList.value.length > 0) {
-      const nextSong = playNextList.value.shift()!
-      // 跳过当前正在播放的歌曲（防御性处理）
+      const nextSong = playNextList.value[0]
+      // 跳过当前正在播放的歌曲（防御性处理）：
+      // 仅在不消费该项时才 shift，否则这首"下一首播放"会被静默丢弃
       if (nextSong.id !== currentSong.value?.id) {
+        playNextList.value.shift()
         // 将歌曲插入到当前播放位置的下一首，然后播放
         insertNext(nextSong)
         currentIndex.value++

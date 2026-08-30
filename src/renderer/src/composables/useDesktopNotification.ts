@@ -1,4 +1,5 @@
 import { computed } from 'vue'
+import router from '@/router'
 import { useSettingsStore } from '@/stores/settings'
 import { logger } from '@/utils/logger'
 
@@ -41,10 +42,13 @@ export function useDesktopNotification() {
         icon: payload.icon,
       })
 
-      if (payload.onClickRoute) {
+      const onClickRoute = payload.onClickRoute
+      if (onClickRoute) {
         notification.onclick = () => {
           window.focus()
-          window.location.hash = payload.onClickRoute
+          // 用 router 跳转而非改 hash：Web 端是 history 模式（非 hash 路由），
+          // 直接写 location.hash 不会触发 vue-router 导航，只会污染地址栏
+          void router.push(onClickRoute)
         }
       }
 

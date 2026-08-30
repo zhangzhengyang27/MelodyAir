@@ -121,10 +121,15 @@ export class CacheManager {
 
   /**
    * 获取当前缓存使用量
+   * 用游标逐条累加：toArray() 会把所有音频 ArrayBuffer 一次性载入内存，
+   * 缓存几百 MB 时统计自身就会把内存打满。
    */
   async getCacheSize(): Promise<number> {
-    const sources = await db.trackSources.toArray()
-    return sources.reduce((total, item) => total + item.size, 0)
+    let total = 0
+    await db.trackSources.each((item) => {
+      total += item.size
+    })
+    return total
   }
 
   /**
@@ -260,24 +265,23 @@ export class CacheManager {
    */
   private async cleanupIfNeeded(): Promise<void> {
     const currentSize = await this.getCacheSize()
+    if (currentSize <= this.maxCacheSize) return
 
-    if (currentSize > this.maxCacheSize) {
-      // 使用 debug 级别避免生产环境输出
-      if (import.meta.env.DEV) console.log(`[Cache] Cache limit exceeded (${currentSize} > ${this.maxCacheSize}), cleaning up...`)
+    // 使用 debug 级别避免生产环境输出
+    if (import.meta.env.DEV) console.log(`[Cache] Cache limit exceeded (${currentSize} > ${this.maxCacheSize}), cleaning up...`)
 
-      // 按 createTime 升序排列（最旧的在前）
-      let allSources = await db.trackSources.orderBy('createTime').toArray()
+    // 先只取主键（极轻量），再按 createTime 升序逐条读取并删除，
+    // 内存峰值始终只有单条音频，而不是整个缓存。
+    const oldestFirst = await db.trackSources.orderBy('createTime').keys()
 
-      let totalSize = currentSize
-
-      while (totalSize > this.maxCacheSize * 0.8 && allSources.length > 0) {
-        const oldest = allSources.shift()!
-        if (oldest) {
-          await db.trackSources.delete(oldest.id)
-          totalSize -= oldest.size
-          if (import.meta.env.DEV) console.log(`[Cache] Removed track ${oldest.id}, freed ${this.formatBytes(oldest.size)}`)
-        }
-      }
+    let totalSize = currentSize
+    for (const key of oldestFirst) {
+      if (totalSize <= this.maxCacheSize * 0.8) break
+      const oldest = await db.trackSources.get(key)
+      if (!oldest) continue
+      await db.trackSources.delete(key)
+      totalSize -= oldest.size
+      if (import.meta.env.DEV) console.log(`[Cache] Removed track ${oldest.id}, freed ${this.formatBytes(oldest.size)}`)
     }
   }
 

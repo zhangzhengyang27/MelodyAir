@@ -578,6 +578,11 @@ function createAudioEngineWindow(): void {
     height: 1,
     show: false,
     skipTaskbar: true,
+    // 该窗口只加载本地 audio-engine.html，不承载任何远程页面内容：
+    // - nodeIntegration：audio-engine.ts 需要 require('electron') 发 IPC
+    // - contextIsolation: false：与上者配套（预加载脚本不参与该窗口）
+    // - webSecurity: false：Web Audio 模式需 fetch 音源 CDN，关闭同源限制才能解码播放
+    // 三者都是音频链路的功能性依赖，改动前需先验证播放/可视化不受影响。
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -634,16 +639,23 @@ function createTray(): void {
  * 创建托盘图标
  */
 function createTrayIcon(): Electron.NativeImage {
-  const iconPath = join(__dirname, "../../resources/icon.png")
-  let icon: Electron.NativeImage
+  // 打包后 __dirname 在 app.asar/out/main 内，../../resources 并不存在，
+  // 老写法永远取不到图标、静默退化成占位图（表现为托盘图标异常）。
+  // 正式包由 build.extraResources 把 build/icon.png 复制到 resources 根目录，
+  // 这里按 process.resourcesPath 查找，并保留 asar 内路径作为兜底。
+  const candidates = is.dev
+    ? [join(__dirname, "../../build/icon.png")]
+    : [join(process.resourcesPath, "icon.png"), join(__dirname, "../../build/icon.png")]
 
-  try {
-    icon = nativeImage.createFromPath(iconPath)
-    if (!icon.isEmpty() && icon.getSize().width > 0) {
-      return icon.resize({ width: 16, height: 16 })
+  for (const iconPath of candidates) {
+    try {
+      const icon = nativeImage.createFromPath(iconPath)
+      if (!icon.isEmpty() && icon.getSize().width > 0) {
+        return icon.resize({ width: 16, height: 16 })
+      }
+    } catch {
+      // 继续尝试下一个候选
     }
-  } catch {
-    // 忽略错误，使用备用方案
   }
 
   // 备用：使用内嵌的简单图标

@@ -223,6 +223,20 @@ onMounted(async () => {
   }
 })
 
+// 组件已挂载时再次带 ?q= 进入（顶部搜索框、热搜词等）不会重跑 onMounted，
+// 需要监听 query 变化，否则表现为"点了搜索但页面没反应"
+watch(
+  () => route.query.q,
+  (q) => {
+    if (typeof q !== 'string') return
+    const keyword = q.trim()
+    if (keyword && keyword !== query.value.trim()) {
+      query.value = q
+      void doSearch()
+    }
+  }
+)
+
 // Search suggestions with debounce (300ms)
 let suggestTimer: ReturnType<typeof setTimeout> | null = null
 watch(query, (val) => {
@@ -260,10 +274,14 @@ onUnmounted(() => {
   if (suggestTimer) clearTimeout(suggestTimer)
 })
 
+// 搜索请求序号：连续搜索时慢的旧响应不得覆盖新结果
+let searchSeq = 0
+
 async function doSearch() {
   const keyword = query.value.trim()
   if (!keyword) return
 
+  const seq = ++searchSeq
   hasSearched.value = true
   searchLoading.value = true
   searchFailed.value = false
@@ -277,6 +295,9 @@ async function doSearch() {
       cloudSearch(keyword, 10, 20),
       cloudSearch(keyword, 1000, 20)
     ])
+
+    // 期间又发起了新搜索：丢弃本次结果
+    if (seq !== searchSeq) return
 
     if (songsRes.status === 'fulfilled') {
       results.value.songs = ((songsRes.value as any)?.result?.songs || []).map((s: any) => ({
@@ -303,7 +324,10 @@ async function doSearch() {
     const totalResults = results.value.songs.length + results.value.artists.length + results.value.albums.length + results.value.playlists.length
     addToHistory(keyword, totalResults)
   } finally {
-    searchLoading.value = false
+    // 只有最后一次搜索可以收尾，否则会被旧请求提前关闭 loading
+    if (seq === searchSeq) {
+      searchLoading.value = false
+    }
   }
 }
 

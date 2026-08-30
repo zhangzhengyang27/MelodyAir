@@ -74,6 +74,12 @@
       "build/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      }
+    ],
     "mac": {
       "icon": "build/icon.icns",
       "category": "public.app-category.music",

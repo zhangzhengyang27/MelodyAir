@@ -634,6 +634,12 @@ async function handleCheckUpdate(): Promise<void> {
 onBeforeUnmount(() => {
   if (updateCheckTimer) clearTimeout(updateCheckTimer)
   updateCheckTimer = null
+  // 兜底：录制快捷键中途离开页面时移除全局监听，避免键盘输入被永久拦截
+  if (recordingKeydownHandler) {
+    document.removeEventListener('keydown', recordingKeydownHandler)
+    recordingKeydownHandler = null
+  }
+  recordingKey.value = null
 })
 
 function handleOpenDevTools(): void {
@@ -643,6 +649,11 @@ function handleOpenDevTools(): void {
 function handleGlobalShortcutChange(enabled: boolean): void {
   window.electronAPI?.setGlobalShortcuts?.(enabled)
 }
+
+// 录制快捷键期间挂载在 document 上的监听器引用。
+// 录制中若离开设置页，必须在卸载时移除：该监听器无条件 preventDefault + stopPropagation，
+// 残留会导致全应用无法输入、快捷键全部失效。
+let recordingKeydownHandler: ((event: KeyboardEvent) => void) | null = null
 
 function startRecording(key: 'playPause' | 'prev' | 'next'): void {
   recordingKey.value = key
@@ -692,8 +703,12 @@ function startRecording(key: 'playPause' | 'prev' | 'next'): void {
   const stopRecording = () => {
     recordingKey.value = null
     document.removeEventListener('keydown', handleKeyDown)
+    if (recordingKeydownHandler === handleKeyDown) {
+      recordingKeydownHandler = null
+    }
   }
 
+  recordingKeydownHandler = handleKeyDown
   document.addEventListener('keydown', handleKeyDown)
 }
 

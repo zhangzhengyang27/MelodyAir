@@ -4,6 +4,17 @@ import { logger } from './logger'
 export type PlayMode = 'sequence' | 'loop' | 'loopOne' | 'random' | 'reversed'
 export type PlayerStatus = 'playing' | 'paused' | 'loading' | 'error'
 
+/** play() 等待 onplay 的超时时间（自动播放被拦截时兜底放行） */
+const PLAY_START_TIMEOUT_MS = 15000
+
+/** 频率数据数组长度（AnalyserNode fftSize / 2） */
+const FREQUENCY_BIN_COUNT = 128
+
+/** Howler 把 html5 模式标记挂在实例私有属性上，类型定义里没有公开 */
+function isHtml5Howl(howl: Howl): boolean {
+  return Boolean((howl as unknown as { _html5?: boolean })._html5)
+}
+
 export interface PlayerOptions {
   volume?: number
   fadeDuration?: number
@@ -43,7 +54,9 @@ export class AudioEngine {
   // 音频可视化 AnalyserNode（旁路连接，不影响音频输出）
   private audioContext: AudioContext | null = null
   private analyserNode: AnalyserNode | null = null
-  private frequencyDataArray: Uint8Array | null = null
+  // 显式绑定 ArrayBuffer：getByteFrequencyData 要求 Uint8Array<ArrayBuffer>，
+  // 直接用 new Uint8Array(length) 会被推断成 Uint8Array<ArrayBufferLike>
+  private frequencyDataArray: Uint8Array<ArrayBuffer> | null = null
 
   // 回调函数
   private onEndCallback?: () => void
@@ -89,7 +102,7 @@ export class AudioEngine {
       this.analyserNode = ctx.createAnalyser()
       this.analyserNode.fftSize = 256 // 128 个频率数据点
       this.analyserNode.smoothingTimeConstant = 0.8
-      this.frequencyDataArray = new Uint8Array(this.analyserNode.frequencyBinCount)
+      this.frequencyDataArray = new Uint8Array(new ArrayBuffer(this.analyserNode.frequencyBinCount))
 
       logger.info('player', '[AudioEngine] AnalyserNode initialized')
     } catch (error) {
@@ -109,6 +122,15 @@ export class AudioEngine {
       this.stop()
 
       this.emitStateChange('loading')
+
+      // 兜底放行：浏览器自动播放策略拦截时 Howl 会一直等待用户手势，
+      // onplay 可能长时间不触发，调用方（如切换音质）会永远卡在 loading。
+      // 超时后仍 resolve —— 音频是事件驱动的，解锁后 onplay 照常播放，
+      // 提前放行只是让调用方的后续步骤（恢复进度/暂停）不被阻塞。
+      const playWaitTimer = setTimeout(() => {
+        logger.warn('player', '[AudioEngine] play() 等待 onplay 超时，提前放行')
+        resolve()
+      }, PLAY_START_TIMEOUT_MS)
 
       // 确保 AudioContext 处于运行状态（浏览器中需要用户交互才能 resume）
       try {
@@ -136,6 +158,7 @@ export class AudioEngine {
         format: [format],
         volume: useHtml5 ? (this._muted ? 0 : this._volume) : 0, // Web Audio 模式从 0 开始淡入
         onplay: () => {
+          clearTimeout(playWaitTimer)
           // 确保播放速率正确
           if (this._howl) {
             this._howl.rate(this._playbackRate)
@@ -160,13 +183,8 @@ export class AudioEngine {
         onend: () => {
           // 如果是手动 stop 导致的，不触发 onEnd（避免自动切歌）
           if (!this._isStopping && !this._isFadeOut) {
-            // [TEMP-DEBUG]
-            logger.warn('player', '[TEMP-DEBUG] howl onend fired')
             this.stopProgressTracking()
             this.onEndCallback?.()
-          } else {
-            // [TEMP-DEBUG]
-            logger.warn('player', `[TEMP-DEBUG] howl onend SUPPRESSED (_isStopping=${this._isStopping}, _isFadeOut=${this._isFadeOut})`)
           }
         },
         onpause: () => {
@@ -174,6 +192,7 @@ export class AudioEngine {
           this.stopProgressTracking()
         },
         onloaderror: (_id, errCode) => {
+          clearTimeout(playWaitTimer)
           logger.warn('player', `[AudioEngine] loaderror code=${errCode} for`, src)
           const err = new Error(`加载音频失败 (code=${errCode})`)
           this.onErrorCallback?.(err)
@@ -181,6 +200,7 @@ export class AudioEngine {
           reject(err)
         },
         onplayerror: (_id, errCode) => {
+          clearTimeout(playWaitTimer)
           logger.warn('player', `[AudioEngine] playerror code=${errCode}`)
           const err = new Error(`播放错误 (code=${errCode})`)
           this.onErrorCallback?.(err)
@@ -223,7 +243,7 @@ export class AudioEngine {
     }
 
     // HTML5 模式下直接播放
-    if (this._howl._html5) {
+    if (isHtml5Howl(this._howl)) {
       this._howl.volume(this._muted ? 0 : this._volume)
       this._howl.play()
       this.emitStateChange('playing')
@@ -257,7 +277,7 @@ export class AudioEngine {
   pause(): void {
     if (!this._howl || !this._howl.playing()) return
     // HTML5 模式下 fade 不可靠，直接 pause
-    if (this._howl._html5) {
+    if (isHtml5Howl(this._howl)) {
       this._howl.pause()
       return
     }
@@ -357,13 +377,13 @@ export class AudioEngine {
    * 获取音频频率数据（用于可视化）
    * 返回 Uint8Array，每个值 0-255
    */
-  getFrequencyData(): Uint8Array {
+  getFrequencyData(): Uint8Array<ArrayBuffer> {
     if (this.analyserNode && this.frequencyDataArray) {
       this.analyserNode.getByteFrequencyData(this.frequencyDataArray)
       return this.frequencyDataArray
     }
     // 返回空数组
-    return new Uint8Array(128)
+    return new Uint8Array(new ArrayBuffer(FREQUENCY_BIN_COUNT))
   }
 
   /**
