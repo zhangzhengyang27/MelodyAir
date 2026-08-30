@@ -19,8 +19,14 @@ export const getPlaylistCatlist = (): Promise<ApiResponse> => request.get('/play
 export const subscribePlaylist = (id: number, t: 1 | 2): Promise<ApiResponse> =>
   request.get('/playlist/subscribe', { params: { t, id, timestamp: Date.now() } })
 
+/** /playlist/detail/dynamic 响应：subscribed 在顶层 */
+export interface PlaylistDetailDynamicResponse {
+  code: number
+  subscribed?: boolean
+}
+
 // 歌单详情动态
-export const getPlaylistDetailDynamic = (id: number): Promise<ApiResponse<{ subscribed?: boolean }>> =>
+export const getPlaylistDetailDynamic = (id: number): Promise<PlaylistDetailDynamicResponse> =>
   request.get('/playlist/detail/dynamic', { params: { id } })
 
 // 歌单(网友精选碟)
@@ -40,19 +46,26 @@ export const getPlaylistSubscribers = (id: number, limit = 20, offset = 0) =>
   request.get('/playlist/subscribers', { params: { id, limit, offset } })
 
 // 对歌单添加或删除歌曲
-export const playlistTracks = (op: 'add' | 'del', pid: number, tracks: string) =>
+export const playlistTracks = (op: 'add' | 'del', pid: number, tracks: string): Promise<ApiResponse> =>
   request.get('/playlist/tracks', { params: { op, pid, tracks, timestamp: Date.now() } })
 
+/** /playlist/create 响应：新建歌单 id 在顶层，部分情况附带完整 playlist */
+export interface CreatePlaylistResponse {
+  code: number
+  id?: number
+  playlist?: { id: number }
+}
+
 // 新建歌单
-export const createPlaylist = (name: string, privacy?: string, type?: string) =>
+export const createPlaylist = (name: string, privacy?: string, type?: string): Promise<CreatePlaylistResponse> =>
   request.get('/playlist/create', { params: { name, privacy, type } })
 
 // 删除歌单
-export const deletePlaylist = (id: string) =>
+export const deletePlaylist = (id: string): Promise<ApiResponse> =>
   request.get('/playlist/delete', { params: { id } })
 
 // 更新歌单
-export const updatePlaylist = (params: { id: number; name: string; desc: string; tags: string }) =>
+export const updatePlaylist = (params: { id: number; name: string; desc: string; tags: string }): Promise<ApiResponse> =>
   request.get('/playlist/update', { params })
 
 // 更新歌单名

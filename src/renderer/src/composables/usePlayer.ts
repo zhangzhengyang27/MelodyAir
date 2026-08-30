@@ -3,7 +3,6 @@ import { usePlayerStore } from '@/stores/player'
 import { useAudio } from './useAudio'
 import { getSongDetail } from '@/api/song'
 import type { Song } from '@/stores/player'
-import type { Song as ApiSong } from '@/types/api'
 import { logger } from '@/utils/logger'
 import { ArrowRight, Repeat, Repeat1, Shuffle, ArrowLeftRight } from 'lucide-vue-next'
 
@@ -47,7 +46,7 @@ export function usePlayer() {
   async function playSongById(id: number) {
     try {
       const res = await getSongDetail(id)
-      const songData = (res as { songs?: ApiSong[] })?.songs?.[0]
+      const songData = res?.songs?.[0]
       if (songData) {
         const song: Song = {
           id: songData.id,

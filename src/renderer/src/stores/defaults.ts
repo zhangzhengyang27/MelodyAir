@@ -44,7 +44,9 @@ export const userDefaults = {
  */
 export function migrateWithDefaults<T extends Record<string, unknown>>(
   defaults: T,
-  persisted: Partial<T>
+  // 持久化数据来自 localStorage / JSON，取值一律是 unknown，
+  // 用 Partial<T> 会因为 unknown 无法赋值给具体字段而误报
+  persisted: Partial<Record<keyof T, unknown>>
 ): T {
-  return { ...defaults, ...persisted }
+  return { ...defaults, ...persisted } as T
 }

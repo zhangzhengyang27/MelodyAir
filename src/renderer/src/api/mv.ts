@@ -13,8 +13,8 @@ export const getMvUrl = (id: number, r = 1080): Promise<ApiResponse> =>
 export const subMv = (mvid: number, t: 1 | 2): Promise<ApiResponse> =>
   request.get('/mv/sub', { params: { mvid, t } })
 
-// 收藏的 MV 列表
-export const getMvSublist = (): Promise<ApiResponse<{ data?: unknown[] }>> => request.get('/mv/sublist')
+// 收藏的 MV 列表（列表在 data 字段，直接以数组暴露）
+export const getMvSublist = (): Promise<ApiResponse<unknown[]>> => request.get('/mv/sublist')
 
 // MV 点赞转发评论数数据
 export const getMvDetailInfo = (mvid: number): Promise<ApiResponse> =>

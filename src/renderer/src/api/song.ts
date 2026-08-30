@@ -2,8 +2,31 @@ import request from './index'
 import type { SongUrlV1Response, LyricResponse } from '@/types/api'
 import type { ApiResponse } from '@/types/api'
 
+/**
+ * /song/detail 返回的歌曲项。
+ * 字段名沿用网易云原始数据（al/ar/dt），与 types/api.ts 中驼峰命名的 Song 不同，
+ * 混用会导致上层访问 al.picUrl 时类型缺失。
+ */
+export interface SongDetailItem {
+  id: number
+  name: string
+  ar?: { id: number; name: string }[]
+  al?: { id: number; name: string; picUrl?: string }
+  dt?: number
+}
+
+/**
+ * /song/detail 响应体：歌曲列表直接挂在 songs 上（与 /song/url/v1 的 data 包裹不同），
+ * 后端透传网易云原始结构，上层一律按 res.songs 取值。
+ */
+export interface SongDetailResponse {
+  code: number
+  songs?: SongDetailItem[]
+  privileges?: unknown[]
+}
+
 // 获取歌曲详情
-export const getSongDetail = (ids: number | string): Promise<ApiResponse> =>
+export const getSongDetail = (ids: number | string): Promise<SongDetailResponse> =>
   request.get('/song/detail', { params: { ids } })
 
 // 获取音乐 URL（旧版）

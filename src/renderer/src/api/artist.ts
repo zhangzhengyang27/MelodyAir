@@ -18,7 +18,13 @@ export const getArtistDetail = (id: number): Promise<ArtistDetail> =>
   request.get('/artist/detail', { params: { id } })
 
 // 歌手详情动态（是否关注等）
-export const getArtistDetailDynamic = (id: number): Promise<ApiResponse<{ isSub?: boolean }>> =>
+/** /artist/detail/dynamic 响应：isSub 在顶层 */
+export interface ArtistDetailDynamicResponse {
+  code: number
+  isSub?: boolean
+}
+
+export const getArtistDetailDynamic = (id: number): Promise<ArtistDetailDynamicResponse> =>
   request.get('/artist/detail/dynamic', { params: { id } })
 
 // 歌手描述
@@ -38,11 +44,11 @@ export const getArtistVideo = (id: number, params?: { size?: number; cursor?: nu
   request.get('/artist/video', { params: { id, ...params } })
 
 // 收藏/取消收藏歌手
-export const subArtist = (id: number, t: 1 | 2) =>
+export const subArtist = (id: number, t: 1 | 2): Promise<ApiResponse> =>
   request.get('/artist/sub', { params: { id, t } })
 
-// 收藏的歌手列表
-export const getArtistSublist = (limit = 25, offset = 0) =>
+// 收藏的歌手列表（列表在 data 字段，直接以数组暴露）
+export const getArtistSublist = (limit = 25, offset = 0): Promise<ApiResponse<unknown[]>> =>
   request.get('/artist/sublist', { params: { limit, offset } })
 
 // 歌手分类列表

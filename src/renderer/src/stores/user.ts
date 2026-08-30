@@ -93,7 +93,8 @@ export const useUserStore = defineStore('user', () => {
   async function checkLoginStatus() {
     try {
       const res: LoginStatusResponse = await getLoginStatus()
-      const remoteProfile = res?.profile || res?.data?.profile
+      // /login/status 是少数带 data 包裹的接口：{ code, data: { account, profile } }
+      const remoteProfile = res?.data?.profile
       if (remoteProfile) {
         profile.value = mapUserProfile(remoteProfile as unknown as Record<string, unknown>)
         fetchUserPlaylists()
@@ -111,7 +112,7 @@ export const useUserStore = defineStore('user', () => {
   async function fetchUserProfile(): Promise<void> {
     try {
       const res: LoginStatusResponse = await getLoginStatus()
-      const remoteProfile = (res?.code === 200 && res?.profile) || res?.data?.profile
+      const remoteProfile = res?.data?.profile
       if (remoteProfile) {
         profile.value = mapUserProfile(remoteProfile as unknown as Record<string, unknown>)
       } else if (profile.value) {
@@ -224,9 +225,8 @@ export const useUserStore = defineStore('user', () => {
       await fetchUserProfile()
       if (!profile.value) {
         const accountRes = await fetchUserAccount()
-        if (accountRes && 'account' in (accountRes as object)) {
-          const acc = (accountRes as { account: Record<string, unknown> }).account
-          profile.value = mapUserProfile(acc)
+        if (accountRes?.account) {
+          profile.value = mapUserProfile(accountRes.account as unknown as Record<string, unknown>)
         }
       }
       if (profile.value) {

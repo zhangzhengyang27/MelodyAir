@@ -225,12 +225,12 @@ export interface Playlist {
   commentThreadId?: string
   createTime?: number
   updateTime?: number
-  playCount: number
-  trackCount: number
-  trackNumberUpdatedAt: number
-  userId: number
-  specialType: number
-  privacy: number
+  // 以下字段只有歌单详情接口返回，列表接口（/user/playlist）不返回，
+  // 声明成必填会让 mapPlaylist 之类的映射函数无法构造合法对象
+  trackNumberUpdatedAt?: number
+  userId?: number
+  specialType?: number
+  privacy?: number
   tags?: string[]
   description?: string
   ordered?: boolean
@@ -317,7 +317,6 @@ export interface LyricResponse {
   transUser?: { nickname: string; userid: number }
   klyric?: { version: number; lyric: string }
   tlrc?: { version: number; lyric: string }
-  code: number
   pureMusicMode?: number
   needFallback?: boolean
 }
@@ -383,10 +382,10 @@ export interface CommentResponse {
   hotComments?: Comment[]
   comments?: Comment[]
   total: number
-  more: bool
-  hotMore: bool
+  more: boolean
+  hotMore: boolean
   topComments?: Comment[]
-  isMusician: bool
+  isMusician: boolean
   userId?: number
   time?: number
 }

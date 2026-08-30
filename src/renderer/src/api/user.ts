@@ -5,12 +5,37 @@ import type { ApiResponse, Playlist, UserProfile, UserAccount } from '@/types/ap
 export const getUserDetail = (uid: number): Promise<ApiResponse> =>
   request.get('/user/detail', { params: { uid } })
 
+/**
+ * /user/playlist 响应：网易云原始结构，playlist 直接挂在顶层，没有 data 包裹。
+ * 早期统一声明成 ApiResponse<{playlist}> 与实际结构不符，上层访问 res.playlist 会报类型错误。
+ */
+export interface UserPlaylistResponse {
+  code: number
+  playlist?: Playlist[]
+  more?: boolean
+  version?: string
+}
+
+/** /likelist 响应：ids 在顶层 */
+export interface LikeListResponse {
+  code: number
+  ids?: number[]
+  checkPoint?: number
+}
+
+/** /user/account 响应：account / profile 在顶层 */
+export interface UserAccountResponse {
+  code: number
+  account?: UserAccount
+  profile?: UserProfile
+}
+
 // 用户歌单
-export const getUserPlaylist = (uid: number, limit = 30, offset = 0): Promise<ApiResponse<{ playlist: Playlist[] }>> =>
+export const getUserPlaylist = (uid: number, limit = 30, offset = 0): Promise<UserPlaylistResponse> =>
   request.get('/user/playlist', { params: { uid, limit, offset } })
 
 // 用户账号信息
-export const getUserAccount = (): Promise<ApiResponse<UserAccount>> => request.get('/user/account')
+export const getUserAccount = (): Promise<UserAccountResponse> => request.get('/user/account')
 
 // 用户信息，歌单，收藏，mv, dj 数量
 export const getUserSubcount = (): Promise<ApiResponse> => request.get('/user/subcount')
@@ -27,11 +52,11 @@ export const updateUser = (params: { gender: number; birthday: number; nickname:
   request.get('/user/update', { params })
 
 // 喜欢的音乐列表
-export const getLikeList = (uid: number): Promise<ApiResponse<{ ids: number[] }>> =>
+export const getLikeList = (uid: number): Promise<LikeListResponse> =>
   request.get('/likelist', { params: { uid } })
 
 // 喜欢音乐
-export const likeSong = (id: number, like = true) =>
+export const likeSong = (id: number, like = true): Promise<ApiResponse> =>
   request.get('/like', { params: { id, like } })
 
 // 喜欢音乐 - 新版

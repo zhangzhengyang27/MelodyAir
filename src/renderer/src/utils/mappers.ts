@@ -15,7 +15,9 @@ export function mapArtists(artists: Array<{ id: number; name: string }> | undefi
 /**
  * 将 API 返回的专辑信息映射为标准格式
  */
-export function mapAlbum(al: { id?: number; name?: string; picUrl?: string; blurPicUrl?: string } = {}): Song['album'] {
+export function mapAlbum(
+  al: { id?: number; name?: string; picUrl?: string; blurPicUrl?: string } = {}
+): TrackInfo['album'] {
   return {
     id: al.id ?? 0,
     name: al.name ?? '',
