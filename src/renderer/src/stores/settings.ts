@@ -131,6 +131,16 @@ export const useSettingsStore = defineStore('settings', () => {
     apiBase.value = url
   }
 
+  /**
+   * 设置缓存上限并立即按 LRU 收缩，避免调小上限后仍占着旧数据。
+   * 上面的 watch 只负责同步上限值，这里额外触发一次清理。
+   */
+  async function setCacheLimitMB(limit: number): Promise<void> {
+    cacheLimitMB.value = Math.max(100, Math.min(5000, Math.round(limit)))
+    cacheManager.setMaxCacheSize(cacheLimitMB.value)
+    await cacheManager.enforceLimit()
+  }
+
   return {
     // State
     theme,
@@ -160,6 +170,7 @@ export const useSettingsStore = defineStore('settings', () => {
     setTheme,
     setMusicQuality,
     setApiBase,
+    setCacheLimitMB,
 
     // Labels
     qualityLabels

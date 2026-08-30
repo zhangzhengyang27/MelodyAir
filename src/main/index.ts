@@ -117,6 +117,13 @@ let miniWindow: BrowserWindow | null = null
 let lyricsWindow: BrowserWindow | null = null
 let audioEngineWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+
+// 音频引擎窗口页面是否已完成加载（audio-engine.ts 初始化后会发 audio:ready）。
+// 页面未加载完成时 webContents.send 会被静默丢弃，导致启动阶段下发的
+// 音量 / 倍速 / 淡入淡出等命令丢失，因此就绪前先缓存命令。
+let audioEngineReady = false
+const pendingAudioCommands: Array<{ channel: string; params: unknown }> = []
+const MAX_PENDING_AUDIO_COMMANDS = 32
 let minimizeToTray = true
 let globalShortcutsEnabled = true
 let customShortcuts = {
@@ -562,6 +569,10 @@ function createAudioEngineWindow(): void {
     return
   }
 
+  // 新窗口意味着页面要重新加载，就绪状态与缓存命令都要重置
+  audioEngineReady = false
+  pendingAudioCommands.length = 0
+
   audioEngineWindow = new BrowserWindow({
     width: 1,
     height: 1,
@@ -572,6 +583,11 @@ function createAudioEngineWindow(): void {
       contextIsolation: false,
       webSecurity: false
     }
+  })
+
+  // 页面重新加载（崩溃恢复、手动 reload）期间命令同样会丢失，重置就绪状态重新走缓存流程
+  audioEngineWindow.webContents.on("did-start-loading", () => {
+    audioEngineReady = false
   })
 
   // 加载音频引擎页面
@@ -748,6 +764,16 @@ function quitApp(): void {
 // ==================== IPC 事件处理 ====================
 
 /**
+ * 向音频引擎窗口转发单条命令
+ * 窗口已销毁时直接丢弃，避免向无效 webContents 发送
+ */
+function forwardAudioCommand(channel: string, params: unknown): void {
+  if (audioEngineWindow && !audioEngineWindow.isDestroyed()) {
+    audioEngineWindow.webContents.send(channel, params)
+  }
+}
+
+/**
  * 注册所有 IPC 通信处理器
  * 借鉴 YesPlayMusic 的 IPC 设计模式
  */
@@ -762,10 +788,23 @@ function registerIpcHandlers(): void {
 
   audioCommands.forEach((channel) => {
     ipcMain.on(channel, (_event, params) => {
-      if (audioEngineWindow && !audioEngineWindow.isDestroyed()) {
-        audioEngineWindow.webContents.send(channel, params)
+      // 引擎未就绪时先缓存，等 audio:ready 后按原始顺序补发，
+      // 顺序补发能保证最终状态正确（例如 play → pause 依次补发后仍是 pause）。
+      if (!audioEngineReady) {
+        if (pendingAudioCommands.length < MAX_PENDING_AUDIO_COMMANDS) {
+          pendingAudioCommands.push({ channel, params })
+        }
+        return
       }
+      forwardAudioCommand(channel, params)
     })
+  })
+
+  // 音频引擎页面加载完成：标记就绪、补发缓存命令、清空队列
+  ipcMain.on('audio:ready', () => {
+    audioEngineReady = true
+    const queued = pendingAudioCommands.splice(0)
+    queued.forEach(({ channel, params }) => forwardAudioCommand(channel, params))
   })
 
   // 音频引擎窗口 -> 主窗口 的状态广播

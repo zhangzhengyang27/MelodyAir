@@ -427,16 +427,8 @@ const shortcutError = ref('')
 const cacheSizeUsed = ref(0)
 const isClearingCache = ref(false)
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.min(sizes.length - 1, Math.floor(Math.log(bytes) / Math.log(k)))
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
-}
-
 const cacheSizeLabel = computed(() =>
-  cacheSizeUsed.value > 0 ? formatBytes(cacheSizeUsed.value) : '暂无缓存数据'
+  cacheSizeUsed.value > 0 ? cacheManager.formatBytes(cacheSizeUsed.value) : '暂无缓存数据'
 )
 
 async function refreshCacheSize(): Promise<void> {
@@ -447,10 +439,16 @@ async function refreshCacheSize(): Promise<void> {
   }
 }
 
-function onCacheLimitChange(event: Event): void {
+async function onCacheLimitChange(event: Event): Promise<void> {
   const value = Number((event.target as HTMLInputElement).value)
-  // 上限由 settings store 的 watch 同步给 CacheManager
-  settingsStore.cacheLimitMB = Math.max(100, Math.min(5000, Math.round(value)))
+  try {
+    // setCacheLimitMB 会同步上限给 CacheManager 并立即按 LRU 收缩
+    await settingsStore.setCacheLimitMB(value)
+    await refreshCacheSize()
+  } catch (error) {
+    logger.error('settings', 'Failed to apply cache limit:', error)
+    showToast('缓存上限设置失败，请重试', { type: 'error' })
+  }
 }
 
 async function handleClearCache(): Promise<void> {

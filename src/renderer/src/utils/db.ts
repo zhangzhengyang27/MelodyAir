@@ -247,6 +247,14 @@ export class CacheManager {
   }
 
   /**
+   * 立即按 LRU 策略收缩到当前上限
+   * 用于「调小缓存上限」后马上生效，而不是等下次写入缓存才清理
+   */
+  async enforceLimit(): Promise<void> {
+    await this.cleanupIfNeeded()
+  }
+
+  /**
    * LRU 策略自动清理
    * 当缓存超出限制时，按创建时间删除最旧的数据
    */
@@ -276,11 +284,11 @@ export class CacheManager {
   /**
    * 格式化字节数为可读字符串
    */
-  private formatBytes(bytes: number): string {
+  formatBytes(bytes: number): string {
     if (bytes === 0) return '0 B'
     const k = 1024
     const sizes = ['B', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    const i = Math.min(sizes.length - 1, Math.floor(Math.log(bytes) / Math.log(k)))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 }
