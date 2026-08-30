@@ -201,30 +201,6 @@ class AudioAdapter {
     }
   }
 
-  setEqualizerBand(bandIndex: number, gain: number): void {
-    if (this.isElectron) {
-      ;(window as any).electronAPI.audioSetEqualizerBand(bandIndex, gain)
-    } else {
-      this.localEngine?.setEqualizerBand(bandIndex, gain)
-    }
-  }
-
-  setEqualizerBands(gains: number[]): void {
-    if (this.isElectron) {
-      ;(window as any).electronAPI.audioSetEqualizerBands(gains)
-    } else {
-      this.localEngine?.setEqualizerBands(gains)
-    }
-  }
-
-  setEqualizerEnabled(enabled: boolean): void {
-    if (this.isElectron) {
-      ;(window as any).electronAPI.audioSetEqualizerEnabled(enabled)
-    } else {
-      this.localEngine?.setEqualizerEnabled(enabled)
-    }
-  }
-
   stop(): void {
     if (this.isElectron) {
       ;(window as any).electronAPI.audioStop()

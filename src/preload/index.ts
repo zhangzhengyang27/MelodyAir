@@ -126,12 +126,6 @@ const api = {
   audioToggleMute: () => ipcRenderer.send('audio:toggleMute'),
   /** 设置播放速率 */
   audioSetPlaybackRate: (rate: number) => ipcRenderer.send('audio:setPlaybackRate', { rate }),
-  /** 设置均衡器单频段 */
-  audioSetEqualizerBand: (bandIndex: number, gain: number) => ipcRenderer.send('audio:setEqualizerBand', { bandIndex, gain }),
-  /** 批量设置均衡器 */
-  audioSetEqualizerBands: (gains: number[]) => ipcRenderer.send('audio:setEqualizerBands', { gains }),
-  /** 启用/禁用均衡器 */
-  audioSetEqualizerEnabled: (enabled: boolean) => ipcRenderer.send('audio:setEqualizerEnabled', { enabled }),
   /** 停止播放 */
   audioStop: () => ipcRenderer.send('audio:stop'),
 

@@ -470,8 +470,7 @@ function registerIpcHandlers(): void {
   const audioCommands = [
     'audio:play', 'audio:pause', 'audio:resume', 'audio:toggle',
     'audio:seek', 'audio:setVolume', 'audio:toggleMute',
-    'audio:setPlaybackRate', 'audio:setEqualizerBand',
-    'audio:setEqualizerBands', 'audio:setEqualizerEnabled', 'audio:stop'
+    'audio:setPlaybackRate', 'audio:stop'
   ]
 
   audioCommands.forEach((channel) => {

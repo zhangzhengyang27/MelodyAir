@@ -162,13 +162,6 @@
         </button>
       </div>
 
-      <div class="setting-row">
-        <div class="setting-info">
-          <p class="setting-label">均衡器 / 音效</p>
-          <p class="setting-description">为不同曲风提供音效预设与手动调节</p>
-        </div>
-        <button class="primary-button" @click="showEqualizer = true">打开均衡器</button>
-      </div>
     </section>
 
     <section class="settings-card">
@@ -254,47 +247,6 @@
         <button class="primary-button" @click="handleOpenDevTools">打开</button>
       </div>
     </section>
-
-    <div v-if="showEqualizer" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl dark:bg-[#171722]">
-        <div class="mb-4 flex items-center justify-between">
-          <h2 class="text-lg font-semibold text-neutral-900 dark:text-white">均衡器 / 音效</h2>
-          <button class="secondary-button" @click="showEqualizer = false">关闭</button>
-        </div>
-        <div class="mb-4 grid gap-2 md:grid-cols-3">
-          <button
-            v-for="key in presetKeys"
-            :key="key"
-            class="secondary-button"
-            :class="activePresetName === key ? '!border-[#FF5A5F] !text-[#FF5A5F]' : ''"
-            @click="equalizer.applyPreset(key)"
-          >
-            {{ key }}
-          </button>
-        </div>
-        <div class="space-y-3">
-          <label v-for="(band, index) in equalizerBands" :key="band.id" class="block">
-            <div class="mb-1 flex items-center justify-between text-sm text-neutral-600 dark:text-white/70">
-              <span>{{ band.label }}</span>
-              <span>{{ band.value }} dB</span>
-            </div>
-            <input
-              type="range"
-              min="-12"
-              max="12"
-              step="1"
-              :value="band.value"
-              class="w-full accent-coral-500"
-              @input="onEqualizerBandInput(index, $event)"
-            />
-          </label>
-        </div>
-        <div class="mt-4 flex items-center justify-between">
-          <ToggleSwitch v-model="equalizerEnabled" />
-          <span class="text-sm text-neutral-500 dark:text-white/50">{{ equalizerEnabled ? '音效已开启' : '音效已关闭' }}</span>
-        </div>
-      </div>
-    </div>
 
     <!-- 快捷键管理对话框 -->
     <div v-if="showShortcutManager" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -414,7 +366,6 @@ import { logger } from '@/utils/logger'
 import { cacheManager } from '@/utils/db'
 import { useUserStore } from '@/stores/user'
 import { useShortcutRecorder } from '@/composables/useShortcutRecorder'
-import { useEqualizer } from '@/composables/useEqualizer'
 import { usePlatform } from '@/composables/usePlatform'
 import { showToast } from '@/composables/useToast'
 import { useRouter } from 'vue-router'
@@ -425,11 +376,6 @@ const playerStore = usePlayerStore()
 const userStore = useUserStore()
 const router = useRouter()
 const shortcutRecorder = useShortcutRecorder()
-const equalizer = useEqualizer()
-const equalizerEnabled = equalizer.enabled
-const equalizerBands = equalizer.bands
-const activePresetName = equalizer.activePresetName
-const presetKeys = Object.keys(equalizer.presets)
 const { hasMiniPlayer, hasDesktopLyrics, hasGlobalShortcut, hasTray, hasAutoLaunch, isElectron } = usePlatform()
 
 /** 版本文案：构建期注入版本号，并标注当前运行环境 */
@@ -438,7 +384,6 @@ const appVersionLabel = computed(() => {
   return `${version} · ${isElectron ? '桌面版' : 'Web 版'}`
 })
 
-const showEqualizer = ref(false)
 const showShortcutManager = ref(false)
 const cacheSizeUsed = ref(0)
 const cacheLimitMB = ref(settingsStore.cacheLimitMB)
@@ -475,10 +420,6 @@ function handleQualityChange(): void {
 function handlePlaybackSpeedChange(): void {
   playerStore.setPlaybackSpeed(Number(settingsStore.playbackSpeed))
   logger.info('settings', 'Playback speed changed to:', settingsStore.playbackSpeed)
-}
-
-function onEqualizerBandInput(index: number, event: Event): void {
-  equalizer.setBand(index, Number((event.target as HTMLInputElement).value))
 }
 
 // ---------- 桌面歌词 / 迷你悬浮窗 ----------

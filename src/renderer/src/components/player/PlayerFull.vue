@@ -51,10 +51,6 @@
         <button class="header-icon-btn" :class="{ active: showVisualizer }" title="音频可视化" @click="showVisualizer = !showVisualizer">
           <Activity class="h-4 w-4" />
         </button>
-        <!-- 均衡器 -->
-        <button class="header-icon-btn" :class="{ active: eqEnabled }" title="均衡器/音效" @click="showEqualizer = !showEqualizer">
-          <SlidersHorizontal class="h-4 w-4" />
-        </button>
         <!-- 睡眠定时 -->
         <button class="header-icon-btn relative" :class="{ active: sleepTimerEnabled }" :title="sleepTimerEnabled ? `睡眠定时：${sleepTimerLabel}` : '睡眠定时'" @click="showSleepTimer = !showSleepTimer">
           <Timer class="h-4 w-4" />
@@ -343,64 +339,6 @@
       </div>
     </main>
 
-    <!-- 均衡器弹窗 -->
-    <Transition name="slide-up">
-      <div v-if="showEqualizer" class="equalizer-panel" @click.self="showEqualizer = false">
-        <div class="equalizer-content">
-          <div class="panel-header">
-            <h3 class="panel-title">均衡器 / 音效</h3>
-            <button class="panel-close" @click="showEqualizer = false">
-              <X class="h-5 w-5" />
-            </button>
-          </div>
-          <div class="equalizer-body">
-            <!-- 预设选择 -->
-            <div class="eq-section">
-              <span class="eq-section-label">预设</span>
-              <div class="eq-presets">
-                <button
-                  v-for="key in eqPresetKeys"
-                  :key="key"
-                  class="eq-preset-btn"
-                  :class="{ active: eqPreset === key }"
-                  @click="eqApplyPreset(key)"
-                >
-                  {{ eqPresetLabels[key] }}
-                </button>
-              </div>
-            </div>
-            <!-- 频段滑块 -->
-            <div class="eq-bands">
-              <div v-for="(band, index) in eqBands" :key="band.id" class="eq-band">
-                <span class="eq-band-value">{{ band.value > 0 ? '+' : '' }}{{ band.value }}</span>
-                <input
-                  type="range"
-                  min="-12"
-                  max="12"
-                  step="1"
-                  :value="band.value"
-                  class="eq-slider"
-                  @input="onEqBandInput(index, $event)"
-                />
-                <span class="eq-band-label">{{ band.label }}</span>
-              </div>
-            </div>
-            <!-- 开关 -->
-            <div class="eq-toggle-row">
-              <span class="eq-toggle-label">{{ eqEnabled ? '音效已开启' : '音效已关闭' }}</span>
-              <button
-                class="eq-toggle"
-                :class="{ active: eqEnabled }"
-                @click="eqEnabled = !eqEnabled"
-              >
-                <span class="eq-toggle-knob" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Transition>
-
     <!-- 睡眠定时器弹窗 -->
     <Transition name="slide-up">
       <div v-if="showSleepTimer" class="sleep-timer-panel" @click.self="showSleepTimer = false">
@@ -522,8 +460,7 @@ import LyricsDisplay from '@/components/lyrics/LyricsDisplay.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import PlayQueue from './PlayQueue.vue'
 import { useLyricsSync } from '@/composables/useLyricsSync'
-import { Disc3, AlignLeft, Image as ImageIcon, Activity, Info, Share2, X, SlidersHorizontal, Timer, Shuffle, Repeat, ArrowRight, RotateCcw, AlignCenter, AlignJustify, Minus, Plus } from 'lucide-vue-next'
-import { useEqualizer, type EqualizerPreset } from '@/composables/useEqualizer'
+import { Disc3, AlignLeft, Image as ImageIcon, Activity, Info, Share2, X, Timer, Shuffle, Repeat, ArrowRight, RotateCcw, AlignCenter, AlignJustify, Minus, Plus } from 'lucide-vue-next'
 import { usePlatform } from '@/composables/usePlatform'
 
 const emitClose = defineEmits<{
@@ -573,25 +510,6 @@ const songDetailLoading = ref(false)
 
 // 分享提示
 const shareToast = ref(false)
-
-// === 均衡器 ===
-const showEqualizer = ref(false)
-const {
-  enabled: eqEnabled,
-  preset: eqPreset,
-  bands: eqBands,
-  applyPreset: eqApplyPreset,
-  setBand: eqSetBand,
-} = useEqualizer()
-const eqPresetKeys: EqualizerPreset[] = ['flat', 'pop', 'rock', 'classical', 'vocal', 'bass']
-const eqPresetLabels: Record<EqualizerPreset, string> = {
-  flat: '平坦', pop: '流行', rock: '摇滚', classical: '古典', vocal: '人声', bass: '重低音'
-}
-
-function onEqBandInput(index: number, event: Event) {
-  const target = event.target as HTMLInputElement
-  eqSetBand(index, Number(target.value))
-}
 
 // === 睡眠定时器 ===
 const showSleepTimer = ref(false)
@@ -950,16 +868,12 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleEscKeydown, true)
 })
 
-// Esc 关闭最上层浮层：先关均衡器面板，再关闭全屏播放器。
+// Esc 关闭全屏播放器。
 // 使用 capture 阶段 + stopPropagation，避免同一按键同时触发
 // 底栏 AppPlayer 的 Esc 处理器（否则会一次关掉两层）。
 function handleEscKeydown(e: KeyboardEvent) {
   if (e.key !== 'Escape') return
   e.stopPropagation()
-  if (showEqualizer.value) {
-    showEqualizer.value = false
-    return
-  }
   emitClose('close')
 }
 window.addEventListener('keydown', handleEscKeydown, true)
@@ -1413,7 +1327,6 @@ onUnmounted(() => {
 }
 
 /* ===== 通用弹窗面板 ===== */
-.equalizer-panel,
 .sleep-timer-panel {
   position: fixed;
   inset: 0;
@@ -1425,7 +1338,6 @@ onUnmounted(() => {
   justify-content: center;
 }
 
-.equalizer-content,
 .sleep-timer-content {
   background: rgba(30, 30, 45, 0.95);
   border-radius: 16px;
@@ -1470,134 +1382,6 @@ onUnmounted(() => {
 .panel-close:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
-}
-
-/* ===== 均衡器 ===== */
-.equalizer-body {
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.eq-section {
-  margin-bottom: 20px;
-}
-
-.eq-section-label {
-  display: block;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
-  margin-bottom: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.eq-presets {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.eq-preset-btn {
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: transparent;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.eq-preset-btn:hover {
-  border-color: rgba(255, 90, 95, 0.5);
-  color: #fff;
-}
-
-.eq-preset-btn.active {
-  border-color: #FF5A5F;
-  background: rgba(255, 90, 95, 0.15);
-  color: #FF5A5F;
-}
-
-.eq-bands {
-  display: flex;
-  justify-content: space-around;
-  align-items: flex-end;
-  gap: 8px;
-  margin-bottom: 20px;
-  padding: 16px 0;
-}
-
-.eq-band {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
-
-.eq-band-value {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
-  min-height: 14px;
-}
-
-.eq-slider {
-  -webkit-appearance: slider-vertical;
-  writing-mode: vertical-lr;
-  direction: rtl;
-  width: 24px;
-  height: 120px;
-  cursor: pointer;
-  accent-color: #FF5A5F;
-}
-
-.eq-band-label {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.eq-toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.eq-toggle-label {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.eq-toggle {
-  width: 44px;
-  height: 24px;
-  border-radius: 9999px;
-  border: none;
-  background: rgba(255, 255, 255, 0.15);
-  cursor: pointer;
-  position: relative;
-  transition: background 0.2s;
-}
-
-.eq-toggle.active {
-  background: #FF5A5F;
-}
-
-.eq-toggle-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #fff;
-  transition: transform 0.2s;
-}
-
-.eq-toggle.active .eq-toggle-knob {
-  transform: translateX(20px);
 }
 
 /* ===== 睡眠定时器 ===== */
@@ -1725,8 +1509,6 @@ onUnmounted(() => {
 
 .slide-up-enter-active .song-detail-content,
 .slide-up-leave-active .song-detail-content,
-.slide-up-enter-active .equalizer-content,
-.slide-up-leave-active .equalizer-content,
 .slide-up-enter-active .sleep-timer-content,
 .slide-up-leave-active .sleep-timer-content {
   transition: transform 0.25s ease, opacity 0.25s ease;
@@ -1739,8 +1521,6 @@ onUnmounted(() => {
 
 .slide-up-enter-from .song-detail-content,
 .slide-up-leave-to .song-detail-content,
-.slide-up-enter-from .equalizer-content,
-.slide-up-leave-to .equalizer-content,
 .slide-up-enter-from .sleep-timer-content,
 .slide-up-leave-to .sleep-timer-content {
   transform: translateY(20px);

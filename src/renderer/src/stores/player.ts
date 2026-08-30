@@ -809,18 +809,6 @@ export const usePlayerStore = defineStore('player', () => {
     audioAdapter.setPlaybackRate(safeRate)
   }
 
-  function setEqualizerBand(bandIndex: number, gain: number): void {
-    audioAdapter.setEqualizerBand(bandIndex, gain)
-  }
-
-  function setEqualizerBands(gains: number[]): void {
-    audioAdapter.setEqualizerBands(gains)
-  }
-
-  function setEqualizerEnabled(enabled: boolean): void {
-    audioAdapter.setEqualizerEnabled(enabled)
-  }
-
   async function toggleMute(): Promise<void> {
     const actualMuted = await audioAdapter.toggleMute()
     muted.value = typeof actualMuted === 'boolean' ? actualMuted : !muted.value
@@ -1072,7 +1060,6 @@ export const usePlayerStore = defineStore('player', () => {
     reorderPlaylist, removeDuplicates,
     addToPlayNext, insertNext, removeQueueItem, playNext, playPrev, togglePlaying, togglePlayMode,
     setVolume, setPlaybackSpeed, toggleMute, syncAudioEngineState, seek, setCurrentTime, setDuration,
-    setEqualizerBand, setEqualizerBands, setEqualizerEnabled,
     setSleepTimer, clearSleepTimer, clearPlayHistory, removeHistoryBySongId, loadPersistentState,
     enablePersonalFM, startPersonalFM, addToPersonalFMQueue, trashCurrentFMTrack, disablePersonalFM, restorePlayback, reloadCurrentSongAudio, destroy,
   }

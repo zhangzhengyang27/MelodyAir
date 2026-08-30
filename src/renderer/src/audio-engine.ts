@@ -152,27 +152,6 @@ function setPlaybackRate(params: { rate: number }) {
 }
 
 /**
- * 设置均衡器频段
- */
-function setEqualizerBand(params: { bandIndex: number; gain: number }) {
-  audioEngine?.setEqualizerBand(params.bandIndex, params.gain)
-}
-
-/**
- * 批量设置均衡器
- */
-function setEqualizerBands(params: { gains: number[] }) {
-  audioEngine?.setEqualizerBands(params.gains)
-}
-
-/**
- * 启用/禁用均衡器
- */
-function setEqualizerEnabled(params: { enabled: boolean }) {
-  audioEngine?.setEqualizerEnabled(params.enabled)
-}
-
-/**
  * 停止
  */
 function stop() {
@@ -191,9 +170,6 @@ const commandHandlers: Record<string, (params: any) => any> = {
   'audio:setVolume': setVolume,
   'audio:toggleMute': toggleMute,
   'audio:setPlaybackRate': setPlaybackRate,
-  'audio:setEqualizerBand': setEqualizerBand,
-  'audio:setEqualizerBands': setEqualizerBands,
-  'audio:setEqualizerEnabled': setEqualizerEnabled,
   'audio:stop': stop
 }
 

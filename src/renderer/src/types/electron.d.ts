@@ -26,9 +26,6 @@ export interface ElectronAPI {
   audioSetVolume: (volume: number) => void
   audioToggleMute: () => void
   audioSetPlaybackRate: (rate: number) => void
-  audioSetEqualizerBand: (bandIndex: number, gain: number) => void
-  audioSetEqualizerBands: (gains: number[]) => void
-  audioSetEqualizerEnabled: (enabled: boolean) => void
   audioStop: () => void
   // 注意：preload 未暴露查询类音频 API（引擎在隐藏窗口，单向 send 拿不到返回值），
   // 播放状态统一通过 onAudioTimeUpdate / onAudioStateChange 等事件获取
