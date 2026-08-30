@@ -62,6 +62,8 @@ import PlayerFull from '@/components/player/PlayerFull.vue'
 import ToastContainer from '@/components/common/ToastContainer.vue'
 import UpdateNotice from '@/components/common/UpdateNotice.vue'
 import { useAutoLoadLyrics } from '@/composables/useAutoLoadLyrics'
+import { useDesktopNotification } from '@/composables/useDesktopNotification'
+import { usePlayerStore } from '@/stores/player'
 
 const showFullPlayer = ref(false)
 const mobileSidebarOpen = ref(false)
@@ -69,11 +71,29 @@ const mobileSidebarOpen = ref(false)
 const route = useRoute()
 const mainRef = ref<HTMLElement | null>(null)
 
+const playerStore = usePlayerStore()
+const { notify } = useDesktopNotification()
+
 // 路由切换后重置主内容区滚动位置，并收起移动端抽屉
 watch(() => route.path, () => {
   mainRef.value?.scrollTo({ top: 0 })
   mobileSidebarOpen.value = false
 })
+
+// 切歌时弹出系统通知（开关见设置页「桌面通知」，未授权或已关闭时 notify 内部直接返回）
+watch(
+  () => playerStore.currentSong?.id,
+  (songId) => {
+    const song = playerStore.currentSong
+    if (!songId || !song) return
+    void notify({
+      title: song.name,
+      body: song.artists?.map((artist) => artist.name).join(' / ') ?? '',
+      tag: 'melodyair-current-track',
+      icon: song.album?.picUrl,
+    })
+  }
+)
 
 // 全局自动加载歌词（确保所有页面都能加载歌词，桌面歌词/Touch Bar 才能同步）
 // 歌词的自动高亮同步由 player store 的 timeUpdate 统一驱动，此处无需再初始化同步引擎

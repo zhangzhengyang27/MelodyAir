@@ -39,6 +39,8 @@ export interface ElectronAPI {
   windowClose: () => void
   windowIsMaximized: () => Promise<boolean>
   windowFocus: () => void
+  /** 打开/关闭主窗口的 DevTools */
+  openDevTools: () => void
   /** 唤起主窗口（子窗口使用） */
   windowShowMain: () => void
 
@@ -64,6 +66,7 @@ export interface ElectronAPI {
   audioSetVolume: (volume: number) => void
   audioToggleMute: () => void
   audioSetPlaybackRate: (rate: number) => void
+  audioSetFadeDuration: (ms: number) => void
   audioStop: () => void
   // 注意：preload 未暴露查询类音频 API（引擎在隐藏窗口，单向 send 拿不到返回值），
   // 播放状态统一通过 onAudioTimeUpdate / onAudioStateChange 等事件获取

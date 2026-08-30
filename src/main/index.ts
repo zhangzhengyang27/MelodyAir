@@ -757,7 +757,7 @@ function registerIpcHandlers(): void {
   const audioCommands = [
     'audio:play', 'audio:pause', 'audio:resume', 'audio:toggle',
     'audio:seek', 'audio:setVolume', 'audio:toggleMute',
-    'audio:setPlaybackRate', 'audio:stop'
+    'audio:setPlaybackRate', 'audio:setFadeDuration', 'audio:stop'
   ]
 
   audioCommands.forEach((channel) => {
@@ -808,6 +808,17 @@ function registerIpcHandlers(): void {
   safeIpcHandle("window:isMaximized", () => mainWindow?.isMaximized() ?? false)
 
   ipcMain.on("window:focus", () => mainWindow?.focus())
+
+  // 打开主窗口的 DevTools（设置页「开发者工具」入口）
+  ipcMain.on("open-devtools", () => {
+    const win = mainWindow
+    if (!win || win.isDestroyed()) return
+    if (win.webContents.isDevToolsOpened()) {
+      win.webContents.closeDevTools()
+    } else {
+      win.webContents.openDevTools({ mode: "detach" })
+    }
+  })
 
   // 从子窗口（迷你播放器）唤起主窗口
   ipcMain.on("window:showMain", () => {

@@ -25,14 +25,6 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <p class="setting-label">自动播放</p>
-          <p class="setting-description">选择歌曲后自动开始播放</p>
-        </div>
-        <ToggleSwitch v-model="settingsStore.autoPlay" />
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-info">
           <p class="setting-label">淡入淡出效果</p>
           <p class="setting-description">播放/暂停时的平滑过渡时长（毫秒）</p>
         </div>
@@ -43,7 +35,7 @@
           max="1000"
           step="50"
           class="number-field w-24"
-          @change="($event) => settingsStore.fadeDuration = Number(($event.target as HTMLInputElement).value)"
+          @change="onFadeDurationChange"
         />
       </div>
 
@@ -75,13 +67,13 @@
           <p class="setting-description">调整歌词展示字号，适合不同窗口尺寸</p>
         </div>
         <input
-          :value="settingsStore.lyricFontSize"
+          :value="lyricsStore.fontSize"
           type="range"
           min="12"
           max="28"
           step="1"
-          class="w-48"
-          @input="($event) => settingsStore.lyricFontSize = Number(($event.target as HTMLInputElement).value)"
+          class="w-48 accent-coral-500"
+          @input="onLyricFontSizeInput"
         />
       </div>
 
@@ -90,15 +82,7 @@
           <p class="setting-label">歌词翻译</p>
           <p class="setting-description">默认展示翻译行，适合双语歌词</p>
         </div>
-        <ToggleSwitch v-model="settingsStore.showLyricTranslation" />
-      </div>
-
-      <div class="setting-row">
-        <div class="setting-info">
-          <p class="setting-label">歌词音译 / 罗马音</p>
-          <p class="setting-description">对日文 / 韩文等歌词展示音译辅助</p>
-        </div>
-        <ToggleSwitch v-model="settingsStore.showLyricRomanization" />
+        <ToggleSwitch v-model="lyricsStore.showTranslation" />
       </div>
 
       <div class="setting-row">
@@ -362,20 +346,15 @@ import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
 import { Music, Settings, Monitor, Info } from 'lucide-vue-next'
 import { useSettingsStore } from '@/stores/settings'
 import { usePlayerStore } from '@/stores/player'
+import { useLyricsStore } from '@/stores/lyrics'
 import { logger } from '@/utils/logger'
-import { cacheManager } from '@/utils/db'
-import { useUserStore } from '@/stores/user'
-import { useShortcutRecorder } from '@/composables/useShortcutRecorder'
 import { usePlatform } from '@/composables/usePlatform'
 import { showToast } from '@/composables/useToast'
-import { useRouter } from 'vue-router'
 import ToggleSwitch from '@/components/common/ToggleSwitch.vue'
 
 const settingsStore = useSettingsStore()
 const playerStore = usePlayerStore()
-const userStore = useUserStore()
-const router = useRouter()
-const shortcutRecorder = useShortcutRecorder()
+const lyricsStore = useLyricsStore()
 const { hasMiniPlayer, hasDesktopLyrics, hasGlobalShortcut, hasTray, hasAutoLaunch, isElectron } = usePlatform()
 
 /** 版本文案：构建期注入版本号，并标注当前运行环境 */
@@ -385,9 +364,6 @@ const appVersionLabel = computed(() => {
 })
 
 const showShortcutManager = ref(false)
-const cacheSizeUsed = ref(0)
-const cacheLimitMB = ref(settingsStore.cacheLimitMB)
-const isClearingCache = ref(false)
 
 // 快捷键管理
 const defaultShortcuts = {
@@ -403,12 +379,6 @@ const tempShortcuts = ref({
 const recordingKey = ref<'playPause' | 'prev' | 'next' | null>(null)
 const shortcutError = ref('')
 
-function applyTheme(): void {
-  if (settingsStore.theme === 'dark') document.documentElement.classList.add('dark')
-  else if (settingsStore.theme === 'light') document.documentElement.classList.remove('dark')
-  else document.documentElement.classList.toggle('dark', window.matchMedia('(prefers-color-scheme: dark)').matches)
-}
-
 function handleQualityChange(): void {
   logger.info('settings', 'Quality changed to:', settingsStore.currentQualityLabel)
   // 切换音质后立即重载当前歌曲（保留播放进度）
@@ -420,6 +390,15 @@ function handleQualityChange(): void {
 function handlePlaybackSpeedChange(): void {
   playerStore.setPlaybackSpeed(Number(settingsStore.playbackSpeed))
   logger.info('settings', 'Playback speed changed to:', settingsStore.playbackSpeed)
+}
+
+function onFadeDurationChange(event: Event): void {
+  playerStore.setFadeDuration(Number((event.target as HTMLInputElement).value))
+}
+
+/** 歌词字号与播放页 +/- 按钮共用 lyricsStore，避免两套状态各说各话 */
+function onLyricFontSizeInput(event: Event): void {
+  lyricsStore.setFontSize(Number((event.target as HTMLInputElement).value))
 }
 
 // ---------- 桌面歌词 / 迷你悬浮窗 ----------
@@ -505,31 +484,19 @@ async function onToggleLyricsTranslation(): Promise<void> {
   }
 }
 
-async function handleCacheLimitChange(): Promise<void> {
-  settingsStore.cacheLimitMB = cacheLimitMB.value
-  cacheManager.setMaxCacheSize(cacheLimitMB.value)
-}
-
-async function clearCache(): Promise<void> {
-  if (!confirm('确定要清除所有缓存的音频数据吗？此操作不可恢复。')) return
-  isClearingCache.value = true
-  try {
-    await cacheManager.clearTrackSources()
-    cacheSizeUsed.value = 0
-    logger.info('settings', 'Cache cleared successfully')
-  } finally {
-    isClearingCache.value = false
-  }
-}
-
+/**
+ * 注意：这里不能用 settingsStore.toggleMinimizeToTray()。
+ * ToggleSwitch 的 v-model 已经把新值写回 store，再 toggle 一次会把状态翻回原值，
+ * 表现为「开关点了又弹回去」。显式赋值保证幂等。
+ */
 function handleMinimizeToTrayChange(enabled: boolean): void {
-  settingsStore.toggleMinimizeToTray()
-  window.electronAPI?.sendIpcEvent?.('app:setMinimizeToTray', enabled)
+  settingsStore.minimizeToTray = enabled
+  window.electronAPI?.setMinimizeToTray?.(enabled)
 }
 
 function handleAutoLaunchChange(enabled: boolean): void {
-  settingsStore.toggleAutoLaunch()
-  window.electronAPI?.sendIpcEvent?.('app:setAutoLaunch', enabled)
+  settingsStore.autoLaunch = enabled
+  window.electronAPI?.setAutoLaunch?.(enabled)
 }
 
 // ---------- 关于（版本 / 检查更新 / 反馈）----------
@@ -588,11 +555,7 @@ function handleFeedback(): void {
 }
 
 function handleOpenDevTools(): void {
-  window.electronAPI?.sendIpcEvent?.('open-devtools')
-}
-
-async function handleLogout(): Promise<void> {
-  await userStore.logout()
+  window.electronAPI?.openDevTools?.()
 }
 
 function handleGlobalShortcutChange(enabled: boolean): void {
@@ -686,6 +649,8 @@ async function saveShortcuts(): Promise<void> {
     settingsStore.shortcutPlayPause = tempShortcuts.value.playPause
     settingsStore.shortcutPrev = tempShortcuts.value.prev
     settingsStore.shortcutNext = tempShortcuts.value.next
+    // 标记已使用自定义快捷键，启动时才会回灌给主进程
+    settingsStore.customShortcutsEnabled = true
 
     if (window.electronAPI?.setCustomShortcuts) {
       await window.electronAPI.setCustomShortcuts({
@@ -703,20 +668,7 @@ async function saveShortcuts(): Promise<void> {
   }
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
-}
-
 onMounted(async () => {
-  try {
-    cacheSizeUsed.value = await cacheManager.getCacheSize()
-  } catch (error) {
-    logger.error('settings', 'Failed to get cache size:', error)
-  }
   // 进入设置页时同步子窗口状态（用户可能已从托盘/播放栏打开过）
   await refreshWindowStates()
 })

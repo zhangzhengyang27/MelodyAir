@@ -201,6 +201,14 @@ class AudioAdapter {
     }
   }
 
+  setFadeDuration(ms: number): void {
+    if (this.isElectron) {
+      ;(window as any).electronAPI.audioSetFadeDuration(ms)
+    } else {
+      this.localEngine?.setFadeDuration(ms)
+    }
+  }
+
   stop(): void {
     if (this.isElectron) {
       ;(window as any).electronAPI.audioStop()

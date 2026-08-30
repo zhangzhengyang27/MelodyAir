@@ -133,3 +133,23 @@ import('@/stores/user').then(({ useUserStore }) => {
     userStore.checkLoginStatus()
   }
 })
+
+// ★ 启动时把桌面端设置回灌给主进程。
+// 主进程侧的变量（minimizeToTray / globalShortcutsEnabled / customShortcuts）都有代码默认值，
+// 若不回灌，重启后会回到默认值，表现为「设置项重启后失效」。
+if (isMainWindow() && window.electronAPI) {
+  import('@/stores/settings').then(({ useSettingsStore }) => {
+    const settingsStore = useSettingsStore()
+    const api = window.electronAPI!
+    api.setMinimizeToTray?.(settingsStore.minimizeToTray)
+    api.setAutoLaunch?.(settingsStore.autoLaunch)
+    api.setGlobalShortcuts?.(settingsStore.globalShortcut)
+    if (settingsStore.customShortcutsEnabled) {
+      api.setCustomShortcuts?.({
+        playPause: settingsStore.shortcutPlayPause,
+        prev: settingsStore.shortcutPrev,
+        next: settingsStore.shortcutNext,
+      })
+    }
+  })
+}

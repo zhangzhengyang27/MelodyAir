@@ -253,7 +253,8 @@ export const usePlayerStore = defineStore('player', () => {
           // 一次性带上可避免子窗口回查主窗口状态。
           window.electronAPI.sendIpcEvent('player:updateLyrics', {
             currentText: lyricText,
-            translation: settingsStore.showLyricTranslation ? currentLine?.translation : undefined,
+            // 译文始终下发，是否显示由桌面歌词窗口自己的偏好决定
+            translation: currentLine?.translation,
             prevText: lyricsStore.prevLine?.text,
             nextText: lyricsStore.nextLine?.text,
             hasLyrics: hasLyricsNow,
@@ -823,12 +824,19 @@ export const usePlayerStore = defineStore('player', () => {
     if (settingsStore.playbackSpeed && settingsStore.playbackSpeed !== 1) {
       audioAdapter.setPlaybackRate(settingsStore.playbackSpeed)
     }
+    audioAdapter.setFadeDuration(settingsStore.fadeDuration)
   }
 
   function setPlaybackSpeed(rate: number): void {
     const safeRate = Math.max(0.5, Math.min(2, rate))
     settingsStore.playbackSpeed = safeRate
     audioAdapter.setPlaybackRate(safeRate)
+  }
+
+  function setFadeDuration(ms: number): void {
+    const safeMs = Math.max(0, Math.min(1000, Math.round(ms)))
+    settingsStore.fadeDuration = safeMs
+    audioAdapter.setFadeDuration(safeMs)
   }
 
   async function toggleMute(): Promise<void> {
@@ -1096,7 +1104,7 @@ export const usePlayerStore = defineStore('player', () => {
     setPlaylist, addToPlaylist, playSong, removeFromPlaylist, clearPlaylist,
     reorderPlaylist, removeDuplicates,
     addToPlayNext, insertNext, removeQueueItem, playNext, playPrev, togglePlaying, togglePlayMode,
-    setVolume, setPlaybackSpeed, toggleMute, syncAudioEngineState, seek, setCurrentTime, setDuration,
+    setVolume, setPlaybackSpeed, setFadeDuration, toggleMute, syncAudioEngineState, seek, setCurrentTime, setDuration,
     setSleepTimer, clearSleepTimer, clearPlayHistory, removeHistoryBySongId, loadPersistentState,
     enablePersonalFM, startPersonalFM, addToPersonalFMQueue, trashCurrentFMTrack, disablePersonalFM, restorePlayback, reloadCurrentSongAudio, destroy,
   }

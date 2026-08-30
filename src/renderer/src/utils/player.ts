@@ -317,6 +317,14 @@ export class AudioEngine {
     return this._volume
   }
 
+  /**
+   * 设置淡入淡出时长（毫秒）
+   */
+  setFadeDuration(ms: number): void {
+    this._fadeDuration = Math.max(0, Math.min(1000, Math.round(ms)))
+    logger.debug('player', `[AudioEngine] Fade duration set to ${this._fadeDuration}ms`)
+  }
+
   toggleMute(): boolean {
     if (this._muted) {
       this._muted = false

@@ -26,7 +26,6 @@ export interface SettingsState {
 
   // 播放设置
   musicQuality: MusicQuality
-  autoPlay: boolean
   fadeDuration: number // 淡入淡出时长(ms)
   playbackSpeed: number // 播放速率 (0.5 - 2)
 
@@ -39,11 +38,6 @@ export interface SettingsState {
   enableUnblock: boolean
 
   // 歌词设置
-  showLyricTranslation: boolean
-  showLyricRomanization: boolean
-  lyricFontSize: number
-  lyricFontFamily: string
-  lyricAlignment: 'left' | 'center' | 'right'
   enableEnhancedLyric: boolean // 逐字歌词
 
   // Electron 设置
@@ -67,7 +61,6 @@ export const useSettingsStore = defineStore('settings', () => {
 
   // 播放设置
   const musicQuality = ref<MusicQuality>('exhigh')
-  const autoPlay = ref(true)
   const fadeDuration = ref(200)
   const playbackSpeed = ref(1)
 
@@ -80,11 +73,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const enableUnblock = ref(true)
 
   // 歌词设置
-  const showLyricTranslation = ref(true)
-  const showLyricRomanization = ref(false)
-  const lyricFontSize = ref(16)
-  const lyricFontFamily = ref('system-ui')
-  const lyricAlignment = ref<'left' | 'center' | 'right'>('center')
+  // 注意：歌词字号 / 译文显示由 lyricsStore 统一负责（播放页与设置页共用同一份状态），
+  // 音译（罗马音）暂无实现，不再保留无消费方的设置字段。
   const enableEnhancedLyric = ref(true) // 逐字歌词（默认开启）
 
   // Electron 设置
@@ -158,18 +148,12 @@ export const useSettingsStore = defineStore('settings', () => {
     theme,
     lyricsBackground,
     musicQuality,
-    autoPlay,
     fadeDuration,
     playbackSpeed,
     enableCache,
     cacheLimitMB,
     autoCacheNextTrack,
     enableUnblock,
-    showLyricTranslation,
-    showLyricRomanization,
-    lyricFontSize,
-    lyricFontFamily,
-    lyricAlignment,
     enableEnhancedLyric,
     minimizeToTray,
     globalShortcut,
@@ -199,9 +183,8 @@ export const useSettingsStore = defineStore('settings', () => {
   persist: {
     storage: throttledPersistStorage,
     pick: [
-      'theme', 'lyricsBackground', 'musicQuality', 'autoPlay', 'fadeDuration', 'playbackSpeed',
+      'theme', 'lyricsBackground', 'musicQuality', 'fadeDuration', 'playbackSpeed',
       'enableCache', 'cacheLimitMB', 'autoCacheNextTrack', 'enableUnblock',
-      'showLyricTranslation', 'showLyricRomanization', 'lyricFontSize', 'lyricFontFamily', 'lyricAlignment',
       'enableEnhancedLyric',
       'minimizeToTray', 'globalShortcut', 'autoLaunch', 'enableDesktopNotification', 'customShortcutsEnabled', 'shortcutPlayPause', 'shortcutPrev', 'shortcutNext', 'apiBase'
     ],

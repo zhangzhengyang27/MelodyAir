@@ -27,6 +27,9 @@ const api = {
   /** 聚焦窗口 */
   windowFocus: () => ipcRenderer.send('window:focus'),
 
+  /** 打开/关闭主窗口的 DevTools */
+  openDevTools: () => ipcRenderer.send('open-devtools'),
+
   /** 唤起主窗口（子窗口使用，最小化/隐藏到托盘时也能拉回） */
   windowShowMain: () => ipcRenderer.send('window:showMain'),
 
@@ -189,6 +192,8 @@ const api = {
   audioToggleMute: () => ipcRenderer.send('audio:toggleMute'),
   /** 设置播放速率 */
   audioSetPlaybackRate: (rate: number) => ipcRenderer.send('audio:setPlaybackRate', { rate }),
+  /** 设置淡入淡出时长（毫秒） */
+  audioSetFadeDuration: (ms: number) => ipcRenderer.send('audio:setFadeDuration', { ms }),
   /** 停止播放 */
   audioStop: () => ipcRenderer.send('audio:stop'),
 

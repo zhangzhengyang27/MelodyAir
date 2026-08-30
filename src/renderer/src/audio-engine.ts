@@ -152,6 +152,13 @@ function setPlaybackRate(params: { rate: number }) {
 }
 
 /**
+ * 设置淡入淡出时长
+ */
+function setFadeDuration(params: { ms: number }) {
+  audioEngine?.setFadeDuration(params.ms)
+}
+
+/**
  * 停止
  */
 function stop() {
@@ -170,6 +177,7 @@ const commandHandlers: Record<string, (params: any) => any> = {
   'audio:setVolume': setVolume,
   'audio:toggleMute': toggleMute,
   'audio:setPlaybackRate': setPlaybackRate,
+  'audio:setFadeDuration': setFadeDuration,
   'audio:stop': stop
 }
 

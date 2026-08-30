@@ -249,7 +249,7 @@ onUnmounted(() => {
             <span v-else class="lyric-text">{{ line.text || '......' }}</span>
 
             <!-- 音译文本 -->
-            <span v-if="settingsStore.showLyricRomanization && line.romanizedText" class="lyric-romanization">
+            <span v-if="line.romanizedText" class="lyric-romanization">
               {{ line.romanizedText }}
             </span>
 
