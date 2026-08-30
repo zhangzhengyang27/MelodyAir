@@ -256,9 +256,9 @@
     </section>
 
     <div v-if="showEqualizer" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div class="w-full max-w-2xl rounded-2xl bg-[#11111a] p-6">
+      <div class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl dark:bg-[#171722]">
         <div class="mb-4 flex items-center justify-between">
-          <h2 class="text-lg font-semibold">均衡器 / 音效</h2>
+          <h2 class="text-lg font-semibold text-neutral-900 dark:text-white">均衡器 / 音效</h2>
           <button class="secondary-button" @click="showEqualizer = false">关闭</button>
         </div>
         <div class="mb-4 grid gap-2 md:grid-cols-3">
@@ -274,7 +274,7 @@
         </div>
         <div class="space-y-3">
           <label v-for="(band, index) in equalizerBands" :key="band.id" class="block">
-            <div class="mb-1 flex items-center justify-between text-sm text-white/70">
+            <div class="mb-1 flex items-center justify-between text-sm text-neutral-600 dark:text-white/70">
               <span>{{ band.label }}</span>
               <span>{{ band.value }} dB</span>
             </div>
@@ -291,20 +291,20 @@
         </div>
         <div class="mt-4 flex items-center justify-between">
           <ToggleSwitch v-model="equalizerEnabled" />
-          <span class="text-sm text-white/50">{{ equalizerEnabled ? '音效已开启' : '音效已关闭' }}</span>
+          <span class="text-sm text-neutral-500 dark:text-white/50">{{ equalizerEnabled ? '音效已开启' : '音效已关闭' }}</span>
         </div>
       </div>
     </div>
 
     <!-- 快捷键管理对话框 -->
     <div v-if="showShortcutManager" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div class="w-full max-w-2xl rounded-2xl bg-[#11111a] p-6">
+      <div class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl dark:bg-[#171722]">
         <div class="mb-4 flex items-center justify-between">
-          <h2 class="text-lg font-semibold">全局快捷键管理</h2>
+          <h2 class="text-lg font-semibold text-neutral-900 dark:text-white">全局快捷键管理</h2>
           <button class="secondary-button" @click="showShortcutManager = false">关闭</button>
         </div>
 
-        <div class="mb-4 rounded-lg bg-white/5 p-3 text-sm text-white/70">
+        <div class="mb-4 rounded-lg bg-black/5 p-3 text-sm text-neutral-600 dark:bg-white/5 dark:text-white/70">
           <p>点击快捷键输入框，然后按下你想要设置的组合键。</p>
           <p class="mt-1">按 Esc 取消录制。</p>
         </div>
@@ -313,15 +313,15 @@
           <!-- 播放/暂停 -->
           <div class="flex items-center justify-between">
             <div>
-              <p class="font-medium">播放 / 暂停</p>
-              <p class="text-sm text-white/50">控制音乐播放和暂停</p>
+              <p class="font-medium text-neutral-900 dark:text-white">播放 / 暂停</p>
+              <p class="text-sm text-neutral-500 dark:text-white/50">控制音乐播放和暂停</p>
             </div>
             <div class="flex items-center gap-2">
               <input
                 v-model="tempShortcuts.playPause"
                 type="text"
                 readonly
-                class="w-48 rounded-lg bg-white/10 px-3 py-2 text-center font-mono text-sm"
+                class="w-48 rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-center font-mono text-sm text-neutral-900 placeholder:text-neutral-400 dark:border-white/10 dark:bg-white/10 dark:text-white"
                 :class="{ 'ring-2 ring-[#FF5A5F]': recordingKey === 'playPause' }"
                 @click="startRecording('playPause')"
                 placeholder="点击录制"
@@ -339,15 +339,15 @@
           <!-- 上一首 -->
           <div class="flex items-center justify-between">
             <div>
-              <p class="font-medium">上一首</p>
-              <p class="text-sm text-white/50">播放上一首歌曲</p>
+              <p class="font-medium text-neutral-900 dark:text-white">上一首</p>
+              <p class="text-sm text-neutral-500 dark:text-white/50">播放上一首歌曲</p>
             </div>
             <div class="flex items-center gap-2">
               <input
                 v-model="tempShortcuts.prev"
                 type="text"
                 readonly
-                class="w-48 rounded-lg bg-white/10 px-3 py-2 text-center font-mono text-sm"
+                class="w-48 rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-center font-mono text-sm text-neutral-900 placeholder:text-neutral-400 dark:border-white/10 dark:bg-white/10 dark:text-white"
                 :class="{ 'ring-2 ring-[#FF5A5F]': recordingKey === 'prev' }"
                 @click="startRecording('prev')"
                 placeholder="点击录制"
@@ -365,15 +365,15 @@
           <!-- 下一首 -->
           <div class="flex items-center justify-between">
             <div>
-              <p class="font-medium">下一首</p>
-              <p class="text-sm text-white/50">播放下一首歌曲</p>
+              <p class="font-medium text-neutral-900 dark:text-white">下一首</p>
+              <p class="text-sm text-neutral-500 dark:text-white/50">播放下一首歌曲</p>
             </div>
             <div class="flex items-center gap-2">
               <input
                 v-model="tempShortcuts.next"
                 type="text"
                 readonly
-                class="w-48 rounded-lg bg-white/10 px-3 py-2 text-center font-mono text-sm"
+                class="w-48 rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-center font-mono text-sm text-neutral-900 placeholder:text-neutral-400 dark:border-white/10 dark:bg-white/10 dark:text-white"
                 :class="{ 'ring-2 ring-[#FF5A5F]': recordingKey === 'next' }"
                 @click="startRecording('next')"
                 placeholder="点击录制"

@@ -37,7 +37,7 @@ function onChange(event: Event): void {
   width: 40px;
   height: 22px;
   border-radius: 11px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.25);
   transition: background 0.2s ease;
   position: relative;
 }
