@@ -138,28 +138,6 @@
                   <Cloud class="h-4 w-4" />
                   <span>我的云盘</span>
                 </button>
-                <button class="user-menu-item" @click="navigateTo('/settings')">
-                  <Settings class="h-4 w-4" />
-                  <span>设置</span>
-                </button>
-              </div>
-              <div class="border-t border-neutral-100 py-1 dark:border-white/6">
-                <button class="user-menu-item" @click="handleAbout">
-                  <Info class="h-4 w-4" />
-                  <span>关于 MelodyAir</span>
-                </button>
-                <button class="user-menu-item" @click="handleCheckUpdate">
-                  <RefreshCw class="h-4 w-4" />
-                  <span>检查更新</span>
-                </button>
-                <button class="user-menu-item" @click="handleFeedback">
-                  <MessageSquare class="h-4 w-4" />
-                  <span>意见反馈</span>
-                </button>
-                <button v-if="isElectron" class="user-menu-item" @click="handleOpenDevTools">
-                  <Code2 class="h-4 w-4" />
-                  <span>开发者工具</span>
-                </button>
               </div>
               <div class="border-t border-neutral-100 py-1 dark:border-white/6">
                 <button class="user-menu-item text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10" @click="handleLogout">
@@ -178,10 +156,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Sun, Moon, Library, Cloud, Settings, LogOut, Search, Info, RefreshCw, MessageSquare, Code2, Menu } from 'lucide-vue-next'
+import { Sun, Moon, Library, Cloud, LogOut, Search, Menu } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
 import { useSettingsStore } from '@/stores/settings'
-import { usePlatform } from '@/composables/usePlatform'
 import { useSearchHistory } from '@/composables/useSearchHistory'
 import { getSearchSuggest } from '@/api/search'
 import { showToast } from '@/composables/useToast'
@@ -189,7 +166,6 @@ import { showToast } from '@/composables/useToast'
 const router = useRouter()
 const userStore = useUserStore()
 const settingsStore = useSettingsStore()
-const { isElectron } = usePlatform()
 
 const emit = defineEmits<{
   'toggle-sidebar': []
@@ -363,26 +339,6 @@ function toggleTheme() {
 function navigateTo(path: string) {
   showUserMenu.value = false
   router.push(path)
-}
-
-function handleAbout() {
-  showUserMenu.value = false
-  showToast('MelodyAir v1.0.0 · 基于 Electron + Vue 3')
-}
-
-function handleCheckUpdate() {
-  showUserMenu.value = false
-  showToast('当前已是最新版本')
-}
-
-function handleFeedback() {
-  showUserMenu.value = false
-  showToast('反馈功能开发中，敬请期待')
-}
-
-function handleOpenDevTools() {
-  showUserMenu.value = false
-  window.electronAPI?.sendIpcEvent?.('open-devtools')
 }
 
 async function handleLogout() {

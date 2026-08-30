@@ -1,7 +1,11 @@
 import { resolve } from 'path'
+import { readFileSync } from 'node:fs'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
+
+// 与 electron.vite.config.ts 保持一致：构建期注入应用版本
+const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8')) as { version: string }
 
 /**
  * 纯浏览器构建配置（`pnpm dev:web` 开发 / `pnpm build:web` 生产，均带 --mode web）
@@ -23,6 +27,9 @@ export default defineConfig({
     }
   },
   plugins: [vue(), tailwindcss()],
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version)
+  },
   server: {
     port: 5173,
     strictPort: true

@@ -112,17 +112,54 @@
       <div v-if="hasMiniPlayer" class="setting-row">
         <div class="setting-info">
           <p class="setting-label">迷你悬浮窗</p>
-          <p class="setting-description">显示轻量悬浮播放面板</p>
+          <p class="setting-description">显示轻量悬浮播放面板，可拖动并记忆位置</p>
         </div>
-        <button class="primary-button" @click="handleOpenMiniWindow">打开悬浮窗</button>
+        <button class="primary-button" :disabled="miniWindowBusy" @click="handleToggleMiniWindow">
+          {{ miniWindowOpen ? '关闭悬浮窗' : '打开悬浮窗' }}
+        </button>
       </div>
 
       <div v-if="hasDesktopLyrics" class="setting-row">
         <div class="setting-info">
           <p class="setting-label">桌面歌词</p>
-          <p class="setting-description">在桌面显示歌词窗口，支持置顶和锁定</p>
+          <p class="setting-description">桌面悬浮歌词窗口，支持置顶、锁定与字号调节</p>
         </div>
-        <button class="primary-button" @click="handleOpenLyricsWindow">打开桌面歌词</button>
+        <button class="primary-button" :disabled="lyricsWindowBusy" @click="handleToggleLyricsWindow">
+          {{ lyricsWindowOpen ? '关闭桌面歌词' : '打开桌面歌词' }}
+        </button>
+      </div>
+
+      <div v-if="hasDesktopLyrics && lyricsWindowOpen" class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">歌词字号</p>
+          <p class="setting-description">桌面歌词的显示字号（14 - 48 px）</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <input
+            type="range"
+            min="14"
+            max="48"
+            step="2"
+            :value="lyricsFontSize"
+            class="w-32 accent-coral-500"
+            @input="onLyricsFontSizeInput"
+          />
+          <span class="w-10 text-right text-sm tabular-nums">{{ lyricsFontSize }}</span>
+        </div>
+      </div>
+
+      <div v-if="hasDesktopLyrics && lyricsWindowOpen" class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">显示译文</p>
+          <p class="setting-description">桌面歌词中显示翻译歌词（默认关闭）</p>
+        </div>
+        <button
+          class="primary-button"
+          :class="{ 'opacity-70': !lyricsShowTranslation }"
+          @click="onToggleLyricsTranslation"
+        >
+          {{ lyricsShowTranslation ? '已开启' : '已关闭' }}
+        </button>
       </div>
 
       <div class="setting-row">
@@ -187,13 +224,36 @@
       </template>
     </section>
 
-    <MiniFloatingPlayer
-      v-if="showMiniPlayer"
-      @close="showMiniPlayer = false"
-      @toggle="playerStore.togglePlaying()"
-      @prev="playerStore.playPrev()"
-      @next="playerStore.playNext()"
-    />
+    <section class="settings-card">
+      <h2 class="card-title"><Info class="h-5 w-5 text-[#FF5A5F]" /> 关于</h2>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">当前版本</p>
+          <p class="setting-description">{{ appVersionLabel }}</p>
+        </div>
+        <!-- 检查更新依赖桌面端更新通道，Web 端随服务端部署自动生效，无需展示 -->
+        <button v-if="isElectron" class="primary-button" :disabled="checkingUpdate" @click="handleCheckUpdate">
+          {{ checkingUpdate ? '检查中…' : '检查更新' }}
+        </button>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">意见反馈</p>
+          <p class="setting-description">遇到问题或有功能建议，欢迎反馈</p>
+        </div>
+        <button class="primary-button" @click="handleFeedback">提交反馈</button>
+      </div>
+
+      <div v-if="isElectron" class="setting-row">
+        <div class="setting-info">
+          <p class="setting-label">开发者工具</p>
+          <p class="setting-description">打开 Chromium DevTools 调试渲染进程</p>
+        </div>
+        <button class="primary-button" @click="handleOpenDevTools">打开</button>
+      </div>
+    </section>
 
     <div v-if="showEqualizer" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div class="w-full max-w-2xl rounded-2xl bg-[#11111a] p-6">
@@ -224,7 +284,7 @@
               max="12"
               step="1"
               :value="band.value"
-              class="w-full"
+              class="w-full accent-coral-500"
               @input="onEqualizerBandInput(index, $event)"
             />
           </label>
@@ -346,8 +406,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onBeforeUnmount, defineComponent } from 'vue'
-import { Music, Settings, Monitor } from 'lucide-vue-next'
+import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
+import { Music, Settings, Monitor, Info } from 'lucide-vue-next'
 import { useSettingsStore } from '@/stores/settings'
 import { usePlayerStore } from '@/stores/player'
 import { logger } from '@/utils/logger'
@@ -356,27 +416,9 @@ import { useUserStore } from '@/stores/user'
 import { useShortcutRecorder } from '@/composables/useShortcutRecorder'
 import { useEqualizer } from '@/composables/useEqualizer'
 import { usePlatform } from '@/composables/usePlatform'
-import MiniFloatingPlayer from '@/components/player/MiniFloatingPlayer.vue'
+import { showToast } from '@/composables/useToast'
 import { useRouter } from 'vue-router'
-
-const ToggleSwitch = defineComponent({
-  props: {
-    modelValue: { type: Boolean, required: true },
-  },
-  emits: ['update:modelValue'],
-  setup(props, { emit }) {
-    const onChange = (event: Event) => {
-      emit('update:modelValue', (event.target as HTMLInputElement).checked)
-    }
-    return { onChange, props }
-  },
-  template: `
-    <label class="toggle-switch">
-      <input type="checkbox" :checked="props.modelValue" @change="onChange" class="sr-only" />
-      <div class="toggle-track"><div class="toggle-thumb" /></div>
-    </label>
-  `
-})
+import ToggleSwitch from '@/components/common/ToggleSwitch.vue'
 
 const settingsStore = useSettingsStore()
 const playerStore = usePlayerStore()
@@ -388,9 +430,14 @@ const equalizerEnabled = equalizer.enabled
 const equalizerBands = equalizer.bands
 const activePresetName = equalizer.activePresetName
 const presetKeys = Object.keys(equalizer.presets)
-const { hasMiniPlayer, hasDesktopLyrics, hasGlobalShortcut, hasTray, hasAutoLaunch } = usePlatform()
+const { hasMiniPlayer, hasDesktopLyrics, hasGlobalShortcut, hasTray, hasAutoLaunch, isElectron } = usePlatform()
 
-const showMiniPlayer = ref(false)
+/** 版本文案：构建期注入版本号，并标注当前运行环境 */
+const appVersionLabel = computed(() => {
+  const version = typeof __APP_VERSION__ === 'string' && __APP_VERSION__ ? `v${__APP_VERSION__}` : '未知版本'
+  return `${version} · ${isElectron ? '桌面版' : 'Web 版'}`
+})
+
 const showEqualizer = ref(false)
 const showShortcutManager = ref(false)
 const cacheSizeUsed = ref(0)
@@ -434,25 +481,86 @@ function onEqualizerBandInput(index: number, event: Event): void {
   equalizer.setBand(index, Number((event.target as HTMLInputElement).value))
 }
 
-async function handleOpenMiniWindow(): Promise<void> {
+// ---------- 桌面歌词 / 迷你悬浮窗 ----------
+
+const miniWindowOpen = ref(false)
+const miniWindowBusy = ref(false)
+const lyricsWindowOpen = ref(false)
+const lyricsWindowBusy = ref(false)
+const lyricsFontSize = ref(24)
+const lyricsShowTranslation = ref(false)
+
+/** 同步两个子窗口的当前开关状态，让按钮文案反映真实情况 */
+async function refreshWindowStates(): Promise<void> {
+  const api = window.electronAPI
+  if (!api) return
   try {
-    if (window.electronAPI?.openMiniWindow) {
-      await window.electronAPI.openMiniWindow()
-      logger.info('settings', 'Mini window opened')
+    const [miniOpen, lyricsOpen] = await Promise.all([
+      api.isMiniWindowOpen?.() ?? false,
+      api.isLyricsWindowOpen?.() ?? false,
+    ])
+    miniWindowOpen.value = miniOpen
+    lyricsWindowOpen.value = lyricsOpen
+    if (lyricsOpen) {
+      const prefs = await api.getLyricsWindowPrefs?.()
+      if (prefs) {
+        lyricsFontSize.value = prefs.fontSize
+        lyricsShowTranslation.value = prefs.showTranslation
+      }
     }
   } catch (error) {
-    logger.error('settings', 'Failed to open mini window:', error)
+    logger.error('settings', 'Failed to refresh window states:', error)
   }
 }
 
-async function handleOpenLyricsWindow(): Promise<void> {
+async function handleToggleMiniWindow(): Promise<void> {
+  const api = window.electronAPI
+  if (!api || miniWindowBusy.value) return
+  miniWindowBusy.value = true
   try {
-    if (window.electronAPI?.openLyricsWindow) {
-      await window.electronAPI.openLyricsWindow()
-      logger.info('settings', 'Lyrics window opened')
-    }
+    if (miniWindowOpen.value) await api.closeMiniWindow?.()
+    else await api.openMiniWindow?.()
+    await refreshWindowStates()
   } catch (error) {
-    logger.error('settings', 'Failed to open lyrics window:', error)
+    logger.error('settings', 'Failed to toggle mini window:', error)
+  } finally {
+    miniWindowBusy.value = false
+  }
+}
+
+async function handleToggleLyricsWindow(): Promise<void> {
+  const api = window.electronAPI
+  if (!api || lyricsWindowBusy.value) return
+  lyricsWindowBusy.value = true
+  try {
+    if (lyricsWindowOpen.value) await api.closeLyricsWindow?.()
+    else await api.openLyricsWindow?.()
+    await refreshWindowStates()
+  } catch (error) {
+    logger.error('settings', 'Failed to toggle lyrics window:', error)
+  } finally {
+    lyricsWindowBusy.value = false
+  }
+}
+
+async function onLyricsFontSizeInput(event: Event): Promise<void> {
+  const value = Number((event.target as HTMLInputElement).value)
+  lyricsFontSize.value = value
+  try {
+    // 持久化到主进程，桌面歌词窗口打开时立即生效
+    await window.electronAPI?.setLyricsWindowPrefs?.({ fontSize: value })
+  } catch (error) {
+    logger.error('settings', 'Failed to save lyrics font size:', error)
+  }
+}
+
+async function onToggleLyricsTranslation(): Promise<void> {
+  const next = !lyricsShowTranslation.value
+  lyricsShowTranslation.value = next
+  try {
+    await window.electronAPI?.setLyricsWindowPrefs?.({ showTranslation: next })
+  } catch (error) {
+    logger.error('settings', 'Failed to save lyrics translation pref:', error)
   }
 }
 
@@ -481,6 +589,65 @@ function handleMinimizeToTrayChange(enabled: boolean): void {
 function handleAutoLaunchChange(enabled: boolean): void {
   settingsStore.toggleAutoLaunch()
   window.electronAPI?.sendIpcEvent?.('app:setAutoLaunch', enabled)
+}
+
+// ---------- 关于（版本 / 检查更新 / 反馈）----------
+
+const checkingUpdate = ref(false)
+/** 检查更新的兜底提示定时器（组件卸载时清理） */
+let updateCheckTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * 手动检查更新。
+ * 检测到新版本时由全局 UpdateNotice 弹窗承接，这里只补「无新版本 / 检查失败」的反馈。
+ */
+async function handleCheckUpdate(): Promise<void> {
+  const api = window.electronAPI
+  if (!api || checkingUpdate.value) return
+
+  checkingUpdate.value = true
+  let notified = false
+
+  const stop = api.onUpdateStatus((data) => {
+    if (data.state !== 'not-available') return
+    notified = true
+    showToast('当前已是最新版本')
+    finish()
+  })
+
+  function finish(): void {
+    if (updateCheckTimer) clearTimeout(updateCheckTimer)
+    updateCheckTimer = null
+    stop()
+    checkingUpdate.value = false
+  }
+
+  // macOS 通过 GitHub 检测最新版本，无新版本时不会推送任何事件，需要兜底提示
+  updateCheckTimer = setTimeout(() => {
+    if (!notified) showToast('当前已是最新版本')
+    finish()
+  }, 4000)
+
+  try {
+    await api.checkForUpdates()
+  } catch (error) {
+    logger.error('settings', 'Failed to check update:', error)
+    showToast('检查更新失败，请稍后重试', { type: 'error' })
+    finish()
+  }
+}
+
+onBeforeUnmount(() => {
+  if (updateCheckTimer) clearTimeout(updateCheckTimer)
+  updateCheckTimer = null
+})
+
+function handleFeedback(): void {
+  showToast('反馈功能开发中，敬请期待')
+}
+
+function handleOpenDevTools(): void {
+  window.electronAPI?.sendIpcEvent?.('open-devtools')
 }
 
 async function handleLogout(): Promise<void> {
@@ -609,6 +776,8 @@ onMounted(async () => {
   } catch (error) {
     logger.error('settings', 'Failed to get cache size:', error)
   }
+  // 进入设置页时同步子窗口状态（用户可能已从托盘/播放栏打开过）
+  await refreshWindowStates()
 })
 </script>
 
@@ -802,43 +971,28 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
-/* Toggle Switch 开关样式 */
-.toggle-switch {
-  display: inline-flex;
-  align-items: center;
+.secondary-button {
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: transparent;
+  color: var(--text-primary, #1a1a2e);
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.toggle-track {
-  width: 40px;
-  height: 22px;
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.15);
-  transition: background 0.2s ease;
-  position: relative;
+.secondary-button:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
 }
 
-.toggle-thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s ease;
+.dark .secondary-button {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #F0F0F5;
 }
 
-.toggle-switch:has(input:checked) .toggle-track {
-  background: #FF5A5F;
-}
-
-.toggle-switch:has(input:checked) .toggle-thumb {
-  transform: translateX(18px);
-}
-
-.dark .toggle-track {
-  background: rgba(255, 255, 255, 0.2);
+.dark .secondary-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
 }
 </style>

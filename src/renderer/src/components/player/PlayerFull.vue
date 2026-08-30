@@ -294,7 +294,13 @@
           </div>
 
           <div class="controls-right">
-            <button v-if="hasDesktopLyrics" class="ctrl-btn-icon" @click="toggleDesktopLyrics" title="桌面歌词">
+            <button
+              v-if="hasDesktopLyrics"
+              class="ctrl-btn-icon"
+              :class="{ 'is-active': lyricsWindowOpen }"
+              :title="lyricsWindowOpen ? '关闭桌面歌词' : '桌面歌词'"
+              @click="toggleDesktopLyrics"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
               </svg>
@@ -504,16 +510,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted, nextTick } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { useLyricsStore } from '@/stores/lyrics'
 import { useUserStore } from '@/stores/user'
 import { useAudio } from '@/composables/useAudio'
 import { formatTime } from '@/utils/format'
-import { parseLrc } from '@/utils/lyricsParser'
-import { getLyric, getLyricV1, getSongDetail } from '@/api/song'
-import { cacheManager } from '@/utils/db'
-import { useSettingsStore } from '@/stores/settings'
+import { getSongDetail } from '@/api/song'
 import { logger } from '@/utils/logger'
 import LyricsDisplay from '@/components/lyrics/LyricsDisplay.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
@@ -530,141 +533,15 @@ const emitClose = defineEmits<{
 const playerStore = usePlayerStore()
 const lyricsStore = useLyricsStore()
 const userStore = useUserStore()
-const settingsStore = useSettingsStore()
 const { seek, seekByProgress } = useAudio()
 // Web 端无桌面歌词独立窗口，按钮按平台能力隐藏
 const { hasDesktopLyrics } = usePlatform()
 
-const { syncEngine, seekToIndex, setSeekPause } = useLyricsSync()
-
-watch(
-  () => playerStore.currentSong?.id,
-  async (songId) => {
-    if (!songId) {
-      lyricsStore.resetForTrack(null)
-      return
-    }
-
-    await loadLyrics(songId)
-  },
-  { immediate: true }
-)
-
-async function loadLyrics(songId: number) {
-  lyricsStore.resetForTrack(songId)
-  lyricsStore.setLoading(true)
-
-  try {
-    const currentSong = playerStore.currentSong
-    if (!currentSong) return
-
-    let lrc = ''
-    let source: 'online' | 'cache' = 'online'
-
-    // 优先读取 IDB 缓存
-    try {
-      const cached = await cacheManager.getLyric(songId)
-      if (cached?.lyric && parseLrc(cached.lyric).length > 0) {
-        lrc = cached.lyric
-        source = 'cache'
-        logger.debug('lyric', `命中 IDB 缓存: songId=${songId}`)
-      }
-    } catch (e) {
-      logger.warn('lyric', 'IDB 缓存读取失败:', e)
-    }
-
-    if (!lrc) {
-      let v1Tlyric: string | undefined
-      let v1Romalrc: string | undefined
-      if (settingsStore.enableEnhancedLyric) {
-        try {
-          const resV1: any = await getLyricV1(songId, { cp: true, tv: 1, lv: 1, rv: 1, yv: 1 })
-          const v1Lrc = resV1?.lrc?.lyric || resV1?.klyric?.lyric || resV1?.yrc?.lyric || ''
-          v1Tlyric = resV1?.tlyric?.lyric || undefined
-          v1Romalrc = resV1?.romalrc?.lyric || resV1?.yrc?.lyric || undefined
-          if (v1Lrc) {
-            const parsed = parseLrc(v1Lrc)
-            // v1 的 lrc 可能是纯逐字 JSON 格式，parseLrc 无法解析，返回空数组
-            // 此时回退到普通 /lyric 接口
-            if (parsed.length > 0) {
-              let merged = parsed
-              if (v1Tlyric) {
-                const translated = parseLrc(v1Tlyric)
-                merged = merged.map((line) => {
-                  const matched = translated.find((t) => Math.abs(t.time - line.time) < 500)
-                  return matched ? { ...line, translation: matched.text } : line
-                })
-              }
-              if (v1Romalrc) {
-                const roman = parseLrc(v1Romalrc)
-                merged = merged.map((line) => {
-                  const matched = roman.find((r) => Math.abs(r.time - line.time) < 500)
-                  return matched ? { ...line, romanized: matched.text } : line
-                })
-              }
-              lyricsStore.setLyrics({
-                trackId: songId,
-                trackName: currentSong.name,
-                artists: currentSong.artists.map(a => a.name).join(' / '),
-                source: 'online',
-                rawText: v1Lrc,
-                lines: merged,
-              })
-              return
-            }
-            logger.debug('lyric', `v1 歌词格式无法解析（${v1Lrc.length} 字符，0 行），回退到普通歌词`)
-          }
-        } catch (e) {
-          logger.warn('lyric', '逐字歌词请求失败，回退到普通歌词:', e)
-        }
-      }
-
-      const res: any = await getLyric(songId)
-      lrc = res?.lrc?.lyric || ''
-      const tlyric = res?.tlyric?.lyric || v1Tlyric
-      const romalrc = v1Romalrc
-      if (lrc) {
-        await cacheManager.cacheLyric(songId, lrc, tlyric).catch(() => {})
-      }
-    }
-
-    if (lrc) {
-      let parsed = parseLrc(lrc)
-      if (tlyric) {
-        const translated = parseLrc(tlyric)
-        parsed = parsed.map((line) => {
-          const matched = translated.find((t) => Math.abs(t.time - line.time) < 500)
-          return matched ? { ...line, translation: matched.text } : line
-        })
-      }
-      if (romalrc) {
-        const roman = parseLrc(romalrc)
-        parsed = parsed.map((line) => {
-          const matched = roman.find((r) => Math.abs(r.time - line.time) < 500)
-          return matched ? { ...line, romanized: matched.text } : line
-        })
-      }
-      lyricsStore.setLyrics({
-        trackId: songId,
-        trackName: currentSong.name,
-        artists: currentSong.artists.map(a => a.name).join(' / '),
-        source,
-        rawText: lrc,
-        lines: parsed,
-      })
-    } else {
-      lyricsStore.setError('暂无歌词')
-    }
-  } catch (e) {
-    logger.error('lyric', 'Failed to fetch lyric:', e)
-    lyricsStore.setError('歌词加载失败')
-  } finally {
-    lyricsStore.setLoading(false)
-  }
-}
+// 歌词加载由 AppLayout 中的 useAutoLoadLyrics 全局统一处理，
+// 这里不再重复加载：两套加载器会争抢同一个 lyricsStore，互相 resetForTrack 清空歌词。
+const { seekToIndex } = useLyricsSync()
 
 function handleLyricSeek(index: number) {
-  setSeekPause()
   seekToIndex(index)
 }
 
@@ -1087,23 +964,34 @@ function handleEscKeydown(e: KeyboardEvent) {
 }
 window.addEventListener('keydown', handleEscKeydown, true)
 
+/** 桌面歌词窗口是否打开（驱动按钮高亮） */
+const lyricsWindowOpen = ref(false)
+
 async function toggleDesktopLyrics() {
   try {
     if (!window.electronAPI?.openLyricsWindow) {
       logger.warn('player', 'electronAPI.openLyricsWindow not available')
       return
     }
-    const isOpen = await window.electronAPI.isLyricsWindowOpen()
-    logger.debug('player', `toggleDesktopLyrics, isOpen=${isOpen}`)
-    if (isOpen) {
+    if (lyricsWindowOpen.value) {
       await window.electronAPI.closeLyricsWindow()
+      lyricsWindowOpen.value = false
     } else {
       await window.electronAPI.openLyricsWindow()
+      lyricsWindowOpen.value = true
     }
   } catch (e) {
     logger.error('player', 'toggleDesktopLyrics failed:', e)
   }
 }
+
+onMounted(async () => {
+  try {
+    lyricsWindowOpen.value = (await window.electronAPI?.isLyricsWindowOpen?.()) ?? false
+  } catch {
+    // 查询失败不影响按钮可用性
+  }
+})
 
 function handleRemoveDuplicates() {
   const removedCount = playerStore.removeDuplicates()
@@ -2426,6 +2314,15 @@ onUnmounted(() => {
   color: rgba(255, 255, 255, 0.9);
 }
 
+/* 已启用的桌面能力（如桌面歌词窗口已打开） */
+.ctrl-btn-icon.is-active {
+  color: #ff5a5f;
+}
+
+.ctrl-btn-icon.is-active:hover {
+  color: #ff5a5f;
+}
+
 .loop-one-badge {
   position: absolute;
   bottom: -2px;
@@ -2548,6 +2445,20 @@ onUnmounted(() => {
   .lyrics-section {
     margin-top: 20px;
     max-height: 40vh;
+  }
+
+  /* 移动端纯歌词模式：隐藏封面后，歌词区域应填满 content-top 剩余空间，
+     而不是被 max-height: 40vh 截断导致大片空白。 */
+  .mode-lyrics .lyrics-section {
+    flex: 1 1 auto;
+    max-height: none;
+    height: 100%;
+    margin-top: 0;
+    padding: 0 16px 8px;
+  }
+
+  .mode-lyrics .lyrics-display-wrapper {
+    max-height: none;
   }
 
   .controls-bottom {

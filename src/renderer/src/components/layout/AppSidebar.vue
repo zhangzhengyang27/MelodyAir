@@ -101,6 +101,19 @@
       </template>
     </nav>
 
+    <!-- 底部常驻入口（与登录态无关，未登录同样可进入设置 / 关于） -->
+    <div class="border-t border-neutral-100 p-3 dark:border-white/5">
+      <RouterLink
+        to="/settings"
+        class="nav-item"
+        exact-active-class="nav-item-active"
+      >
+        <span class="nav-indicator" />
+        <Settings class="h-[18px] w-[18px] shrink-0" />
+        <span class="truncate">设置</span>
+      </RouterLink>
+    </div>
+
     <!-- 新建歌单对话框 -->
     <Teleport to="body">
       <Transition name="fade">
@@ -133,7 +146,7 @@ import { RouterLink } from 'vue-router'
 import {
   Home, Trophy, ListMusic, Mic, Film, Disc3, Radio,
   Library, Cloud, Plus, Heart, Music,
-  ChevronDown, ChevronRight, Headphones, Clock
+  ChevronDown, ChevronRight, Headphones, Clock, Settings
 } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
 import { showToast } from '@/composables/useToast'
