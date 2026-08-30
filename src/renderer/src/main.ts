@@ -18,15 +18,47 @@ app.use(pinia)
 app.use(router)
 app.mount('#app')
 
-// Umami 访问统计：仅在 Web 构建注入（VITE_ROUTER_MODE=history，见 .env.web）。
-// Electron 桌面版不注入，避免 file:// 环境的页览污染线上数据。
-// umami script.js 自带 SPA 支持，会跟踪 history.pushState/replaceState 路由跳转。
+// ===== Umami 访问统计 =====
+// - Web 构建（.env.web，VITE_ROUTER_MODE=history）：自动跟踪，计入「MelodyAir Web」站点；
+//   umami script.js 自带 SPA 支持，跟踪 history.pushState/replaceState 路由跳转。
+// - Electron 生产构建：计入独立的「MelodyAir Desktop」站点。必须关自动跟踪——生产走 file://，
+//   自动上报会把本地文件路径（含本机用户名）记进 URL 统计；改由 router.afterEach 上报干净路由。
+//   仅主窗口上报：迷你播放器/桌面歌词窗口加载同一入口，各自上报会重复计数。
+// - Electron dev：不上报（import.meta.env.PROD=false）。
+const UMAMI_SRC = 'https://analytics.zhangzhengyang.com/script.js'
+const UMAMI_WEB_ID = '7ad68d7c-b004-4945-afe1-efb4682dcc20'
+const UMAMI_DESKTOP_ID = 'b9d75c1f-92a6-431c-bb2c-4c5d19365b4c'
+const UMAMI_DESKTOP_HOST = 'desktop.melodyair'
+
+interface UmamiTracker {
+  track: (fn: (props: Record<string, unknown>) => Record<string, unknown>) => void
+}
+
+function injectUmami(id: string, opts: { autoTrack?: boolean; onload?: () => void } = {}): void {
+  const script = document.createElement('script')
+  script.defer = true
+  script.src = UMAMI_SRC
+  script.setAttribute('data-website-id', id)
+  if (opts.autoTrack === false) script.setAttribute('data-auto-track', 'false')
+  if (opts.onload) script.onload = opts.onload
+  document.head.appendChild(script)
+}
+
 if (import.meta.env.VITE_ROUTER_MODE === 'history') {
-  const umami = document.createElement('script')
-  umami.defer = true
-  umami.src = 'https://analytics.zhangzhengyang.com/script.js'
-  umami.setAttribute('data-website-id', '7ad68d7c-b004-4945-afe1-efb4682dcc20')
-  document.head.appendChild(umami)
+  injectUmami(UMAMI_WEB_ID)
+} else if (import.meta.env.PROD && window.electronAPI && isMainWindow()) {
+  // tracker 由 script.js 异步创建，就绪前先排队，onload 后冲刷
+  const pending: string[] = []
+  const win = window as unknown as { umami?: UmamiTracker }
+  const trackPage = (url: string): void => {
+    if (win.umami) win.umami.track((props) => ({ ...props, url, hostname: UMAMI_DESKTOP_HOST }))
+    else pending.push(url)
+  }
+  router.afterEach((to) => trackPage(to.fullPath))
+  injectUmami(UMAMI_DESKTOP_ID, {
+    autoTrack: false,
+    onload: () => pending.splice(0).forEach(trackPage)
+  })
 }
 
 // Listen for player actions from Electron main process
