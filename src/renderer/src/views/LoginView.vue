@@ -125,6 +125,13 @@ onUnmounted(() => {
   color: #1a1a2e;
 }
 
+/* 触屏设备：iOS 聚焦 <16px 输入框会自动放大页面且失焦不恢复，字号需提到 16px */
+@media (pointer: coarse) {
+  .input-field {
+    font-size: 1rem;
+  }
+}
+
 .input-field:focus {
   border-color: #FFB0A0;
   background-color: white;

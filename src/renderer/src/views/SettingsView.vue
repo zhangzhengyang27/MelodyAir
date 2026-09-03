@@ -299,7 +299,7 @@
                 v-model="tempShortcuts.playPause"
                 type="text"
                 readonly
-                class="w-48 rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-center font-mono text-sm text-neutral-900 placeholder:text-neutral-400 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                class="w-48 rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-center font-mono text-sm pointer-coarse:text-base text-neutral-900 placeholder:text-neutral-400 dark:border-white/10 dark:bg-white/10 dark:text-white"
                 :class="{ 'ring-2 ring-[#FF5A5F]': recordingKey === 'playPause' }"
                 @click="startRecording('playPause')"
                 placeholder="点击录制"
@@ -325,7 +325,7 @@
                 v-model="tempShortcuts.prev"
                 type="text"
                 readonly
-                class="w-48 rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-center font-mono text-sm text-neutral-900 placeholder:text-neutral-400 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                class="w-48 rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-center font-mono text-sm pointer-coarse:text-base text-neutral-900 placeholder:text-neutral-400 dark:border-white/10 dark:bg-white/10 dark:text-white"
                 :class="{ 'ring-2 ring-[#FF5A5F]': recordingKey === 'prev' }"
                 @click="startRecording('prev')"
                 placeholder="点击录制"
@@ -351,7 +351,7 @@
                 v-model="tempShortcuts.next"
                 type="text"
                 readonly
-                class="w-48 rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-center font-mono text-sm text-neutral-900 placeholder:text-neutral-400 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                class="w-48 rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-center font-mono text-sm pointer-coarse:text-base text-neutral-900 placeholder:text-neutral-400 dark:border-white/10 dark:bg-white/10 dark:text-white"
                 :class="{ 'ring-2 ring-[#FF5A5F]': recordingKey === 'next' }"
                 @click="startRecording('next')"
                 placeholder="点击录制"
@@ -885,6 +885,14 @@ onMounted(async () => {
 }
 
 .input-field:focus,
+/* 触屏设备：iOS 聚焦 <16px 输入框会自动放大页面且失焦不恢复，字号需提到 16px */
+@media (pointer: coarse) {
+  .select-field,
+  .number-field {
+    font-size: 16px;
+  }
+}
+
 .select-field:focus,
 .number-field:focus {
   border-color: #FF5A5F;

@@ -36,7 +36,7 @@
               min="1"
               max="720"
               placeholder="自定义"
-              class="h-8 w-24 rounded-lg border border-neutral-200 bg-transparent px-2 text-sm outline-none focus:border-[#FF5A5F] dark:border-white/10"
+              class="h-8 w-24 rounded-lg border border-neutral-200 bg-transparent px-2 text-sm pointer-coarse:text-base outline-none focus:border-[#FF5A5F] dark:border-white/10"
             />
             <button class="sleep-timer-btn flex-1" @click="startCustomSleepTimer">开始</button>
           </div>

@@ -124,7 +124,7 @@
               v-model="newPlaylistName"
               type="text"
               placeholder="请输入歌单名称"
-              class="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#FF5A5F] focus:bg-white dark:border-white/10 dark:bg-[#13131C] dark:text-[#F0F0F5]"
+              class="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm pointer-coarse:text-base outline-none transition-colors focus:border-[#FF5A5F] focus:bg-white dark:border-white/10 dark:bg-[#13131C] dark:text-[#F0F0F5]"
               @keyup.enter="handleCreatePlaylist"
             />
             <div class="mt-5 flex justify-end gap-2">

@@ -193,7 +193,7 @@
           <h3 class="text-lg font-semibold">新建歌单</h3>
           <input
             v-model="newPlaylistName"
-            class="mt-4 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2 text-sm outline-none focus:border-coral-300 dark:border-white/10 dark:bg-[#13131C] dark:text-[#F0F0F5]"
+            class="mt-4 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2 text-sm pointer-coarse:text-base outline-none focus:border-coral-300 dark:border-white/10 dark:bg-[#13131C] dark:text-[#F0F0F5]"
             placeholder="歌单名称"
             @keyup.enter="handleCreatePlaylist"
           />

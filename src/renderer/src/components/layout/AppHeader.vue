@@ -18,7 +18,7 @@
         v-model="searchQuery"
         type="text"
         placeholder="搜索音乐、歌手、专辑..."
-        class="h-9 w-full rounded-full border border-neutral-200 bg-neutral-50 pl-9 pr-4 text-sm outline-none transition-colors focus:border-[#FFB0A0] focus:bg-white dark:border-white/10 dark:bg-[#13131C] dark:focus:border-[#FF7F66] dark:focus:bg-[#1A1A28] dark:text-[#F0F0F5]"
+        class="h-9 w-full rounded-full border border-neutral-200 bg-neutral-50 pl-9 pr-4 text-sm pointer-coarse:text-base outline-none transition-colors focus:border-[#FFB0A0] focus:bg-white dark:border-white/10 dark:bg-[#13131C] dark:focus:border-[#FF7F66] dark:focus:bg-[#1A1A28] dark:text-[#F0F0F5]"
         @keydown.enter="handleSearchEnter"
         @keydown.down.prevent="navigateSuggestion(1)"
         @keydown.up.prevent="navigateSuggestion(-1)"

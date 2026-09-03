@@ -3,6 +3,10 @@
 /* Enable class-based dark mode for Tailwind v4 */
 @variant dark (&:where(.dark, .dark *));
 
+/* 触屏设备变体：iOS Safari 聚焦字号 <16px 的输入框会自动放大页面且失焦不恢复，
+ * 触屏下输入框字号需通过 pointer-coarse:text-base 提到 16px（此前该变体被使用但从未定义，静默失效） */
+@custom-variant pointer-coarse (@media (pointer: coarse));
+
 /* ============================================================
  * Melody Air Theme Configuration
  * 
