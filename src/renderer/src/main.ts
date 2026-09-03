@@ -61,6 +61,22 @@ if (import.meta.env.VITE_ROUTER_MODE === 'history') {
   })
 }
 
+// 路由懒加载 chunk 失败时自动整页刷新（发版后旧标签页引用已被替换的 chunk 文件会 404）。
+// sessionStorage 防循环：刷新一次仍失败（真断网等）就不再刷。
+router.onError((error) => {
+  const message = error?.message ?? ''
+  const isChunkLoadError =
+    message.includes('Failed to fetch dynamically imported module') ||
+    message.includes('Loading chunk ') ||
+    message.includes('Importing a module script failed')
+  if (!isChunkLoadError) return
+  const key = 'chunk-reload-at'
+  const last = Number(sessionStorage.getItem(key) ?? 0)
+  if (Date.now() - last < 10_000) return
+  sessionStorage.setItem(key, String(Date.now()))
+  window.location.reload()
+})
+
 // Listen for player actions from Electron main process
 // 来源：全局媒体键、系统托盘菜单、迷你播放器窗口、桌面歌词窗口
 // 协议：toggle | prev | next | toggleLike | toggleMute | seek:<秒> | volume:<0~1>
