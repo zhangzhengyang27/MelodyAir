@@ -724,7 +724,11 @@ async function handleShare() {
   if (!playerStore.currentSong) return
   const song = playerStore.currentSong
   const shareText = `🎵 ${song.name} - ${song.artists?.map((a: any) => a.name).join(' / ')}`
-  const shareUrl = `https://music.163.com/song?id=${song.id}`
+  // Web 端分享本站地址（跟随部署域名，不写死）；Electron 桌面端的 origin 是
+  // file://（打包）或 localhost（开发），不是可访问的站点，回退网易云歌曲页
+  const origin = window.location.origin
+  const isSiteOrigin = /^https?:\/\//.test(origin) && !/localhost|127\.0\.0\.1/.test(origin)
+  const shareUrl = !(window as any).electronAPI && isSiteOrigin ? `${origin}/` : `https://music.163.com/song?id=${song.id}`
 
   try {
     // 优先使用系统分享（如果支持）

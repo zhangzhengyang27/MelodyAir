@@ -5,6 +5,7 @@
  *
  * 提供统一的播放控制接口和事件监听，上层代码无需关心底层实现
  */
+import { Howler } from 'howler'
 import { AudioEngine } from './player'
 import type { PlayerStatus } from './player'
 import { logger } from './logger'
@@ -12,6 +13,21 @@ import { useSettingsStore } from '@/stores/settings'
 
 // 频率数据数组长度（AnalyserNode fftSize / 2）
 const FREQUENCY_BIN_COUNT = 128
+
+/**
+ * 移动端浏览器检测。
+ * 移动端必须走 HTML5 Audio 模式：<audio> 元素在页面退后台/锁屏时由系统继续播放
+ * （iOS Safari / Android Chrome 均支持，配合 MediaSession 显示锁屏控件）；
+ * Web Audio API 的播放会被系统直接挂起——表现为退后台音乐停止、切回也不恢复。
+ * 代价是移动端失去均衡器/音频可视化（退后台时 Web Audio 本就不可用）。
+ */
+function isMobileBrowser(): boolean {
+  const uaDataMobile = (navigator as any)?.userAgentData?.mobile
+  if (typeof uaDataMobile === 'boolean') return uaDataMobile
+  // iPadOS 13+ 的 UA 伪装成桌面 Mac，用多点触控兜底识别
+  const isIpadOs = /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1
+  return /Android|iPhone|iPad|iPod|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent) || isIpadOs
+}
 
 /**
  * Web 环境将音源 URL 改写为后端 /proxy/audio 代理地址。
@@ -35,17 +51,21 @@ function toProxiedUrl(url: string): string {
 
 class AudioAdapter {
   private isElectron: boolean
+  private isMobile: boolean
   private localEngine: AudioEngine | null = null
   private frequencyData: Uint8Array = new Uint8Array(FREQUENCY_BIN_COUNT)
   private frequencyIntervalId: ReturnType<typeof setInterval> | null = null
   private frequencyCallbacks: Array<(data: Uint8Array) => void> = []
+  private visibilityCleanup: (() => void) | null = null
 
   constructor() {
     this.isElectron = !!(window as any).electronAPI
-    logger.info('audio-adapter', `Environment: ${this.isElectron ? 'Electron (IPC)' : 'Browser (local AudioEngine)'}`)
+    this.isMobile = !this.isElectron && isMobileBrowser()
+    logger.info('audio-adapter', `Environment: ${this.isElectron ? 'Electron (IPC)' : 'Browser (local AudioEngine)'}${this.isMobile ? ' + Mobile' : ''}`)
 
     if (!this.isElectron) {
       this.initLocalEngine()
+      this.initVisibilityResume()
     }
   }
 
@@ -74,6 +94,32 @@ class AudioAdapter {
 
     // 启动频率数据采集（浏览器环境）
     this.startFrequencyCollection()
+  }
+
+  /**
+   * 页面回到前台时恢复被系统挂起的 AudioContext。
+   * iOS 把退后台的 AudioContext 置为 interrupted/suspended，切回前台后不会
+   * 自动恢复，之前“看起来在播放却无声”。移动端已改走 HTML5 模式（不经过
+   * AudioContext），此处是桌面浏览器和极端中断场景（如来电）的兜底。
+   * 只在引擎认为正在播放时才 resume：用户主动暂停后 Howler 的 autoSuspend
+   * 会在 30 秒后主动挂起上下文，那种挂起不该被这里唤醒。
+   */
+  private initVisibilityResume(): void {
+    const handler = () => {
+      if (document.visibilityState !== 'visible') return
+      if (!this.localEngine?.isPlaying()) return
+      try {
+        const ctx = (Howler as any).ctx as AudioContext | undefined
+        if (ctx && ctx.state !== 'running') {
+          logger.info('audio-adapter', `Page visible: resuming AudioContext (state=${ctx.state})`)
+          ctx.resume()
+        }
+      } catch (e) {
+        logger.warn('audio-adapter', 'Failed to resume AudioContext on visible:', e)
+      }
+    }
+    document.addEventListener('visibilitychange', handler)
+    this.visibilityCleanup = () => document.removeEventListener('visibilitychange', handler)
   }
 
   /**
@@ -114,23 +160,29 @@ class AudioAdapter {
     if (this.isElectron) {
       ;(window as any).electronAPI.audioPlay(url, songId, html5)
     } else if (this.localEngine) {
-      const isRemote = !url.startsWith('blob:') && !url.startsWith('data:')
-      if (isRemote && html5) {
-        // 长音频（播客）走 HTML5 流式：audio 标签拉流不受 CORS 限制，直连 CDN 即可
+      // 移动端一律 HTML5 Audio（见 isMobileBrowser 注释），音源直连 CDN——
+      // <audio> 元素拉流不受 CORS 限制，无需后端代理，也不经过 Web Audio
+      if (this.isMobile) {
         await this.localEngine.play(url, { html5: true })
-      } else if (isRemote) {
-        // 音源经后端代理补 CORS 后保留 Web Audio 模式（均衡器/可视化可用）；
-        // 非白名单音源无法代理，降级 HTML5 直连（audio 标签不受 CORS 限制）
-        const proxied = toProxiedUrl(url)
-        if (proxied !== url) {
-          await this.localEngine.play(proxied, { html5: false })
-        } else {
-          logger.info('audio-adapter', 'Web 环境：非白名单音源，降级为 HTML5 Audio 模式（规避 CORS）')
-          await this.localEngine.play(url, { html5: true })
-        }
       } else {
-        // blob:/data: 本地数据同源，直接 Web Audio
-        await this.localEngine.play(url, { html5 })
+        const isRemote = !url.startsWith('blob:') && !url.startsWith('data:')
+        if (isRemote && html5) {
+          // 长音频（播客）走 HTML5 流式：audio 标签拉流不受 CORS 限制，直连 CDN 即可
+          await this.localEngine.play(url, { html5: true })
+        } else if (isRemote) {
+          // 音源经后端代理补 CORS 后保留 Web Audio 模式（均衡器/可视化可用）；
+          // 非白名单音源无法代理，降级 HTML5 直连（audio 标签不受 CORS 限制）
+          const proxied = toProxiedUrl(url)
+          if (proxied !== url) {
+            await this.localEngine.play(proxied, { html5: false })
+          } else {
+            logger.info('audio-adapter', 'Web 环境：非白名单音源，降级为 HTML5 Audio 模式（规避 CORS）')
+            await this.localEngine.play(url, { html5: true })
+          }
+        } else {
+          // blob:/data: 本地数据同源，直接 Web Audio
+          await this.localEngine.play(url, { html5 })
+        }
       }
     }
   }
@@ -306,6 +358,8 @@ class AudioAdapter {
    */
   destroy(): void {
     this.stopFrequencyCollection()
+    this.visibilityCleanup?.()
+    this.visibilityCleanup = null
     this.ipcCleanups.forEach((cleanup) => cleanup())
     this.ipcCleanups = []
     if (this.localEngine) {
