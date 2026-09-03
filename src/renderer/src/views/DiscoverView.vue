@@ -10,7 +10,8 @@
           class="absolute inset-0 transition-opacity duration-500"
         >
           <img
-            :src="banner.imageUrl"
+            v-if="shownBanners.has(i)"
+            :src="sizedBannerUrl(banner.imageUrl)"
             :alt="banner.typeTitle"
             class="h-full w-full object-cover"
           />
@@ -20,12 +21,14 @@
         <!-- 左右切换箭头 -->
         <button
           class="banner-arrow absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 group-hover:opacity-100 pointer-coarse:opacity-100"
+          aria-label="上一张Banner"
           @click="prevBanner"
         >
           <ChevronLeft class="h-5 w-5" />
         </button>
         <button
           class="banner-arrow absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 group-hover:opacity-100 pointer-coarse:opacity-100"
+          aria-label="下一张Banner"
           @click="nextBanner"
         >
           <ChevronRight class="h-5 w-5" />
@@ -38,6 +41,8 @@
             :key="i"
             class="h-1.5 rounded-full transition-all"
             :class="i === currentBanner ? 'w-4 bg-white' : 'w-1.5 bg-white/50 hover:bg-white/80'"
+            :aria-label="`跳到第 ${i + 1} 张Banner`"
+            :aria-current="i === currentBanner"
             @click="currentBanner = i"
           />
         </div>
@@ -144,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { ChevronLeft, ChevronRight, Play, CalendarDays, Music } from 'lucide-vue-next'
 import { getBanner, getPersonalized, getPersonalizedNewSong, getPersonalizedMv, getPersonalizedDjprogram } from '@/api/personalized'
@@ -168,6 +173,33 @@ const mvs = ref<any[]>([])
 const djPrograms = ref<any[]>([])
 const currentBanner = ref(0)
 let bannerTimer: ReturnType<typeof setInterval> | null = null
+
+/**
+ * 已展示过的 banner 下标集合：只有展示过的才插入 <img>。
+ * 不能用 v-show + loading=lazy——Chrome 会立即加载 display:none 容器里的懒加载图（实测），
+ * 6 张 banner 全量直出首屏要多拉数百 KB 到数 MB；v-if 按需渲染后首屏只请求当前 1 张。
+ */
+const shownBanners = ref<Set<number>>(new Set([0]))
+watch(currentBanner, (i) => {
+  shownBanners.value.add(i)
+})
+
+/**
+ * Banner 图追加 CDN 裁剪参数兜底（部分运营图可能超 1080px 宽）。
+ * 注意实测：现有 banner 源图多已约 1080px 宽，obj/ 新式 URL 甚至会忽略该参数，
+ * 裁剪本身收益有限——banner 的主要优化是非当前帧懒加载（见模板 loading）。
+ * 仅对网易云 CDN（*.music.126.net）追加，其他来源不确定支持，原样返回避免 404。
+ */
+function sizedBannerUrl(url: string): string {
+  if (!url) return url
+  try {
+    const host = new URL(url).hostname
+    if (!host.endsWith('.music.126.net')) return url
+    return url + (url.includes('?') ? '&' : '?') + 'param=1080y480'
+  } catch {
+    return url
+  }
+}
 
 /** 今日日期标签，如「8月26日 周三」 */
 const todayLabel = computed(() => {
