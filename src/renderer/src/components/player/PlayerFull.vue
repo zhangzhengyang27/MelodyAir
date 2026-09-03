@@ -1463,6 +1463,13 @@ onUnmounted(() => {
   transition: border-color 0.2s;
 }
 
+/* 触屏设备：iOS 聚焦 <16px 输入框会自动放大页面且失焦不恢复，字号需提到 16px */
+@media (pointer: coarse) {
+  .timer-custom-input {
+    font-size: 16px;
+  }
+}
+
 .timer-custom-input:focus {
   border-color: #FF5A5F;
 }

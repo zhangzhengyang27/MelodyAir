@@ -2,6 +2,9 @@
 import { computed, ref } from 'vue'
 import type { Song } from '../../stores/player'
 import { useQueueHistory } from '@/composables/useQueueHistory'
+// 时长统一用 utils/format 的毫秒版 formatDuration：song.duration 是网易云毫秒字段，
+// 此处曾本地按“秒”重定义同名函数导致队列时长显示成几千分钟
+import { formatDuration } from '@/utils/format'
 import { X } from 'lucide-vue-next'
 
 interface Props {
@@ -35,15 +38,6 @@ const showHistory = ref(false)
 // 拖拽状态
 const draggedIndex = ref<number | null>(null)
 const dragOverIndex = ref<number | null>(null)
-
-/**
- * 格式化时长
- */
-function formatDuration(seconds: number): string {
-  const min = Math.floor(seconds / 60)
-  const sec = Math.floor(seconds % 60)
-  return `${min}:${sec.toString().padStart(2, '0')}`
-}
 
 /**
  * 当前歌曲（从播放列表中获取）
