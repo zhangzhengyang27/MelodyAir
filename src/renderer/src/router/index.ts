@@ -61,6 +61,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '歌单' }
       },
       {
+        path: 'song/:id',
+        name: 'song',
+        component: () => import('@/views/SongDetailView.vue'),
+        meta: { title: '歌曲' }
+      },
+      {
         path: 'artist/:id',
         name: 'artist',
         component: () => import('@/views/ArtistDetailView.vue'),
