@@ -20,6 +20,9 @@ export default defineConfig({
         '@': resolve('src/renderer/src')
       }
     },
+    // env 文件（.env.production）放在项目根；不指定时 envDir 跟随 root（src/renderer），
+    // 会读不到。dev（mode=development）不加载 .env.production，本地调试仍默认 localhost
+    envDir: __dirname,
     plugins: [vue(), tailwindcss()],
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version)

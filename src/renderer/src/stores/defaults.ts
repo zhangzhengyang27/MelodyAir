@@ -6,6 +6,13 @@
 import type { MusicQuality, ThemeMode, LyricsBackgroundType } from './settings'
 import type { PlayMode } from '../utils/player'
 
+/**
+ * 旧版本桌面端构建的 apiBase 默认值。
+ * 历史版本没有注入 VITE_API_BASE，这个默认值被持久化到了用户本地；
+ * 对迁移逻辑而言它等价于"用户未设置"，升级后应让位于新默认值（线上地址）。
+ */
+export const LEGACY_DEFAULT_API_BASE = 'http://localhost:3001'
+
 export const settingsDefaults = {
   theme: 'system' as ThemeMode,
   lyricsBackground: 'blur' as LyricsBackgroundType,
@@ -18,6 +25,8 @@ export const settingsDefaults = {
   minimizeToTray: true,
   globalShortcut: true,
   autoLaunch: false,
+  // 生产构建（web 由 build:web 命令行注入、桌面由 .env.production 注入）指向线上 API；
+  // dev 无注入，回落 localhost 便于本地调试
   apiBase: (import.meta.env.VITE_API_BASE as string) || 'http://localhost:3001',
 }
 

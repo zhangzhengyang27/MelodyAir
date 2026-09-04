@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { cacheManager } from '../utils/db'
 import { throttledPersistStorage } from '../utils/persistStorage'
-import { settingsDefaults, migrateWithDefaults } from './defaults'
+import { settingsDefaults, migrateWithDefaults, LEGACY_DEFAULT_API_BASE } from './defaults'
 
 /**
  * 音质选项
@@ -88,7 +88,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const shortcutNext = ref('MediaNextTrack')
 
   // 网络设置（统一直连后端，不再走 Vite proxy）
-  // Web 构建（.env.web / build:web）默认指向线上 API；Electron/本地开发默认 localhost
+  // 生产构建默认指向线上 API（web 由 build:web 注入、Electron 由 .env.production 注入）；
+  // dev 无注入，默认 localhost 便于本地调试
   const apiBase = ref(import.meta.env.VITE_API_BASE || 'http://localhost:3001')
 
   // ★ 初始化时同步缓存大小到 CacheManager
@@ -187,6 +188,12 @@ export const useSettingsStore = defineStore('settings', () => {
     afterHydrate: (ctx) => {
       try {
         const merged = migrateWithDefaults(settingsDefaults, ctx.store.$state as Partial<typeof settingsDefaults>)
+        // 旧版本桌面端把构建默认值 localhost:3001 持久化了下来，合并时原样保留，
+        // 会让新默认值（线上地址）永远不生效；旧默认值等价于"未设置"，重置为新默认值。
+        // 没有设置界面可改 apiBase，这个值历史上只可能是构建默认值，重置是安全的
+        if (merged.apiBase === LEGACY_DEFAULT_API_BASE) {
+          merged.apiBase = settingsDefaults.apiBase
+        }
         Object.assign(ctx.store.$state, merged)
       } catch {
         // 迁移失败时使用当前值（已是代码中的默认值）
