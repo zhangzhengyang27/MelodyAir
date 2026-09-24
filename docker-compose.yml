@@ -1,0 +1,13 @@
+# MelodyAir Web 版（纯静态 dist + nginx 卷挂载，无 docker build；同 tools 模式）
+# 更新发布：重新上传 dist 后必须 --force-recreate 重建容器（bind mount 绑 inode，换目录不重建不生效）
+
+services:
+  web:
+    image: nginx:1.27-alpine
+    container_name: melodyair-web
+    restart: unless-stopped
+    ports:
+      - "4600:80"
+    volumes:
+      - ./dist:/usr/share/nginx/html:ro
+      - ./nginx-default.conf:/etc/nginx/conf.d/default.conf:ro
