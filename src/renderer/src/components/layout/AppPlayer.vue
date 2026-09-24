@@ -128,7 +128,7 @@
         <button
           class="player-btn whitespace-nowrap text-[11px] font-medium leading-tight"
           :class="{ 'text-[#FF5A5F]': effectiveQuality !== 'exhigh' }"
-          :title="'当前音质：' + (settingsStore.qualityLabels[effectiveQuality] || effectiveQuality)"
+          :title="'当前音质：' + (settingsStore.qualityLabels[effectiveQuality as keyof typeof settingsStore.qualityLabels] || effectiveQuality)"
           @click.stop="showQualityPopup = !showQualityPopup"
         >
           {{ qualityShortLabel }}

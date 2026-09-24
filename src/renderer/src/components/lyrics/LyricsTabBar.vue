@@ -93,6 +93,8 @@ const emit = defineEmits<{
   (e: 'toggle-topmost'): void
   (e: 'toggle-follow'): void
   (e: 'reset-offset'): void
+  (e: 'increase-font'): void
+  (e: 'decrease-font'): void
   (e: 'change-font-size', value: number): void
   (e: 'adjust-offset', delta: number): void
   (e: 'seek-lyric', index: number): void

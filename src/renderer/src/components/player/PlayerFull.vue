@@ -932,12 +932,12 @@ async function handleSaveAsPlaylist() {
     }
 
     // 调用创建歌单 API
-    const { createPlaylist, addTracksToPlaylist } = await import('@/api/playlist')
+    const { createPlaylist, playlistTracks } = await import('@/api/playlist')
     const result = await createPlaylist(playlistName.trim())
 
     if (result && result.id) {
       // 添加歌曲到歌单
-      await addTracksToPlaylist(result.id, trackIds)
+      await playlistTracks('add', result.id, trackIds.join(','))
       alert(`成功创建歌单「${playlistName}」，已添加 ${trackIds.length} 首歌曲`)
     }
   } catch (error) {

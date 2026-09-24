@@ -124,7 +124,25 @@ const topTabs = [
 ]
 const activeTopTab = ref('songs')
 const loading = ref(false)
-const toplists = ref<any[]>([])
+interface ToplistItem {
+  id: number
+  name: string
+  coverImgUrl: string
+  updateFrequency: string
+  tracks?: { first: string; second: string }[]
+}
+
+/** 网易原始歌曲字段：榜单接口返回 ar/al/dt 裸格式，与播放器规范化后的 Song 结构不同 */
+interface RawNeteaseSong {
+  id: number
+  name?: string
+  ar?: { id: number; name: string }[]
+  al?: { id?: number; name?: string; picUrl?: string }
+  dt?: number
+  fee?: number
+}
+
+const toplists = ref<ToplistItem[]>([])
 const detailVisible = ref(false)
 const detailId = ref<number | null>(null)
 const detailName = ref('')
@@ -150,7 +168,7 @@ onMounted(async () => {
   loading.value = true
   try {
     const res = await getToplist()
-    toplists.value = (res as { list?: unknown[] })?.list || []
+    toplists.value = (res as { list?: ToplistItem[] })?.list || []
   } catch (err: unknown) {
     if (import.meta.env.DEV) console.error('加载排行榜失败:', err)
   } finally {
@@ -177,10 +195,10 @@ async function fetchNewSongs() {
   newSongLoading.value = true
   try {
     const res = await getTopSong(newSongType.value)
-    newSongs.value = ((res as { data?: Song[] })?.data || []).map((s: Song) => ({
+    newSongs.value = ((res as { data?: RawNeteaseSong[] })?.data || []).map((s: RawNeteaseSong) => ({
       id: s.id,
-      name: s.name,
-      artists: s.ar?.map((a: { id: number; name: string }) => ({ id: a.id, name: a.name })) || [],
+      name: s.name || '',
+      artists: s.ar?.map((a) => ({ id: a.id, name: a.name })) || [],
       album: { id: s.al?.id || 0, name: s.al?.name || '', picUrl: s.al?.picUrl || '' },
       duration: s.dt || 0,
       fee: s.fee || 0
@@ -203,11 +221,11 @@ async function viewDetail(id: number, name: string) {
 
   try {
     const res = await getPlaylistDetail(id)
-    const rawSongs = res?.playlist?.tracks || []
-    detailSongs.value = (rawSongs as Song[]).map((s: Song) => ({
+    const rawSongs = (res as unknown as { playlist?: { tracks?: RawNeteaseSong[] } })?.playlist?.tracks || []
+    detailSongs.value = rawSongs.map((s: RawNeteaseSong) => ({
       id: s.id,
       name: s.name || '',
-      artists: s.ar?.map((a: { id?: number; name?: string }) => ({ id: a.id || 0, name: a.name || '' })) || [],
+      artists: s.ar?.map((a) => ({ id: a.id || 0, name: a.name || '' })) || [],
       album: (() => {
         const al = s.al || {}
         return { id: al.id || 0, name: al.name || '', picUrl: al.picUrl || '' }

@@ -3,7 +3,8 @@ import { ref, onMounted, onUnmounted, type Component } from 'vue'
 import type { Song } from '../../stores/player'
 
 export interface ContextMenuItem {
-  label: string
+  /** 分隔行（divider: true）无文案，label 可省略 */
+  label?: string
   icon?: string | Component
   action: () => void
   divider?: boolean

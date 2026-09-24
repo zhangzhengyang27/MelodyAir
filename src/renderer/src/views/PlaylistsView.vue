@@ -87,7 +87,7 @@ import { formatPlayCount } from '@/utils/format'
 /** 分类筛选是否展开（默认折叠两行） */
 const filtersExpanded = ref(false)
 
-const tabs = [
+const tabs: { label: string; value: 'all' | 'highquality' }[] = [
   { label: '全部歌单', value: 'all' },
   { label: '精品歌单', value: 'highquality' }
 ]

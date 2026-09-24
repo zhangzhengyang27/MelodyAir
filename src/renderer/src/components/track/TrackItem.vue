@@ -136,7 +136,7 @@ const menuItems = computed(() => [
       :song="song"
       :items="menuItems"
       @close="contextMenu.visible = false"
-      @play="(s: Song) => emit('play', s)"
+      @play="() => emit('play', song)"
       @add-to-next="(s: Song) => emit('addToNext', s)"
     />
   </div>

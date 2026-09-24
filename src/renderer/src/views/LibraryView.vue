@@ -182,7 +182,7 @@
               <img :src="item.coverUrl + '?param=400y400'" :alt="item.title" loading="lazy" class="h-32 w-full object-cover" />
             </div>
             <p class="mt-2 line-clamp-1 text-sm dark:text-[#A1A1B5]">{{ item.title }}</p>
-            <p class="text-xs text-neutral-400">{{ item.creator?.map(c => c.userName).join(' / ') }}</p>
+            <p class="text-xs text-neutral-400">{{ item.creator?.map((c: { userName?: string }) => c.userName).join(' / ') }}</p>
           </div>
         </div>
       </section>

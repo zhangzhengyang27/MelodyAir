@@ -162,11 +162,11 @@ async function loadMorePrograms() {
   if (!radio.value || programsLoading.value) return
   programsLoading.value = true
   try {
-    const res = await getDjProgram({
+    const res = (await getDjProgram({
       rid: radio.value.id,
       limit: PAGE_SIZE,
       offset: programsOffset.value
-    })
+    })) as { programs?: any[]; more?: boolean }
     const newPrograms = res?.programs || []
     programs.value.push(...newPrograms)
     programsOffset.value = programs.value.length
@@ -194,7 +194,7 @@ async function subscribeRadio() {
 
 function playProgram(prog: { mainSong?: { id?: number; artists?: { id: number; name: string }[] }; id?: number; name: string; radio?: { name?: string; picUrl?: string }; coverUrl?: string; duration?: number }) {
   const song: Song = {
-    id: prog.mainSong?.id || prog.id,
+    id: prog.mainSong?.id || prog.id || 0,
     name: prog.name,
     artists: prog.mainSong?.artists?.map((a) => ({ id: a.id, name: a.name })) || [{ id: 0, name: prog.radio?.name || '' }],
     album: {

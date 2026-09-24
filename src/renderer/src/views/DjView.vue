@@ -233,7 +233,7 @@ async function selectCategory(id: number) {
 
   categoryRadios.value = []
   try {
-    const res = await getDjRadioHot({ cateId: id, limit: 30 })
+    const res = (await getDjRadioHot({ cateId: id, limit: 30 })) as { djRadios?: any[]; radios?: any[] }
     categoryRadios.value = res?.djRadios || res?.radios || []
   } catch (err) {
     if (import.meta.env.DEV) console.error('加载分类电台失败:', err)

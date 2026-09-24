@@ -159,6 +159,7 @@ export interface UserProfile {
   userName?: string
   userType?: number
   authority?: number
+  level?: number
 }
 
 export interface UserAccount {
