@@ -21,8 +21,8 @@
     "typecheck": "pnpm typecheck:node && pnpm typecheck:web",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
-    "lint": "eslint src/renderer/ --ext .vue,.ts,.tsx",
-    "lint:fix": "eslint src/renderer/ --ext .vue,.ts,.tsx --fix"
+    "lint": "eslint src/ --ext .vue,.ts,.tsx",
+    "lint:fix": "eslint src/ --ext .vue,.ts,.tsx --fix"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0",
