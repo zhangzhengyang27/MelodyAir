@@ -3,6 +3,7 @@ dist/
 dist-web/
 out/
 release/
+output/
 .DS_Store
 *.local
 .pnpm-store/
