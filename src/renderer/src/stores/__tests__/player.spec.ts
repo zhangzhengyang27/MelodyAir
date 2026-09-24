@@ -335,11 +335,11 @@ describe('播放控制与模式', () => {
     expect(store.playNavStack).toHaveLength(0)
   })
 
-  it('记录现状缺陷：切歌时导航栈从不压入（playSong 的 currentSong 守卫恒为假）', async () => {
-    // 已知缺陷：所有调用方（addToPlaylist/playNext/setPlaylist 等）都先把
-    // currentIndex 指向新歌再调 playSong，导致 playSong 内
-    // `currentSong.value.id !== song.id` 恒为假，playNavStack 永远为空，
-    // "上一首按实际播放顺序回溯" 功能实际从未生效。待修复后更新本用例。
+  it('切歌时导航栈压入上一首（B1 已修复 2026-09-24）', async () => {
+    // 修复前：所有调用方（addToPlaylist/playNext/setPlaylist 等）都先把
+    // currentIndex 指向新歌再调 playSong，旧的 currentSong 守卫恒为假，
+    // playNavStack 永远为空。修复后：playSong 依赖同步 watcher 捕获的
+    // 旧值快照（navSnapshot）压栈，整队列替换（setPlaylist）不产生历史。
     const store = usePlayerStore()
     const a = h.makeSong(1, 'A')
     const b = h.makeSong(2, 'B')
@@ -347,6 +347,23 @@ describe('播放控制与模式', () => {
     await flush()
     store.addToPlaylist(b)
     await flush()
+    expect(store.playNavStack).toHaveLength(1)
+    expect(store.playNavStack[0].id).toBe(1)
+  })
+
+  it('“上一首”优先从导航栈回溯到实际播放过的歌（而非列表顺序）', async () => {
+    const store = usePlayerStore()
+    const a = h.makeSong(1, 'A')
+    const b = h.makeSong(2, 'B')
+    const c = h.makeSong(3, 'C')
+    store.setPlaylist([a, b, c], 0) // 播放 A
+    await flush()
+    store.addToPlaylist(c) // 切到 C（跳过 B），栈压入 A
+    await flush()
+    store.setCurrentTime(0)
+    await store.playPrev()
+    expect(store.currentIndex).toBe(0) // 回到 A；若走列表顺序回退会到 B(index 1)
+    expect(h.getAudioSource).toHaveBeenLastCalledWith(1, true)
     expect(store.playNavStack).toHaveLength(0)
   })
 })

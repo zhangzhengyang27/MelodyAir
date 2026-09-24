@@ -31,24 +31,6 @@ export interface Song {
   _streaming?: boolean
 }
 
-interface PlayerState {
-  playlist: Song[]
-  currentIndex: number
-  playing: boolean
-  playMode: PlayMode
-  currentTime: number
-  duration: number
-  volume: number
-  muted: boolean
-  shuffledList: Song[]
-  playNextList: Song[]
-  isPersonalFM: boolean
-  personalFMTrack: Song | null
-  personalFMNextTrack: Song | null
-  status: PlayerStatus
-  currentSongCache: Song | null
-}
-
 /** 无播放歌曲时的默认标签页标题 */
 const DEFAULT_DOCUMENT_TITLE = 'MelodyAir'
 
@@ -85,12 +67,15 @@ export const usePlayerStore = defineStore('player', () => {
   const currentSongCache = ref<Song | null>(null)
   const sleepTimerDeadline = ref<number | null>(null)
   const sleepTimerTimeoutId = ref<number | null>(null)
-  const sleepTimerTickId = ref<number | null>(null)
   const playHistory = ref<Array<{ song: Song; playedAt: number; playCount: number }>>([])
   // 播放导航栈：记录用户实际播放顺序，用于"上一首"回溯（不同于播放列表顺序）
   const playNavStack = ref<Song[]>([])
   // 是否正在从导航栈回溯（避免把回溯的歌再压入栈）
   let isNavigatingBack = false
+  // 导航栈快照：由下方同步 watcher 维护，记录"最近一次当前歌曲变更前的歌"。
+  // B1 修复（2026-09-24）——调用方都先把 currentIndex 指向新歌再调 playSong，
+  // playSong 内读 currentSong 已是新歌，故压栈依赖此快照。
+  let navSnapshot: Song | null = null
   // 播放代际令牌：每次发起播放自增，await 音频源返回后校验，
   // 防止慢响应覆盖更新的播放请求（快速连点切歌时界面与实际播放不一致）
   let playSequence = 0
@@ -332,6 +317,11 @@ export const usePlayerStore = defineStore('player', () => {
   // 播放失败自动跳下一首的令牌，防止用户手动切歌后旧的失败定时器仍触发
   let failSkipToken = 0
 
+  // 同步捕获当前歌曲的旧值（flush:'sync' 保证在调用方改完 index、调 playSong 之前完成快照）
+  watch(currentSong, (_newVal, oldVal) => {
+    navSnapshot = oldVal ?? null
+  }, { flush: 'sync' })
+
   async function playSong(song: Song): Promise<void> {
     // 代际令牌：本次播放请求的序号，await 恢复后校验是否已被更新的请求取代
     const seq = ++playSequence
@@ -339,11 +329,12 @@ export const usePlayerStore = defineStore('player', () => {
     playerCache.releaseStaleBlobUrls()
     // 重置失败跳过令牌，使之前的失败定时器失效
     failSkipToken++
-    // 播放导航栈：非回溯时，将当前歌曲压入栈（用于上一首回溯）
-    if (!isNavigatingBack && currentSong.value && currentSong.value.id !== song.id) {
-      playNavStack.value.push(currentSong.value)
+    // 播放导航栈：非回溯、非 FM 电台时，将切歌前的实际歌曲（同步快照）压入栈（用于上一首回溯）
+    if (!isNavigatingBack && !isPersonalFM.value && navSnapshot && navSnapshot.id !== song.id) {
+      playNavStack.value.push(navSnapshot)
       if (playNavStack.value.length > 100) playNavStack.value.shift()
     }
+    navSnapshot = null
     isNavigatingBack = false
     // 重置 scrobble 追踪
     scrobbleHelper.resetScrobbleState()
@@ -487,10 +478,6 @@ export const usePlayerStore = defineStore('player', () => {
       window.clearTimeout(sleepTimerTimeoutId.value)
       sleepTimerTimeoutId.value = null
     }
-    if (sleepTimerTickId.value !== null) {
-      window.clearInterval(sleepTimerTickId.value)
-      sleepTimerTickId.value = null
-    }
   }
 
   function clearPlayHistory(): void {
@@ -503,16 +490,13 @@ export const usePlayerStore = defineStore('player', () => {
     setStorage('play-history', playHistory.value)
   }
 
-  function setSleepTimerDeadline(deadline: number | null): void {
-    sleepTimerDeadline.value = deadline
-    setStorage('sleep-timer-deadline', deadline)
-  }
-
   // ==================== 播放列表管理 ====================
   function setPlaylist(songs: Song[], index = 0): void {
     playlist.value = songs
     currentIndex.value = Math.max(-1, Math.min(index, songs.length - 1))
     generateShuffledList()
+    // 整队列替换不产生"上一首"回溯历史：清除快照，避免把新队列中旧索引位置的歌误压栈
+    navSnapshot = null
     if (currentIndex.value >= 0) {
       playSong(songs[currentIndex.value])
     }
@@ -746,12 +730,14 @@ export const usePlayerStore = defineStore('player', () => {
       return
     }
 
+    // 上一首属于回溯导航：无论走栈回溯还是列表回退，都不应把本次切换压入新历史
+    isNavigatingBack = true
+
     // 优先从播放导航栈回溯（记录用户实际播放顺序）
     if (playNavStack.value.length > 0) {
       const prevSong = playNavStack.value.pop()!
       // 找到该歌曲在播放列表中的位置
       const idx = playlist.value.findIndex((s) => s.id === prevSong.id)
-      isNavigatingBack = true
       if (idx >= 0) {
         currentIndex.value = idx
       } else {
@@ -900,10 +886,13 @@ export const usePlayerStore = defineStore('player', () => {
 
     try {
       status.value = 'loading'
+      // 代际令牌：切音质期间用户若切歌，丢弃本次慢响应避免覆盖新歌
+      const seq = ++playSequence
       // 重置实际音质，重新解析
       actualQuality.value = null
       // useCache=false 绕过缓存，强制用新音质重新获取 URL
       const url = await playerCache.getAudioSource(song.id, false)
+      if (seq !== playSequence) return
       if (!url) {
         logger.warn('player', `切换音质后无可用音源: ${song.name}`)
         showToast('当前歌曲不支持该音质', { type: 'warning', dedupeKey: 'quality-unsupported' })
@@ -916,6 +905,7 @@ export const usePlayerStore = defineStore('player', () => {
 
       // 等待音频引擎就绪后恢复播放进度
       setTimeout(() => {
+        if (seq !== playSequence) return
         if (savedPosition > 0) {
           audioAdapter.seek(savedPosition)
         }
@@ -967,7 +957,7 @@ export const usePlayerStore = defineStore('player', () => {
         return
       }
 
-      await audioAdapter.play(url, song.id)
+      await audioAdapter.play(url, song.id, !!song._streaming)
       updateCurrentSongCache(song)
       mediaSessionHelper.updateMediaSession(song)
 

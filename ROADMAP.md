@@ -4,14 +4,14 @@
 
 ## 当前状态（2026-09）
 
-- 版本 v1.1.8，桌面三平台 + Web 版（https://music.zhangzhengyang.com）均已发布
+- 版本 v1.1.9，桌面三平台 + Web 版（https://music.zhangzhengyang.com）均已发布
 - 已完成：完整播放链路（队列/循环/随机/倒序/私人 FM）、逐字歌词 + 桌面歌词、发现/搜索/排行榜/歌单/歌手/专辑/MV/播客浏览、登录（手机 + 扫码）、云盘、每日推荐、歌单广场/歌手/MV/新碟浏览页
 - 后端 music-backend：网易云 API 网关（266 路由）+ 灰色歌曲解锁 + 音频流代理，NAS Docker 部署
 - 质量门禁（2026-09-24 建立）：CI 触发 master，Lint + vue-tsc 类型检查 + vitest 单测 + Build 四道闸
 
 ## 近期计划（按优先级）
 
-1. **修复播放导航栈死代码缺陷**：所有切歌路径都先把 `currentIndex` 指向新歌再调 `playSong`，导致 `playSong` 内 `currentSong.value.id !== song.id` 守卫恒为假，`playNavStack`（"上一首按实际播放顺序回溯"）从未生效（2026-09-24 单测发现，用例见 `stores/__tests__/player.spec.ts`）
+1. ~~**修复播放导航栈死代码缺陷**~~（✅ **已修复 2026-09-24**：同步 watcher 快照方案，`playSong` 压栈依赖 `navSnapshot`，新增 FM 守卫；固化用例已改写并新增栈回溯用例，vitest 41/41。详见 documentation/08 §6 B1）
 2. **响应契约统一**：后端在响应层拍平 `cacheValue` 包裹格式，前端删除 64 处 `as any` 多格式兼容层
 3. **后端 e2e 修复接入 CI**（2026-09-24 决策：本轮不做，列为下一步）
 4. LyricsPanel 颜色提取算法（`src/renderer/src/components/lyrics/LyricsPanel.vue:178` 的 TODO）
