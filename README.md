@@ -87,13 +87,13 @@ src/
     └── index.html       # 主界面入口
 build/         # 应用图标（icon.icns / icon.png）
 scripts/       # 构建辅助脚本（如 macOS 图标替换）
-docs/          # 需求、设计、验收文档
+docs/          # 内部开发文档（不入库，仅本地保留）
 ```
 
 ## 配置
 
 - **API 地址**：默认 `http://localhost:3001`，可在「设置」页面修改，或通过 `VITE_API_BASE` 环境变量注入
-- **本地配置**：`.mcp.json`、`.env.web` 等为本地/部署配置，均已在 `.gitignore` 中忽略
+- **构建配置**：生产 API 地址通过 `.env.production` 的 `VITE_API_BASE` 注入；`.mcp.json` 等含密钥文件已在 `.gitignore` 中忽略，请勿向仓库提交真实凭据
 
 ## 持续集成与发布
 
